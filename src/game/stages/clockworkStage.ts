@@ -109,7 +109,7 @@ export function buildClockworkStage(): StageBuildResult {
     mesh: jamCrate,
     bounds: new THREE.Box3().setFromObject(jamCrate),
     targetRole: 'guardian',
-    prompt: 'Bram: Place heavy steel crate under the crushing piston to jam it',
+    prompt: 'بِرام: جعبه فولادی سنگین را زیر پیستون کوبنده بگذارید تا متوقف شود',
   });
 
   // Checkpoint 1
@@ -139,7 +139,7 @@ export function buildClockworkStage(): StageBuildResult {
     mesh: valve1Wheel,
     bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(-7, 5, 42), new THREE.Vector3(2.5, 2.5, 2.5)),
     targetRole: 'explorer',
-    prompt: 'Kaelen: Turn Steam Valve 1 (Synchronized!)',
+    prompt: 'کایلِن: شیر بخار ۱ را بچرخانید (هماهنگ با هم‌تیمی!)',
   });
 
   // Valve 2 (Right side, Guardian)
@@ -158,7 +158,7 @@ export function buildClockworkStage(): StageBuildResult {
     mesh: valve2Wheel,
     bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(7, 5, 42), new THREE.Vector3(2.5, 2.5, 2.5)),
     targetRole: 'guardian',
-    prompt: 'Bram: Turn Steam Valve 2 (Synchronized!)',
+    prompt: 'بِرام: شیر بخار ۲ را بچرخانید (هماهنگ با هم‌تیمی!)',
   });
 
   // --- Puzzle 3-C: The Grand Clockwork Gateway ---
@@ -189,14 +189,14 @@ export function buildClockworkStage(): StageBuildResult {
       type: 'portal_pad',
       mesh: p1Pad,
       bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(-3, 4.5, 49), new THREE.Vector3(2.5, 2, 2.5)),
-      prompt: 'Kaelen: Stand on Victory Platform',
+      prompt: 'کایلِن: روی سکوی پیروزی بایستید',
     },
     {
       id: 'stage3_exit_p2',
       type: 'portal_pad',
       mesh: p2Pad,
       bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(3, 4.5, 49), new THREE.Vector3(2.5, 2, 2.5)),
-      prompt: 'Bram: Stand on Victory Platform',
+      prompt: 'بِرام: روی سکوی پیروزی بایستید',
     }
   );
 

@@ -20,7 +20,7 @@ export default function App() {
   const [gameState, setGameState] = useState<'lobby' | 'playing'>('lobby');
   const [roomData, setRoomData] = useState<RoomData | null>(null);
   const [myRole, setMyRole] = useState<PlayerRole>('explorer');
-  const [myName, setMyName] = useState('Player 1');
+  const [myName, setMyName] = useState(() => localStorage.getItem('aether_player_name') || 'ماجراجو ۱');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -86,7 +86,7 @@ export default function App() {
         };
       });
       setPartnerConnected(true);
-      showCheckpointToast(`${name} joined the adventure!`);
+      showCheckpointToast(`${name} به ماجراجویی پیوست!`);
     };
 
     networkClient.onPlayerDisconnected = () => {
@@ -95,11 +95,12 @@ export default function App() {
         if (!prev) return null;
         return { ...prev, status: 'waiting' };
       });
+      showCheckpointToast('هم‌تیمی موقتاً قطع شد...');
     };
 
     networkClient.onPlayerReconnected = () => {
       setPartnerConnected(true);
-      showCheckpointToast('Partner reconnected!');
+      showCheckpointToast('هم‌تیمی مجدداً متصل گردید!');
     };
 
     networkClient.onPartnerUpdate = (state: PlayerNetState) => {
@@ -127,7 +128,7 @@ export default function App() {
     };
 
     networkClient.onCheckpointUpdated = ({ checkpointId }) => {
-      showCheckpointToast(`Checkpoint ${checkpointId + 1} Reached!`);
+      showCheckpointToast(`چک‌پوینت شماره ${checkpointId + 1} فعال شد!`);
     };
 
     networkClient.onStageChanged = (nextStage) => {
@@ -136,7 +137,7 @@ export default function App() {
       if (engineRef.current) {
         engineRef.current.loadStage(nextStage, myRole);
       }
-      showCheckpointToast(`Warped to Stage ${nextStage}!`);
+      showCheckpointToast(`انتقال به مرحله ${nextStage}!`);
     };
 
     networkClient.onError = (err) => {
@@ -147,7 +148,7 @@ export default function App() {
     networkClient.onConnectionChange = (connected, ping) => {
       setLatencyMs(ping);
       if (!connected && gameState === 'playing' && !soloMode) {
-        setErrorMessage('Connection to server lost. Reconnecting...');
+        setErrorMessage('ارتباط با سرور / ورکر قطع شد. در حال تلاش برای اتصال مجدد...');
       }
     };
   }, [myRole, gameState, soloMode]);
@@ -300,7 +301,7 @@ export default function App() {
   );
 
   return (
-    <main className="w-screen h-screen overflow-hidden bg-slate-950 text-slate-100 relative">
+    <main className="w-full h-full min-h-[100dvh] max-h-[100dvh] overflow-hidden bg-slate-950 text-slate-100 relative select-none">
       {/* 3D WebGL Canvas Viewport */}
       <div
         id="game_canvas_container"
@@ -333,9 +334,9 @@ export default function App() {
             partnerName={
               soloMode
                 ? myRole === 'explorer'
-                  ? 'Bram (Guardian)'
-                  : 'Kaelen (Explorer)'
-                : roomData?.players[myRole === 'explorer' ? 'guardian' : 'explorer']?.name || 'Partner'
+                  ? 'بِرام (نگهبان)'
+                  : 'کایلِن (کاوشگر)'
+                : roomData?.players[myRole === 'explorer' ? 'guardian' : 'explorer']?.name || 'هم‌تیمی'
             }
             partnerRole={myRole === 'explorer' ? 'guardian' : 'explorer'}
             partnerConnected={partnerConnected}

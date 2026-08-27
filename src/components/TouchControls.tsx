@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { ArrowUp, Hand, Zap, Sparkles, MapPin, Smile } from 'lucide-react';
+import { ArrowUp, Hand, Zap, MapPin, Smile } from 'lucide-react';
 import type { EmoteType } from '../types.ts';
 
 interface TouchControlsProps {
@@ -107,8 +107,8 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-40 flex flex-col justify-end p-4 select-none touch-none">
-      {/* Joystick Zone (Left) */}
+    <div className="fixed inset-0 pointer-events-none z-40 flex flex-col justify-end p-3 sm:p-5 pb-6 pb-safe select-none touch-none">
+      {/* Joystick Zone (Left) & Actions (Right) */}
       <div className="flex items-end justify-between w-full">
         <div
           id="touch_joystick_container"
@@ -117,21 +117,21 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           onTouchCancel={handleTouchEnd}
-          className="pointer-events-auto w-32 h-32 rounded-full bg-slate-900/60 border-2 border-slate-700/80 backdrop-blur-md relative flex items-center justify-center shadow-xl active:border-cyan-400/80 transition-colors"
+          className="pointer-events-auto w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-slate-900/60 border-2 border-slate-700/80 backdrop-blur-md relative flex items-center justify-center shadow-xl active:border-cyan-400/80 transition-colors"
         >
           <div
             ref={stickRef}
-            className="w-14 h-14 rounded-full bg-cyan-500/80 border-2 border-white shadow-lg pointer-events-none flex items-center justify-center transition-transform"
+            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-cyan-500/80 border-2 border-white shadow-lg pointer-events-none flex items-center justify-center transition-transform"
           >
-            <div className="w-4 h-4 rounded-full bg-white/70" />
+            <div className="w-3.5 h-3.5 rounded-full bg-white/70" />
           </div>
         </div>
 
         {/* Action Buttons Zone (Right) */}
-        <div className="pointer-events-auto flex flex-col items-end gap-3">
+        <div className="pointer-events-auto flex flex-col items-end gap-2.5">
           {/* Emote Picker Drawer */}
           {showEmotes && (
-            <div className="flex items-center gap-1 bg-slate-900/90 border border-slate-700 p-2 rounded-2xl shadow-xl backdrop-blur-md mb-2">
+            <div className="flex items-center gap-1 bg-slate-900/90 border border-slate-700 p-1.5 rounded-2xl shadow-xl backdrop-blur-md mb-1">
               {(['wave', 'cheer', 'point', 'heart', 'think'] as EmoteType[]).map((em) => {
                 const emojis = { wave: '👋', cheer: '🎉', point: '👉', heart: '💖', think: '🤔' };
                 return (
@@ -141,7 +141,7 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
                       onSendEmote(em);
                       setShowEmotes(false);
                     }}
-                    className="w-9 h-9 rounded-xl hover:bg-slate-800 text-lg flex items-center justify-center active:scale-90"
+                    className="w-8 h-8 rounded-xl hover:bg-slate-800 text-base flex items-center justify-center active:scale-90"
                   >
                     {emojis[em]}
                   </button>
@@ -155,31 +155,33 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
             <button
               id="touch_btn_ping"
               onClick={onSendPing}
-              className="w-11 h-11 rounded-2xl bg-slate-900/80 border border-cyan-500/40 text-cyan-400 flex items-center justify-center shadow-lg active:scale-90"
+              className="w-10 h-10 rounded-2xl bg-slate-900/80 border border-cyan-500/40 text-cyan-400 flex items-center justify-center shadow-lg active:scale-90"
+              title="پینگ"
             >
-              <MapPin className="w-5 h-5" />
+              <MapPin className="w-4 h-4" />
             </button>
 
             {/* Emotes toggle */}
             <button
               id="touch_btn_emotes"
               onClick={() => setShowEmotes(!showEmotes)}
-              className="w-11 h-11 rounded-2xl bg-slate-900/80 border border-slate-700 text-amber-400 flex items-center justify-center shadow-lg active:scale-90"
+              className="w-10 h-10 rounded-2xl bg-slate-900/80 border border-slate-700 text-amber-400 flex items-center justify-center shadow-lg active:scale-90"
+              title="ایموت‌ها"
             >
-              <Smile className="w-5 h-5" />
+              <Smile className="w-4 h-4" />
             </button>
 
             {/* Sprint Toggle */}
             <button
               id="touch_btn_sprint"
               onClick={() => setSprintActive(!sprintActive)}
-              className={`px-3 h-11 rounded-2xl border text-xs font-black uppercase flex items-center justify-center shadow-lg transition-all active:scale-90 ${
+              className={`px-3 h-10 rounded-2xl border text-xs font-bold flex items-center justify-center shadow-lg transition-all active:scale-90 ${
                 sprintActive
                   ? 'bg-cyan-500 border-cyan-300 text-slate-950 shadow-cyan-500/30'
                   : 'bg-slate-900/80 border-slate-700 text-slate-300'
               }`}
             >
-              Sprint
+              دویدن
             </button>
           </div>
 
@@ -190,10 +192,10 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
               id="touch_btn_ability"
               onTouchStart={() => setAbilityPressed(true)}
               onTouchEnd={() => setAbilityPressed(false)}
-              className="w-14 h-14 rounded-2xl bg-amber-500/90 border-2 border-amber-300 text-slate-950 flex flex-col items-center justify-center shadow-lg active:scale-90"
+              className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-amber-500/90 border-2 border-amber-300 text-slate-950 flex flex-col items-center justify-center shadow-lg active:scale-90"
             >
-              <Zap className="w-6 h-6 fill-slate-950" />
-              <span className="text-[9px] font-black uppercase">Skill</span>
+              <Zap className="w-5 h-5 fill-slate-950" />
+              <span className="text-[9px] font-black">مهارت [F]</span>
             </button>
 
             {/* Interact [E] */}
@@ -201,10 +203,10 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
               id="touch_btn_interact"
               onTouchStart={() => setInteractPressed(true)}
               onTouchEnd={() => setInteractPressed(false)}
-              className="w-14 h-14 rounded-2xl bg-emerald-500/90 border-2 border-emerald-300 text-slate-950 flex flex-col items-center justify-center shadow-lg active:scale-90"
+              className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-emerald-500/90 border-2 border-emerald-300 text-slate-950 flex flex-col items-center justify-center shadow-lg active:scale-90"
             >
-              <Hand className="w-6 h-6" />
-              <span className="text-[9px] font-black uppercase">Act [E]</span>
+              <Hand className="w-5 h-5" />
+              <span className="text-[9px] font-black">عمل [E]</span>
             </button>
 
             {/* Jump [Space] */}
@@ -212,10 +214,10 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
               id="touch_btn_jump"
               onTouchStart={() => setJumpPressed(true)}
               onTouchEnd={() => setJumpPressed(false)}
-              className="col-span-2 h-14 rounded-2xl bg-cyan-500 border-2 border-cyan-200 text-slate-950 font-black text-sm uppercase flex items-center justify-center gap-2 shadow-xl shadow-cyan-500/20 active:scale-95"
+              className="col-span-2 h-12 sm:h-14 rounded-2xl bg-cyan-500 border-2 border-cyan-200 text-slate-950 font-black text-sm uppercase flex items-center justify-center gap-1.5 shadow-xl shadow-cyan-500/20 active:scale-95"
             >
-              <ArrowUp className="w-5 h-5 stroke-[3]" />
-              JUMP
+              <ArrowUp className="w-4 h-4 stroke-[3]" />
+              <span>پرش</span>
             </button>
           </div>
         </div>

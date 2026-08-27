@@ -328,7 +328,7 @@ export class GameEngine {
         e.preventDefault();
         this.soloSwapped = !this.soloSwapped;
         this.setRoles(this.soloSwapped ? 'guardian' : 'explorer');
-        this.callbacks.onCheckpointMessage(`Switched to: ${this.localRole.toUpperCase()}`);
+        this.callbacks.onCheckpointMessage(`تعویض به: ${this.localRole === 'explorer' ? 'کاوشگر (کایلِن)' : 'نگهبان (بِرام)'}`);
       }
     });
 
@@ -706,21 +706,21 @@ export class GameEngine {
           if (obj.id === 'lever_1' && !this.puzzleState.lever1Activated) {
             networkClient.triggerPuzzle('lever1Activated', true);
             soundManager.playInteract();
-            this.callbacks.onCheckpointMessage('Runic Gate Permanently Locked Open!');
+            this.callbacks.onCheckpointMessage('دروازه کهن برای همیشه قفل‌گشایی شد!');
           }
 
           // Heavy Block
           if (obj.id === 'heavy_block_1' && this.localRole === 'guardian' && !this.puzzleState.heavyBlockPlaced) {
             networkClient.triggerPuzzle('heavyBlockPlaced', true);
             soundManager.playInteract();
-            this.callbacks.onCheckpointMessage('Heavy Conduit Placed! Elevator Powered.');
+            this.callbacks.onCheckpointMessage('بلوک سنگین رسانا مستقر شد! بالابر فعال گردید.');
           }
 
           // Permanent Bridge Anchor
           if (obj.id === 'explorer_bridge_anchor' && this.localRole === 'explorer' && !this.puzzleState.bridgePedestalRotated) {
             networkClient.triggerPuzzle('bridgePedestalRotated', true);
             soundManager.playGateMove();
-            this.callbacks.onCheckpointMessage('Ancient Stone Bridge Lowered!');
+            this.callbacks.onCheckpointMessage('پل سنگی باستانی مستقر و فرود آمد!');
           }
 
           // Stage 2 Moving Platform Crank
@@ -733,14 +733,14 @@ export class GameEngine {
           if (obj.id === 'disrupt_laser_turret' && this.localRole === 'explorer') {
             networkClient.triggerPuzzle('laserTurretDisabled', true);
             soundManager.playInteract();
-            this.callbacks.onCheckpointMessage('Sentinel Turret Disabled!');
+            this.callbacks.onCheckpointMessage('برجک لیزری نگهبان غیرفعال شد!');
           }
 
           // Stage 3 Jamming Crate
           if (obj.id === 'clockwork_jam_crate' && this.localRole === 'guardian' && !this.puzzleState.crusherJammed) {
             networkClient.triggerPuzzle('crusherJammed', true);
             soundManager.playInteract();
-            this.callbacks.onCheckpointMessage('Crusher Piston Jammed Open!');
+            this.callbacks.onCheckpointMessage('پیستون کوبنده مهار و متوقف شد!');
           }
 
           // Stage 3 Synchronized Valves
@@ -789,7 +789,7 @@ export class GameEngine {
           this.respawnPos.set(cp.pos[0], cp.pos[1], cp.pos[2]);
           networkClient.reachCheckpoint(cp.id);
           soundManager.playCheckpoint();
-          this.callbacks.onCheckpointMessage(`Checkpoint ${cp.id + 1} Activated!`);
+          this.callbacks.onCheckpointMessage(`چک‌پوینت شماره ${cp.id + 1} فعال شد!`);
         }
       }
     }
@@ -800,7 +800,7 @@ export class GameEngine {
   private checkSynchronizedValves() {
     if (this.puzzleState.boilerValve1 && this.puzzleState.boilerValve2) {
       soundManager.playStageClear();
-      this.callbacks.onCheckpointMessage('Synchronized Valves Complete! Clockwork Gateway Open!');
+      this.callbacks.onCheckpointMessage('شیرهای بخار هماهنگ شدند! دروازه پورتال گشوده شد!');
     }
   }
 
@@ -819,7 +819,7 @@ export class GameEngine {
     soundManager.playLand();
     this.playerPos.copy(this.respawnPos);
     this.playerVel.set(0, 0, 0);
-    this.callbacks.onCheckpointMessage('Respawned at Checkpoint');
+    this.callbacks.onCheckpointMessage('بازگشت به چک‌پوینت انجام شد');
   }
 
   private updateCamera(dt: number) {

@@ -91,7 +91,7 @@ export function buildFloatingIslandsStage(): StageBuildResult {
     type: 'bridge_switch',
     mesh: crankBase,
     bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(3, 1, 5), new THREE.Vector3(2.5, 2, 2.5)),
-    prompt: 'Hold Interact (E) to steer the Moving Sky Platform',
+    prompt: 'کلید تعامل (E) را نگه دارید تا سکوی پرنده آسمانی حرکت کند',
   });
 
   // Island 2: The Sentinel Trial (x: 0, y: 2, z: 28)
@@ -139,7 +139,7 @@ export function buildFloatingIslandsStage(): StageBuildResult {
     mesh: terminalMesh,
     bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(4, 3, 36), new THREE.Vector3(2.5, 2.5, 2.5)),
     targetRole: 'explorer',
-    prompt: 'Kaelen: Deactivate the Sentinel Power Core',
+    prompt: 'کایلِن: هسته انرژی نگهبان لیزری را غیرفعال کنید',
   });
 
   // Island 3: The Ascendant Summit (x: 0, y: 7, z: 52)
@@ -184,14 +184,14 @@ export function buildFloatingIslandsStage(): StageBuildResult {
       type: 'portal_pad',
       mesh: p1Pad,
       bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(-3, 7.5, 54), new THREE.Vector3(2.5, 2, 2.5)),
-      prompt: 'Kaelen: Step on Explorer Exit Pad',
+      prompt: 'کایلِن: روی سکوی پورتال کاوشگر بایستید',
     },
     {
       id: 'stage2_exit_p2',
       type: 'portal_pad',
       mesh: p2Pad,
       bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(3, 7.5, 54), new THREE.Vector3(2.5, 2, 2.5)),
-      prompt: 'Bram: Step on Guardian Exit Pad',
+      prompt: 'بِرام: روی سکوی پورتال نگهبان بایستید',
     }
   );
 

@@ -9,6 +9,8 @@ const app = express();
 const PORT = 3000;
 const server = http.createServer(app);
 
+// Trust Cloudflare proxy headers (CF-Connecting-IP, X-Forwarded-For, X-Forwarded-Proto)
+app.set('trust proxy', true);
 app.use(express.json());
 
 // In-memory room store
@@ -99,8 +101,19 @@ app.get('/api/room/:code', (req, res) => {
   });
 });
 
-// WebSocket Server
-const wss = new WebSocketServer({ server, path: '/ws' });
+// WebSocket Server (supports /ws, /api/ws, and root / for Cloudflare Worker reverse proxies)
+const wss = new WebSocketServer({ noServer: true });
+
+server.on('upgrade', (request, socket, head) => {
+  const url = request.url || '';
+  const pathname = url.split('?')[0];
+
+  if (pathname === '/ws' || pathname === '/api/ws' || pathname === '/') {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
+    });
+  }
+});
 
 function send(ws: WebSocket, msg: ServerMessage) {
   if (ws.readyState === WebSocket.OPEN) {

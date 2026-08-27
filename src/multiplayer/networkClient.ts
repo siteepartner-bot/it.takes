@@ -39,6 +39,54 @@ class NetworkClient {
 
   private pendingAction: (() => void) | null = null;
 
+  public getEffectiveWsUrl(): string {
+    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const paramWorker = params?.get('worker');
+    const storedWorker = typeof localStorage !== 'undefined' ? localStorage.getItem('aether_cf_worker_url') : null;
+    const envWorker = (import.meta as any).env?.VITE_CF_WORKER_URL;
+
+    let target = (paramWorker || storedWorker || envWorker || '').trim();
+
+    if (target) {
+      if (target.startsWith('http://')) target = 'ws://' + target.substring(7);
+      else if (target.startsWith('https://')) target = 'wss://' + target.substring(8);
+      else if (!target.startsWith('ws://') && !target.startsWith('wss://')) {
+        const proto = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        target = `${proto}${target}`;
+      }
+      target = target.replace(/\/+$/, '');
+      if (!target.endsWith('/ws') && !target.endsWith('/api/ws')) {
+        target = `${target}/ws`;
+      }
+      return target;
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
+    return `${protocol}//${host}/ws`;
+  }
+
+  public getWorkerConfig(): { url: string; isCustom: boolean } {
+    const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('aether_cf_worker_url') : null;
+    if (stored && stored.trim()) {
+      return { url: stored.trim(), isCustom: true };
+    }
+    return { url: this.getEffectiveWsUrl(), isCustom: false };
+  }
+
+  public setWorkerConfig(url: string | null): void {
+    if (typeof localStorage === 'undefined') return;
+    if (url && url.trim()) {
+      localStorage.setItem('aether_cf_worker_url', url.trim());
+    } else {
+      localStorage.removeItem('aether_cf_worker_url');
+    }
+    // Reconnect on next action
+    if (this.ws) {
+      this.disconnect();
+    }
+  }
+
   public connect(): Promise<void> {
     return new Promise((resolve) => {
       if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
@@ -46,9 +94,7 @@ class NetworkClient {
         return;
       }
 
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.host;
-      const wsUrl = `${protocol}//${host}/ws`;
+      const wsUrl = this.getEffectiveWsUrl();
 
       try {
         this.ws = new WebSocket(wsUrl);
@@ -258,6 +304,19 @@ class NetworkClient {
     this.myRole = null;
     this.myId = null;
     this.stopPingLoop();
+  }
+
+  public disconnect(): void {
+    this.stopPingLoop();
+    if (this.ws) {
+      try {
+        this.ws.close();
+      } catch {
+        // ignore
+      }
+      this.ws = null;
+    }
+    this.isConnected = false;
   }
 
   public getRole(): PlayerRole | null {

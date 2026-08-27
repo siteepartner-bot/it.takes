@@ -136,7 +136,7 @@ export function buildGardenStage(): StageBuildResult {
       new THREE.Vector3(-4, 0.5, 12),
       new THREE.Vector3(2.5, 1.5, 2.5)
     ),
-    prompt: 'Stand on Pressure Plate to hold the ancient gate open',
+    prompt: 'روی صفحه فشاری بایستید تا دروازه کهن باز بماند',
   });
 
   // Runic Gate
@@ -181,7 +181,7 @@ export function buildGardenStage(): StageBuildResult {
       new THREE.Vector3(4, 0.8, 22),
       new THREE.Vector3(2.5, 2, 2.5)
     ),
-    prompt: 'Pull Lever to permanently lock the Gate Open',
+    prompt: 'اهرم را بکشید تا دروازه برای همیشه باز بماند',
   });
 
   // --- Puzzle 1-B: Heavy Conductive Block & Rising Elevator ---
@@ -205,7 +205,7 @@ export function buildGardenStage(): StageBuildResult {
     mesh: heavyBlockMesh,
     bounds: new THREE.Box3().setFromObject(heavyBlockMesh),
     targetRole: 'guardian',
-    prompt: 'Bram: Pick up and place heavy magnetic block on the conduit pedestal',
+    prompt: 'بِرام: بلوک مغناطیسی سنگین را بردارید و روی سکوی رسانا بگذارید',
   });
 
   // Conduit Pedestal
@@ -272,7 +272,7 @@ export function buildGardenStage(): StageBuildResult {
       new THREE.Vector3(5, 3, 3)
     ),
     targetRole: 'guardian',
-    prompt: 'Bram: Channel Aegis Shield (F) to sustain the Light Bridge',
+    prompt: 'بِرام: با سپر محافظ (F) پل نوری را پایدار نگه دارید',
   });
 
   // Far Portal Island (Height y: 5.5)
@@ -292,7 +292,7 @@ export function buildGardenStage(): StageBuildResult {
       new THREE.Vector3(3, 2.5, 3)
     ),
     targetRole: 'explorer',
-    prompt: 'Kaelen: Anchor the permanent stone bridge',
+    prompt: 'کایلِن: اهرم را بکشید تا پل سنگی مستقر شود',
   });
 
   // Permanent stone bridge that drops into place
@@ -333,14 +333,14 @@ export function buildGardenStage(): StageBuildResult {
       type: 'portal_pad',
       mesh: p1Pad,
       bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(-3, 6, 77), new THREE.Vector3(2.5, 2, 2.5)),
-      prompt: 'Kaelen: Step on Explorer Exit Pad',
+      prompt: 'کایلِن: روی سکوی پورتال کاوشگر بایستید',
     },
     {
       id: 'stage1_exit_p2',
       type: 'portal_pad',
       mesh: p2Pad,
       bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(3, 6, 77), new THREE.Vector3(2.5, 2, 2.5)),
-      prompt: 'Bram: Step on Guardian Exit Pad',
+      prompt: 'بِرام: روی سکوی پورتال نگهبان بایستید',
     }
   );
 

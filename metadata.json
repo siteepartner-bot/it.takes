@@ -1,0 +1,6 @@
+{
+  "name": "Aether Duo 3D Co-op Adventure",
+  "description": "A real-time 3D online cooperative adventure game where two players collaborate to solve physical puzzles across diverse fantastical stages.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

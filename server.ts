@@ -47,6 +47,7 @@ interface ConnectedClient {
 interface RoomRecord {
   data: RoomData;
   clients: Map<PlayerRole, ConnectedClient>;
+  voiceMembers: Set<string>;
   lastActive: number;
 }
 
@@ -342,6 +343,7 @@ wss.on('connection', (ws: WebSocket) => {
         const roomRecord: RoomRecord = {
           data: roomData,
           clients: new Map(),
+          voiceMembers: new Set(),
           lastActive: Date.now(),
         };
 
@@ -535,6 +537,99 @@ wss.on('connection', (ws: WebSocket) => {
         return;
       }
 
+      if (msg.type === 'voice_join' || (msg as any).type === 'voice:join') {
+        room.voiceMembers.add(currentClient.id);
+
+        // Build list of active voice participants
+        const activeMembers: Array<{ id: string; name: string; role?: PlayerRole }> = [];
+        room.voiceMembers.forEach((memberId) => {
+          for (const [r, c] of room.clients.entries()) {
+            if (c.id === memberId) {
+              activeMembers.push({ id: memberId, name: c.name, role: r });
+            }
+          }
+        });
+
+        // Send existing members to the joining client
+        send(ws, {
+          type: 'voice_existing_members',
+          members: activeMembers,
+        });
+
+        // Notify other clients that user joined voice
+        broadcastToRoom(
+          room,
+          {
+            type: 'voice_user_joined',
+            userId: currentClient.id,
+            name: currentClient.name,
+            role: currentClient.role,
+          },
+          currentClient.role
+        );
+        return;
+      }
+
+      if (msg.type === 'voice_signal' || (msg as any).type === 'voice:signal') {
+        const toId = (msg as any).to;
+        const signal = (msg as any).signal;
+        const signalType = (msg as any).signalType || (msg as any).type;
+
+        if (toId) {
+          // Send to specific recipient
+          for (const c of room.clients.values()) {
+            if (c.id === toId && c.ws.readyState === WebSocket.OPEN) {
+              send(c.ws, {
+                type: 'voice_signal',
+                from: currentClient.id,
+                signal,
+                signalType,
+              });
+              break;
+            }
+          }
+        } else {
+          // Broadcast to everyone else in room
+          broadcastToRoom(
+            room,
+            {
+              type: 'voice_signal',
+              from: currentClient.id,
+              signal,
+              signalType,
+            },
+            currentClient.role
+          );
+        }
+        return;
+      }
+
+      if (msg.type === 'voice_speaking' || (msg as any).type === 'voice:speaking') {
+        broadcastToRoom(
+          room,
+          {
+            type: 'voice_speaking',
+            userId: currentClient.id,
+            isSpeaking: !!(msg as any).isSpeaking,
+          },
+          currentClient.role
+        );
+        return;
+      }
+
+      if (msg.type === 'voice_leave' || (msg as any).type === 'voice:leave') {
+        room.voiceMembers.delete(currentClient.id);
+        broadcastToRoom(
+          room,
+          {
+            type: 'voice_user_left',
+            userId: currentClient.id,
+          },
+          currentClient.role
+        );
+        return;
+      }
+
       if (msg.type === 'leave_room') {
         handleClientDisconnect(currentClient);
         currentClient = null;
@@ -548,6 +643,14 @@ wss.on('connection', (ws: WebSocket) => {
   function handleClientDisconnect(client: ConnectedClient) {
     const room = rooms.get(client.roomCode);
     if (!room) return;
+
+    if (room.voiceMembers.has(client.id)) {
+      room.voiceMembers.delete(client.id);
+      broadcastToRoom(room, {
+        type: 'voice_user_left',
+        userId: client.id,
+      }, client.role);
+    }
 
     room.clients.delete(client.role);
     if (room.data.players[client.role]) {

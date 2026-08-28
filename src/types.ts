@@ -121,6 +121,25 @@ export interface RoomData {
   status: 'waiting' | 'ready' | 'playing' | 'stage_completed';
 }
 
+export interface RoomParticipant {
+  id: string;
+  name: string;
+  role?: PlayerRole;
+  avatar?: string;
+  isSpeaking?: boolean;
+  isMuted?: boolean;
+}
+
+export type VoiceSignalMessage =
+  | { type: 'voice:join' }
+  | { type: 'voice:leave' }
+  | { type: 'voice:speaking'; isSpeaking: boolean }
+  | { type: 'voice:mute'; isMuted: boolean }
+  | { type: 'voice:signal'; to?: string; signal: any; signalType?: string }
+  | { type: 'voice:userJoined'; userId: string; name?: string; role?: PlayerRole }
+  | { type: 'voice:userLeft'; userId: string }
+  | { type: 'voice:existingMembers'; members: RoomParticipant[] };
+
 export type ClientMessage =
   | { type: 'join_room'; code: string; playerName: string; preferredRole?: PlayerRole }
   | { type: 'create_room'; playerName: string; preferredRole?: PlayerRole }
@@ -132,7 +151,12 @@ export type ClientMessage =
   | { type: 'stage_advance'; nextStageId: number }
   | { type: 'respawn' }
   | { type: 'ping_server'; clientTime: number }
-  | { type: 'leave_room' };
+  | { type: 'leave_room' }
+  | { type: 'voice_join' }
+  | { type: 'voice_leave' }
+  | { type: 'voice_signal'; to?: string; signal: any; signalType?: string }
+  | { type: 'voice_speaking'; isSpeaking: boolean }
+  | { type: 'voice_mute'; isMuted: boolean };
 
 export type ServerMessage =
   | { type: 'room_joined'; room: RoomData; assignedRole: PlayerRole; yourId: string }
@@ -148,6 +172,11 @@ export type ServerMessage =
   | { type: 'stage_changed'; stageId: number }
   | { type: 'stage_cleared'; stageId: number }
   | { type: 'pong'; clientTime: number; serverTime: number }
+  | { type: 'voice_user_joined'; userId: string; name?: string; role?: PlayerRole }
+  | { type: 'voice_user_left'; userId: string }
+  | { type: 'voice_existing_members'; members: RoomParticipant[] }
+  | { type: 'voice_signal'; from: string; signal: any; signalType?: string }
+  | { type: 'voice_speaking'; userId: string; isSpeaking: boolean }
   | { type: 'error'; message: string };
 
 export interface GraphicsSettings {

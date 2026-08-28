@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { networkClient } from './multiplayer/networkClient.ts';
 import { soundManager } from './audio/soundManager.ts';
 import { GameEngine } from './game/engine.ts';
@@ -9,6 +9,8 @@ import { PauseMenu } from './components/PauseMenu.tsx';
 import { StageClearModal } from './components/StageClearModal.tsx';
 import { StoryModal } from './components/StoryModal.tsx';
 import { GeminiVoiceCallModal } from './components/GeminiVoiceCallModal.tsx';
+import { VoiceCallPanel } from './components/VoiceCallPanel.tsx';
+import { useWebRTCVoice } from './hooks/useWebRTCVoice.ts';
 import { createDefaultPuzzleState } from './types.ts';
 import { proximityVoiceManager } from './audio/proximityVoice.ts';
 import type {
@@ -18,6 +20,7 @@ import type {
   EmoteType,
   GraphicsSettings,
   AudioSettings,
+  RoomParticipant,
 } from './types.ts';
 
 export default function App() {
@@ -79,6 +82,35 @@ export default function App() {
 
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
+
+  // WebRTC Live Voice Call integration
+  const voiceSocket = useMemo(() => networkClient.getVoiceSocket(), []);
+
+  const roomParticipants = useMemo<RoomParticipant[]>(() => {
+    if (!roomData) return [];
+    const list: RoomParticipant[] = [];
+    if (roomData.players.explorer?.connected) {
+      list.push({
+        id: roomData.players.explorer.id || 'explorer',
+        name: roomData.players.explorer.name,
+        role: 'explorer',
+      });
+    }
+    if (roomData.players.guardian?.connected) {
+      list.push({
+        id: roomData.players.guardian.id || 'guardian',
+        name: roomData.players.guardian.name,
+        role: 'guardian',
+      });
+    }
+    return list;
+  }, [roomData]);
+
+  const voice = useWebRTCVoice(
+    roomData ? voiceSocket : null,
+    networkClient.myId || (myRole === 'explorer' ? 'explorer' : 'guardian'),
+    roomParticipants
+  );
 
   const handleSetControlMode = (mode: 'windows' | 'mobile') => {
     setControlMode(mode);
@@ -211,16 +243,21 @@ export default function App() {
         handleTriggerGeminiCall();
       }
 
-      // M toggles Proximity Voice Chat Microphone
-      if ((e.key === 'm' || e.key === 'M') && gameState === 'playing') {
+      // M toggles Real-time WebRTC Voice Chat Microphone
+      if (e.key === 'm' || e.key === 'M') {
         e.preventDefault();
+        if (!voice.isInVoice) {
+          voice.joinVoice();
+        } else {
+          voice.toggleMute();
+        }
         proximityVoiceManager.toggleMicrophone();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameState, isGeminiCallOpen, isStoryOpen, ambientWakeWordEnabled]);
+  }, [gameState, isGeminiCallOpen, isStoryOpen, ambientWakeWordEnabled, voice]);
 
   // Audio settings sync
   useEffect(() => {
@@ -525,6 +562,28 @@ export default function App() {
             />
           )}
         </>
+      )}
+
+      {/* Floating WebRTC Voice Call Bar / Panel */}
+      {roomData && !soloMode && (
+        <div className="fixed top-3 sm:top-4 left-3 sm:left-4 z-40 pointer-events-auto">
+          <VoiceCallPanel
+            myId={networkClient.myId || (myRole === 'explorer' ? 'explorer' : 'guardian')}
+            myName={myName}
+            myRole={myRole}
+            participants={roomParticipants}
+            isInVoice={voice.isInVoice}
+            isMuted={voice.isMuted}
+            isSpeaking={voice.isSpeaking}
+            audioLevel={voice.audioLevel}
+            voiceMembers={voice.voiceMembers}
+            permissionError={voice.permissionError}
+            onJoinVoice={voice.joinVoice}
+            onLeaveVoice={voice.leaveVoice}
+            onToggleMute={voice.toggleMute}
+            compact={true}
+          />
+        </div>
       )}
     </main>
   );

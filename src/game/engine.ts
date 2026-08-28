@@ -813,26 +813,82 @@ export class GameEngine {
   private checkInteractions() {
     if (!this.currentStage) return;
 
+    // 1. Dynamic bounds update for moving interactive meshes
+    for (const obj of this.currentStage.interactiveObjects) {
+      if (obj.mesh) {
+        obj.bounds.setFromCenterAndSize(
+          obj.mesh.position,
+          obj.type === 'heavy_block' ? new THREE.Vector3(3.2, 3.2, 3.2) :
+          obj.type === 'pressure_plate' ? new THREE.Vector3(2.8, 2, 2.8) :
+          new THREE.Vector3(2.8, 2.8, 2.8)
+        );
+      }
+    }
+
+    // 2. Strict Occupancy-based Pressure Plate Evaluation (Runs every frame)
+    const remotePos = this.partnerNetState ? new THREE.Vector3(this.partnerNetState.x, this.partnerNetState.y, this.partnerNetState.z) : null;
+
+    for (const obj of this.currentStage.interactiveObjects) {
+      if (obj.type === 'pressure_plate') {
+        const localDist = obj.bounds.distanceToPoint(this.playerPos);
+        const localStanding = localDist < 1.6 || obj.bounds.containsPoint(this.playerPos);
+        const remoteStanding = remotePos ? (obj.bounds.distanceToPoint(remotePos) < 1.6 || obj.bounds.containsPoint(remotePos)) : false;
+
+        const isOccupied = localStanding || remoteStanding;
+
+        // Stage 1 Gate Pressure Plate
+        if (obj.id === 'plate_gate_1') {
+          if (isOccupied !== !!this.puzzleState.gate1Open) {
+            networkClient.triggerPuzzle('gate1Open', isOccupied);
+            soundManager.playPressurePlate(isOccupied);
+            this.callbacks.onCheckpointMessage(
+              isOccupied ? '🟢 دکمه فشاری فعال شد (دروازه باز شد)' : '🔴 دکمه فشاری رها شد (دروازه بسته شد)'
+            );
+          }
+        }
+
+        // Campaign Stages Generic Pressure Plates
+        if (obj.id.startsWith('pressure_plate_stage')) {
+          const stageNum = this.currentStageId;
+          const key = `platePressed_${stageNum}`;
+          const currentVal = !!(this.puzzleState.customData && this.puzzleState.customData[key]);
+          if (isOccupied !== currentVal) {
+            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [key]: isOccupied });
+            soundManager.playPressurePlate(isOccupied);
+            this.callbacks.onCheckpointMessage(
+              isOccupied ? `🟢 دکمه فشاری مرحله ${stageNum} فعال شد!` : `🔴 دکمه فشاری مرحله ${stageNum} آزاد شد.`
+            );
+          }
+        }
+
+        // Stage 5 Anti-gravity Switches
+        if (obj.id === 'gravity_switch_1' || obj.id === 'gravity_switch_2') {
+          const currentVal = !!(this.puzzleState.customData && this.puzzleState.customData[obj.id]);
+          if (isOccupied !== currentVal) {
+            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [obj.id]: isOccupied });
+            soundManager.playPressurePlate(isOccupied);
+          }
+        }
+      }
+    }
+
+    // 3. Prompting & E-key Interaction Handling
     let nearestPrompt: string | null = null;
+    let minPromptDist = 999;
     const wantsInteract = this.keys['KeyE'] || this.touchInteract;
 
     for (const obj of this.currentStage.interactiveObjects) {
       const dist = obj.bounds.distanceToPoint(this.playerPos);
 
-      if (dist < 2.4) {
-        // Filter by role if specific
+      if (dist < 3.2) {
+        // Role filter
         if (obj.targetRole && obj.targetRole !== 'both' && obj.targetRole !== this.localRole) {
           continue;
         }
 
-        nearestPrompt = obj.prompt;
-
-        // Continuous pressure plate detection
-        if (obj.type === 'pressure_plate') {
-          if (obj.id === 'plate_gate_1' && !this.puzzleState.gate1Open) {
-            networkClient.triggerPuzzle('gate1Open', true);
-            soundManager.playPressurePlate(true);
-          }
+        if (dist < minPromptDist) {
+          minPromptDist = dist;
+          nearestPrompt = obj.prompt;
         }
 
         // Discrete E-key interactions with debounced cooldown & bidirectional toggle
@@ -842,13 +898,13 @@ export class GameEngine {
             soundManager.playCheckpoint();
             const loreTexts: Record<string, string> = {
               story_tablet_stage1: '📜 کتیبه باغ کهن: این باغ توسط الیاس ساخته شد. مکعب رسانا سنگ محکی از تیتان است؛ آن را روی پدستال بگذارید تا بالابر آبی فعال گردد.',
-              story_tablet_stage2: '📜 کتیبه جزایر معلق: نگهبانان لیزری پس از خاموشی اِیتِر مجنون شدند. فقط سپر صیقلی حسن می‌تواند پرتو را منحرف کند تا نیوشا مدار را قطع نماید.',
-              story_tablet_stage3: '📜 کتیبه کوره زمان: پیستون‌های کوبنده، ضربان قلب ساعت کیهان هستند. جعبه برنجی سنگین را زیر پیستون بگذارید تا مهار شده و شیرهای بخار همزمان گردند.',
-              story_tablet_stage4: '📜 کتیبه معبد خورشید: منشورهای کریستال نوری انعکاسی از پیوند نیوشا و حسن هستند. نور خورشید باید با زاویه دقیق عبور کند تا چشم هوروس روشن گردد.',
-              story_tablet_stage5: '📜 کتیبه هزارتوی گرانش: در این تالار زمان معکوس می‌شود. هر دو قهرمان باید روی مدارهای ضدجاذبه قرار گیرند تا پل نوری اثیری شکل گیرد.',
-              story_tablet_stage6: '📜 کتیبه دژ ابدیت: هسته بلورین اِیتِر نیازمند تعادل چهار عنصر (آتش، آب، باد، خاک) است. ستون‌ها را بیدار کنید تا ساعت زمان نجات یابد!',
+              story_tablet_stage2: '📜 کتیبه جزایر معلق: فقط سپر صیقلی حسن می‌تواند پرتو لیزر را منحرف کند تا نیوشا مدار را قطع نماید.',
+              story_tablet_stage3: '📜 کتیبه کوره زمان: پیستون‌های کوبنده، ضربان قلب ساعت کیهان هستند. جعبه برنجی را زیر پیستون بگذارید تا مهار شود.',
+              story_tablet_stage4: '📜 کتیبه معبد خورشید: منشورهای کریستال نوری انعکاسی از پیوند نیوشا و حسن هستند.',
+              story_tablet_stage5: '📜 کتیبه هزارتوی گرانش: هر دو قهرمان باید روی مدارهای ضدجاذبه قرار گیرند تا پل نوری اثیری شکل گیرد.',
+              story_tablet_stage6: '📜 کتیبه دژ ابدیت: هسته بلورین اِیتِر نیازمند تعادل عناصر است.',
             };
-            this.callbacks.onCheckpointMessage(loreTexts[obj.id] || '📜 کتیبه راز باستانی ساعت‌ساز');
+            this.callbacks.onCheckpointMessage(loreTexts[obj.id] || `📜 کتیبه راز باستانی مرحله ${this.currentStageId}`);
             this.interactCooldown = 0.5;
           }
 
@@ -857,7 +913,7 @@ export class GameEngine {
             const nextVal = !this.puzzleState.lever1Activated;
             networkClient.triggerPuzzle('lever1Activated', nextVal);
             soundManager.playInteract();
-            this.callbacks.onCheckpointMessage(nextVal ? 'اهرم کشیده شد (دروازه باز شد)' : 'اهرم بازگردانده شد (دروازه بسته شد)');
+            this.callbacks.onCheckpointMessage(nextVal ? '⚙️ اهرم کشیده شد (دروازه باز شد)' : '⚙️ اهرم بازگردانده شد (دروازه بسته شد)');
             this.interactCooldown = 0.35;
           }
 
@@ -866,7 +922,8 @@ export class GameEngine {
             const nextVal = !this.puzzleState.heavyBlockPlaced;
             networkClient.triggerPuzzle('heavyBlockPlaced', nextVal);
             soundManager.playInteract();
-            this.callbacks.onCheckpointMessage(nextVal ? 'مکعب رسانا مستقر شد! بالابر فعال گردید.' : 'مکعب از روی پدستال آزاد شد.');
+            if (nextVal) soundManager.playPressurePlate(true);
+            this.callbacks.onCheckpointMessage(nextVal ? '⚡ مکعب رسانا روی پدستال مستقر شد! بالابر آبی فعال گردید.' : 'مکعب از روی پدستال آزاد شد.');
             this.interactCooldown = 0.35;
           }
 
@@ -945,28 +1002,8 @@ export class GameEngine {
             const curr = !!(this.puzzleState.customData && this.puzzleState.customData[key]);
             networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [key]: !curr });
             soundManager.playInteract();
-            this.callbacks.onCheckpointMessage(!curr ? `اهرم مرحله ${stageNum} فعال گردید!` : `اهرم مرحله ${stageNum} غیرفعال شد.`);
+            this.callbacks.onCheckpointMessage(!curr ? `⚙️ اهرم مرحله ${stageNum} فعال گردید!` : `⚙️ اهرم مرحله ${stageNum} غیرفعال شد.`);
             this.interactCooldown = 0.35;
-          }
-        }
-
-        // Continuous pressure plate detection for Stage 5 & Campaign Stages
-        if (obj.type === 'pressure_plate') {
-          if (obj.id.startsWith('pressure_plate_stage')) {
-            const stageNum = this.currentStageId;
-            const key = `platePressed_${stageNum}`;
-            if (!this.puzzleState.customData || !this.puzzleState.customData[key]) {
-              networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [key]: true });
-              soundManager.playPressurePlate(true);
-            }
-          }
-          if (obj.id === 'gravity_switch_1') {
-            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, switch1: true });
-            soundManager.playPressurePlate(true);
-          }
-          if (obj.id === 'gravity_switch_2') {
-            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, switch2: true });
-            soundManager.playPressurePlate(true);
           }
         }
 

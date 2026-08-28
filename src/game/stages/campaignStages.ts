@@ -258,6 +258,14 @@ export function buildCampaignStage(stageId: number): StageBuildResult {
       const plateActive = !!(state.customData && state.customData[`platePressed_${stageId}`]);
       const leverActive = !!(state.customData && state.customData[`leverActivated_${stageId}`]);
 
+      // Pressure plate Y animation & emissive glow
+      const targetPlateY = plateActive ? 0.02 : 0.1;
+      plateMesh.position.y += (targetPlateY - plateMesh.position.y) * Math.min(1, dt * 10);
+      (plateMesh.material as THREE.MeshStandardMaterial).emissiveIntensity = plateActive ? 1.0 : 0.3;
+
+      // Lever rotation & glow
+      leverMesh.rotation.z += ((leverActive ? -0.5 : 0.5) - leverMesh.rotation.z) * Math.min(1, dt * 8);
+
       statefulDoor.setTarget(plateActive || leverActive);
       statefulDoor.update(dt);
       colliders[doorColliderIndex].setFromObject(doorMesh);

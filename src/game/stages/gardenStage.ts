@@ -228,15 +228,41 @@ export function buildGardenStage(): StageBuildResult {
     id: 'heavy_block_1',
     type: 'heavy_block',
     mesh: heavyBlockMesh,
-    bounds: new THREE.Box3().setFromCenterAndSize(heavyBlockMesh.position, new THREE.Vector3(2.2, 2.2, 2.2)),
-    prompt: 'هل دادن / جابجایی مکعب سنگین رسانا روی پدستال (کلید E)',
+    bounds: new THREE.Box3().setFromCenterAndSize(heavyBlockMesh.position, new THREE.Vector3(3, 3, 3)),
+    prompt: 'هل دادن / قرار دادن مکعب سنگین رسانا روی پدستال (کلید E)',
   });
 
-  // Conduit Pedestal
+  // Conduit Pedestal with glowing socket ring & energy line
   const pedestalGeo = new THREE.CylinderGeometry(1.2, 1.4, 0.5, 8);
-  const pedestalMesh = new THREE.Mesh(pedestalGeo, stoneMat);
+  const pedestalMat = new THREE.MeshStandardMaterial({
+    color: 0x38bdf8,
+    emissive: 0x0284c7,
+    emissiveIntensity: 0.2,
+    roughness: 0.4,
+  });
+  const pedestalMesh = new THREE.Mesh(pedestalGeo, pedestalMat);
   pedestalMesh.position.set(6, 0.25, 29);
   rootGroup.add(pedestalMesh);
+
+  // Floating Hologram Target Ring above Pedestal
+  const pedestalRingGeo = new THREE.TorusGeometry(1.4, 0.08, 8, 24);
+  const pedestalRingMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.7 });
+  const pedestalRing = new THREE.Mesh(pedestalRingGeo, pedestalRingMat);
+  pedestalRing.rotation.x = Math.PI / 2;
+  pedestalRing.position.set(6, 0.52, 29);
+  rootGroup.add(pedestalRing);
+
+  // Glowing Energy Line connecting Pedestal to Elevator
+  const lineGeo = new THREE.BoxGeometry(0.3, 0.05, 7);
+  const lineMat = new THREE.MeshStandardMaterial({
+    color: 0x06b6d4,
+    emissive: 0x0891b2,
+    emissiveIntensity: 0.2,
+  });
+  const conduitLine = new THREE.Mesh(lineGeo, lineMat);
+  conduitLine.position.set(3, 0.05, 31);
+  conduitLine.rotation.y = Math.atan2(-6, 4);
+  rootGroup.add(conduitLine);
 
   // Rising Water Elevator Platform
   const elevatorPlatform = new THREE.Mesh(new THREE.BoxGeometry(5, 0.6, 5), stoneMat);
@@ -393,20 +419,28 @@ export function buildGardenStage(): StageBuildResult {
     gateMesh.position.y += (targetGateY - gateMesh.position.y) * Math.min(1, dt * 5);
     colliders[gateColliderIndex].setFromObject(gateMesh);
 
+    // Pressure plate Y animation & glow
+    const targetPlateY = state.gate1Open ? 0.02 : 0.08;
+    plateMesh.position.y += (targetPlateY - plateMesh.position.y) * Math.min(1, dt * 10);
+    plateMat.emissiveIntensity = state.gate1Open ? 1.0 : 0.3;
+
     // Lever animation
     leverStick.rotation.z += ((state.lever1Activated ? -0.5 : 0.5) - leverStick.rotation.z) * Math.min(1, dt * 8);
 
-    // 2. Heavy Block Placement & Elevator
-    if (state.heavyBlockPlaced) {
-      heavyBlockMesh.position.set(6, 1.25, 29);
-      // Raise elevator
-      const targetElevatorY = 5.2;
-      elevatorPlatform.position.y += (targetElevatorY - elevatorPlatform.position.y) * Math.min(1, dt * 3);
-      colliders[elevatorColliderIndex].setFromObject(elevatorPlatform);
-    } else {
-      heavyBlockMesh.position.set(state.heavyBlockPos[0], state.heavyBlockPos[1], state.heavyBlockPos[2]);
-    }
+    // 2. Heavy Block Placement & Elevator with smooth lerp
+    const targetBlockPos = state.heavyBlockPlaced ? new THREE.Vector3(6, 1.25, 29) : new THREE.Vector3(6, 0.8, 25);
+    heavyBlockMesh.position.lerp(targetBlockPos, Math.min(1, dt * 6));
     colliders[heavyBlockColliderIndex].setFromObject(heavyBlockMesh);
+
+    // Dynamic pedestal ring spin & conduit glow
+    pedestalRing.rotation.z += dt * 2.0;
+    pedestalMat.emissiveIntensity = state.heavyBlockPlaced ? 1.0 : 0.2;
+    lineMat.emissiveIntensity = state.heavyBlockPlaced ? 1.0 : 0.2;
+
+    // Raise elevator smoothly when block is placed
+    const targetElevatorY = state.heavyBlockPlaced ? 5.2 : 0.3;
+    elevatorPlatform.position.y += (targetElevatorY - elevatorPlatform.position.y) * Math.min(1, dt * 3);
+    colliders[elevatorColliderIndex].setFromObject(elevatorPlatform);
 
     // 3. Light Bridge & Stone Bridge
     const bridgeActive = state.lightBridgeActive || state.bridgePedestalRotated;

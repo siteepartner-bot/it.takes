@@ -50,7 +50,7 @@ export default {
       return new Response(
         JSON.stringify({
           available: hasKey,
-          model: 'gemini-3.5-flash-lite',
+          model: 'gemini-3.7-flash',
           host: 'cloudflare-worker',
           message: hasKey
             ? 'کلید جمینای با موفقیت در ورکر کلودفلر فعال و متصل است.'
@@ -108,8 +108,8 @@ export default {
 "${query && query.trim() ? query.trim() : 'استاد الیاس، الان دقیقا باید چکار کنیم و قدم بعدیمون چیه؟'}"
 `;
 
-          // Try gemini-3.5-flash-lite first for maximum speed and intelligence
-          let geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey.trim()}`;
+          // Try gemini-3.7-flash first for maximum speed and intelligence
+          let geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key=${apiKey.trim()}`;
           let geminiReq = await fetch(geminiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -129,8 +129,8 @@ export default {
           });
 
           if (!geminiReq.ok) {
-            // Fallback to gemini-3.6-flash if needed
-            geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey.trim()}`;
+            // Fallback to gemini-3.1-flash-lite if needed
+            geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey.trim()}`;
             geminiReq = await fetch(geminiUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -154,7 +154,7 @@ export default {
               JSON.stringify({
                 success: true,
                 text: reply.trim(),
-                source: 'cloudflare-worker-gemini-3.5-flash-lite',
+                source: 'cloudflare-worker-gemini-3.7-flash',
                 stageId,
               }),
               { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

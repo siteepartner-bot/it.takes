@@ -78,7 +78,7 @@ export const HandsFreeVoiceWidget: React.FC<HandsFreeVoiceWidgetProps> = ({
               <div className="flex items-center justify-between text-[11px] font-bold text-purple-300">
                 <span className="flex items-center gap-1">
                   <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-                  <span>استاد الیاس (جمینای ۳.۵):</span>
+                  <span>استاد الیاس (جمینای ۳.۷):</span>
                 </span>
                 <span className="text-[10px] font-mono text-slate-400">{state.statusText}</span>
               </div>

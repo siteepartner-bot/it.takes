@@ -10,24 +10,22 @@ const app = express();
 const PORT = 3000;
 const server = http.createServer(app);
 
-// Initialize Gemini SDK with User-Agent header and lazy client
-let aiClient: GoogleGenAI | null = null;
+// Initialize Gemini SDK dynamically
 function getGeminiClient(): GoogleGenAI | null {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey.trim() === '' || apiKey === 'MY_GEMINI_API_KEY') {
+  const rawKey = process.env.GEMINI_API_KEY;
+  if (!rawKey) return null;
+  const cleanKey = rawKey.replace(/^["']|["']$/g, '').trim();
+  if (!cleanKey || cleanKey === 'MY_GEMINI_API_KEY' || cleanKey.length < 5) {
     return null;
   }
-  if (!aiClient) {
-    aiClient = new GoogleGenAI({
-      apiKey: apiKey.trim(),
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        },
+  return new GoogleGenAI({
+    apiKey: cleanKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
       },
-    });
-  }
-  return aiClient;
+    },
+  });
 }
 
 // Trust Cloudflare proxy headers (CF-Connecting-IP, X-Forwarded-For, X-Forwarded-Proto)
@@ -144,7 +142,7 @@ app.get('/api/gemini/status', (req, res) => {
   const isAvailable = !!getGeminiClient();
   res.json({
     available: isAvailable,
-    model: 'gemini-3.5-flash-lite',
+    model: 'gemini-2.5-flash',
     host: 'node-express',
     message: isAvailable
       ? 'جمینای به صورت بلادرنگ و فعال روی سرور متصل است.'
@@ -165,9 +163,24 @@ const STAGE_CONTEXT_DATA: Record<number, { name: string; keyObjectives: string }
       '۱. عبور از پل معلق ابرها با هماهنگی گام‌ها. ۲. برخورد با پرتو مرگبار لیزر دفاعی: حسن باید فورا با کلید [F] سپر تایتان را فعال کند و پرتو را به سمت بازتاب‌دهنده انرژی برگرداند تا برجک از کار بیفتد. ۳. نیوشا از صاعقه [F] برای شارژ توربین باد و ایجاد جریان بالابرنده استفاده کند. ۴. رسیدن همزمان هر دو به پورتال ابری.',
   },
   3: {
-    name: 'کارخانه مکانیکی، پیستون‌های غول‌آسا و چرخ‌دنده اعظم',
+    name: 'کارخانه مکانیکی، پیستون‌های غول‌آسا و کوره آتش',
     keyObjectives:
       '۱. متوقف کردن پیستون کوبنده مکانیکی توسط استقامت حسن یا قرار دادن بلوک فلزی زیر آن. ۲. چرخاندن همزمان شیر فلکه‌های بخار شماره ۱ و ۲ توسط نیوشا و حسن در فاصله کمتر از ۳ ثانیه. ۳. شلیک جهش صاعقه نیوشا به هسته ژنراتور اصلی برای درگیر کردن چرخ‌دنده اعظم ساعت و باز شدن خروجی نهایی.',
+  },
+  4: {
+    name: 'معبد آینه‌ها و منشورهای نورانی',
+    keyObjectives:
+      '۱. چرخاندن منشورهای کریستالی خورشیدی به سمت کانون‌های بازتاب. ۲. هدایت پرتو نور به چشم هوروس توسط آینه‌ها. ۳. گشودن دروازه نورانی معبد با شلیک صاعقه همزمان نیوشا.',
+  },
+  5: {
+    name: 'هزارتوی گرانش و تالار ستارگان',
+    keyObjectives:
+      '۱. ایستادن همزمان حسن و نیوشا روی سوئیچ‌های کوانتومی جهت معکوس‌سازی جاذبه. ۲. عبور از پل نوری اثیری معلق میان ستاره‌ها. ۳. فعال‌سازی هسته جاذبه با صاعقه نیوشا و سپر حسن.',
+  },
+  6: {
+    name: 'دژ باستانی ابدیت و محاکمه نهایی',
+    keyObjectives:
+      '۱. شارژ و بیدارباش چهار ستون عناصر (آتش، آب، باد، خاک). ۲. تثبیت هسته بلورین اِیتِر با هماهنگی دقیق صاعقه نیوشا و سپر حسن. ۳. نجات نهایی ساعت کیهان و فتح بازی.',
   },
 };
 
@@ -182,14 +195,11 @@ app.post('/api/gemini/guidance', async (req, res) => {
     const stateSummary = [
       `مرحله: ${stageId} (${stageInfo.name})`,
       `شخصیت تماس‌گیرنده: ${characterName} (نام بازیکن: ${playerName || 'ماجراجو'})`,
-      `وضعیت دروازه اول: ${pState.gate1Open ? 'باز شده' : 'بسته'}`,
       `وضعیت اهرم اول: ${pState.lever1Activated ? 'کشیده شده' : 'هنوز فعال نشده'}`,
-      `مکعب سنگین: ${pState.heavyBlockPlaced ? 'روی پد فشاری قرار گرفته' : 'هنوز سر جای خود قرار نگرفته'}`,
-      `ارتفاع آسانسور قنات: ${pState.aqueductElevatorHeight > 0 ? 'بالا رفته' : 'پایین'}`,
-      `پل نوری: ${pState.lightBridgeActive ? 'روشن و فعال است' : 'خاموش است'}`,
-      `برجک لیزری مرحله ۲: ${pState.laserTurretDisabled ? 'غیرفعال شده' : 'هنوز شلیک می‌کند'}`,
-      `شیرهای بخار مرحله ۳: ۱=${pState.boilerValve1 ? 'باز' : 'بسته'}، ۲=${pState.boilerValve2 ? 'باز' : 'بسته'}`,
-      `چرخ‌دنده ساعت: ${pState.grandClockworkEngaged ? 'به کار افتاده' : 'متوقف است'}`,
+      `مکعب سنگین: ${pState.heavyBlockPlaced ? 'روی پد قرار گرفته' : 'هنوز سر جای خود نیست'}`,
+      `پل نوری: ${pState.lightBridgeActive ? 'روشن' : 'خاموش'}`,
+      `برجک لیزری: ${pState.laserTurretDisabled ? 'غیرفعال' : 'فعال'}`,
+      `چرخ‌دنده ساعت: ${pState.grandClockworkEngaged ? 'به کار افتاده' : 'متوقف'}`,
     ].join('\n');
 
     const promptText = `
@@ -204,51 +214,47 @@ ${stageInfo.keyObjectives}
 `;
 
     const ai = getGeminiClient();
+    let geminiErrorMsg = '';
+
     if (ai) {
-      try {
-        const systemInstruction = `تو "استاد الیاس" (Master Elias) هستی؛ مربی دانا، پرانرژی، شوخ‌طبع و دوست‌داشتنی حسن و نیوشا. حسن و نیوشا دو رفیق صمیمی و آدمک چوبی هستند که باهم در حال حل معماها هستند.
+      const systemInstruction = `تو "استاد الیاس" (Master Elias) هستی؛ مربی دانا، پرانرژی، شوخ‌طبع و دوست‌داشتنی حسن و نیوشا. حسن و نیوشا دو رفیق صمیمی و آدمک چوبی هستند که باهم در حال حل معماها هستند.
 اکنون پشت بیسیم زنده بازی با آن‌ها صحبت می‌کنی:
 - با لحنی صمیمی، رفاقتی، پرانرژی و به زبان فارسی روان صحبت کن.
 - پاسخت باید خیلی کوتاه (حداکثر ۱ تا ۲ جمله کوتاه، مستقیم و راهگشا) باشد تا سریع در بازی خوانده و شنیده شود.
 - دقیقا و بدون معطلی بگو الان حسن چه کند و نیوشا چه کند (مثلا: کلید F برای صاعقه نیوشا، کلید F برای سپر حسن، کشیدن اهرم، هل دادن مکعب سنگین، یا عبور از پورتال).
 - از آوردن کلمات اضافه یا متن‌های طولانی بپرهیز.`;
 
-        let response;
-        try {
-          response = await ai.models.generateContent({
-            model: 'gemini-3.7-flash',
-            contents: promptText,
-            config: {
-              systemInstruction,
-              temperature: 0.6,
-            },
-          });
-        } catch (modelErr: any) {
-          console.warn('Fallback to gemini-flash-latest due to:', modelErr?.message);
-          response = await ai.models.generateContent({
-            model: 'gemini-flash-latest',
-            contents: promptText,
-            config: {
-              systemInstruction,
-              temperature: 0.6,
-            },
-          });
-        }
+      // Models to try in sequence
+      const candidateModels = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-3.7-flash'];
 
-        const adviceText = response?.text || 'صدا واضحه بچه‌ها! حسن و نیوشا باهم هماهنگ باشید، کلید موفقیت کار تیمیه!';
-        return res.json({
-          success: true,
-          text: adviceText.trim(),
-          source: 'gemini-live',
-          stageId,
-        });
-      } catch (geminiCallErr: any) {
-        console.warn('Gemini API call failed (e.g. quota limit reached):', geminiCallErr?.message);
-        // Seamlessly continue to the intelligent fallback mentor below
+      for (const modelName of candidateModels) {
+        try {
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: promptText,
+            config: {
+              systemInstruction,
+              temperature: 0.6,
+            },
+          });
+
+          if (response?.text && response.text.trim()) {
+            return res.json({
+              success: true,
+              text: response.text.trim(),
+              source: 'gemini-live',
+              model: modelName,
+              stageId,
+            });
+          }
+        } catch (mErr: any) {
+          geminiErrorMsg = mErr?.message || String(mErr);
+          console.warn(`Gemini model ${modelName} call failed:`, geminiErrorMsg);
+        }
       }
     }
 
-    // Fallback mentor oracle if API key is not configured or quota is exhausted
+    // Dynamic contextual fallback mentor oracle if API key is missing or quota/limits reached
     let fallbackText = '';
     if (stageId === 1) {
       if (!pState.gate1Open) {
@@ -266,12 +272,18 @@ ${stageInfo.keyObjectives}
       } else {
         fallbackText = 'آفرین به سپر حسن! حالا نیوشا با دستکش صاعقه [F] توربین باد رو شارژ کن تا جریان هوا شما رو تا پورتال ابرها ببره!';
       }
-    } else {
+    } else if (stageId === 3) {
       if (!pState.grandClockworkEngaged) {
         fallbackText = 'اینجا قلب ساعت بزرگه! حسن و نیوشا باید همزمان هر دو شیر فلکه بخار رو بچرخونید، بعد نیوشا به ژنراتور اصلی صاعقه بزنه تا چرخ‌دنده راه بیفته!';
       } else {
         fallbackText = 'عالیه بچه‌ها! چرخ‌دنده‌ها به گردش دراومدن و مسیر باز شد؛ با تمام توان به سمت پورتال نهایی بدوید!';
       }
+    } else if (stageId === 4) {
+      fallbackText = 'در معبد آینه‌ها، نیوشا و حسن باید منشورهای کریستالی خورشید را بچرخانند تا پرتو نور به چشم هوروس متمرکز شود و دروازه گشوده شود!';
+    } else if (stageId === 5) {
+      fallbackText = 'در تالار گرانش ستارگان، هر دو همزمان روی سوئیچ‌های کوانتومی قرار بگیرید تا میدان ضدجاذبه راه بیفتد و پل اثیری نمایان شود!';
+    } else {
+      fallbackText = 'در دژ ابدیت، چهار ستون عناصر (آتش، آب، باد، خاک) را با صاعقه نیوشا و سپر حسن فعال کنید تا هسته اِیتِر احیا شود!';
     }
 
     return res.json({
@@ -279,6 +291,7 @@ ${stageInfo.keyObjectives}
       text: fallbackText,
       source: 'offline-oracle',
       stageId,
+      geminiError: geminiErrorMsg || undefined,
     });
   } catch (err: any) {
     console.error('Error generating Gemini guidance:', err);

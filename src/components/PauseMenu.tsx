@@ -16,6 +16,12 @@ import {
   BookOpen,
   Cloud,
   Sparkles,
+  Maximize,
+  Minimize,
+  Smartphone,
+  Laptop,
+  RefreshCw,
+  Gamepad2,
 } from 'lucide-react';
 import type { GraphicsSettings, AudioSettings } from '../types.ts';
 import { networkClient } from '../multiplayer/networkClient.ts';
@@ -35,6 +41,10 @@ interface PauseMenuProps {
   onOpenStory?: () => void;
   onOpenGeminiCall?: () => void;
   onOpenCloudflareGuide?: () => void;
+  controlMode?: 'auto' | 'desktop' | 'touch';
+  onChangeControlMode?: (mode: 'auto' | 'desktop' | 'touch') => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 export const PauseMenu: React.FC<PauseMenuProps> = ({
@@ -52,6 +62,10 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({
   onOpenStory,
   onOpenGeminiCall,
   onOpenCloudflareGuide,
+  controlMode,
+  onChangeControlMode,
+  isFullscreen,
+  onToggleFullscreen,
 }) => {
   const [copied, setCopied] = useState(false);
   const [workerConfig, setWorkerConfig] = useState(() => networkClient.getWorkerConfig());
@@ -214,6 +228,69 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({
               </div>
               <span className="text-[10px] text-amber-400/80">مشاهده کد ورکر</span>
             </button>
+          )}
+        </div>
+
+        {/* Control Mode & Fullscreen Settings */}
+        <div className="mb-4 sm:mb-5">
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs uppercase tracking-wider text-slate-400 font-bold flex items-center gap-2">
+              <Gamepad2 className="w-4 h-4 text-emerald-400" />
+              <span>حالت کنترل و نمایش</span>
+            </label>
+            {onToggleFullscreen && (
+              <button
+                id="btn_pause_toggle_fullscreen"
+                onClick={onToggleFullscreen}
+                className="text-xs font-bold px-2.5 py-1 rounded-lg bg-cyan-950 border border-cyan-500/40 text-cyan-300 flex items-center gap-1 hover:bg-cyan-900 transition-colors"
+              >
+                {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
+                <span>{isFullscreen ? 'خروج از تمام‌صفحه' : 'بازی تمام‌صفحه'}</span>
+              </button>
+            )}
+          </div>
+
+          {onChangeControlMode && (
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                id="btn_pause_control_desktop"
+                onClick={() => onChangeControlMode('desktop')}
+                className={`py-2 px-2 rounded-xl border flex items-center justify-center gap-1.5 transition-all text-xs font-bold ${
+                  controlMode === 'desktop'
+                    ? 'bg-cyan-950 border-cyan-500 text-cyan-300'
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                <Laptop className="w-3.5 h-3.5 text-cyan-400" />
+                <span>ویندوز / کیبورد</span>
+              </button>
+
+              <button
+                id="btn_pause_control_touch"
+                onClick={() => onChangeControlMode('touch')}
+                className={`py-2 px-2 rounded-xl border flex items-center justify-center gap-1.5 transition-all text-xs font-bold ${
+                  controlMode === 'touch'
+                    ? 'bg-emerald-950 border-emerald-500 text-emerald-300'
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+                <span>گوشی / لمسی</span>
+              </button>
+
+              <button
+                id="btn_pause_control_auto"
+                onClick={() => onChangeControlMode('auto')}
+                className={`py-2 px-2 rounded-xl border flex items-center justify-center gap-1.5 transition-all text-xs font-bold ${
+                  controlMode === 'auto'
+                    ? 'bg-slate-800 border-slate-600 text-amber-300'
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                <span>خودکار</span>
+              </button>
+            </div>
           )}
         </div>
 

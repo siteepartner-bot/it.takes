@@ -372,7 +372,7 @@ wss.on('connection', (ws: WebSocket) => {
         const room = rooms.get(code);
 
         if (!room) {
-          send(ws, { type: 'error', message: `Room ${code} not found. Check code or create a new room.` });
+          send(ws, { type: 'error', message: `اتاقی با کد ${code} یافت نشد. لطفاً کد را بررسی کرده و مطمئن شوید سازنده اتاق آنلاین است.` });
           return;
         }
 
@@ -390,7 +390,7 @@ wss.on('connection', (ws: WebSocket) => {
         } else if (!guardianConnected) {
           assignedRole = 'guardian';
         } else {
-          send(ws, { type: 'error', message: `Room ${code} is full (2/2 players connected).` });
+          send(ws, { type: 'error', message: `ظرفیت اتاق ${code} تکمیل است (هر ۲ بازیکن نورا و برسام متصل هستند).` });
           return;
         }
 

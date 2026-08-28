@@ -11,6 +11,11 @@ import {
   Zap,
   Shield,
   Radio,
+  Maximize,
+  Minimize,
+  Smartphone,
+  Laptop,
+  RefreshCw,
 } from 'lucide-react';
 import type { PlayerRole, EmoteType, PuzzleState } from '../types.ts';
 import { ProximityVoiceBar } from './ProximityVoiceBar.tsx';
@@ -35,6 +40,10 @@ interface GameHUDProps {
   soloMode: boolean;
   onToggleSoloHero: () => void;
   puzzleState?: PuzzleState;
+  controlMode?: 'auto' | 'desktop' | 'touch';
+  onChangeControlMode?: (mode: 'auto' | 'desktop' | 'touch') => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 const STAGE_TITLES: Record<number, { name: string; desc: string }> = {
@@ -179,6 +188,40 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             <span className="hidden md:inline text-xs font-black">بیسیم جمینای [V]</span>
             <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping absolute -top-1 -right-1" />
           </button>
+
+          {/* Control Mode Toggle Button */}
+          {onChangeControlMode && (
+            <button
+              id="btn_hud_toggle_control"
+              onClick={() => {
+                const modes: ('auto' | 'desktop' | 'touch')[] = ['auto', 'touch', 'desktop'];
+                const next = modes[(modes.indexOf(controlMode || 'auto') + 1) % modes.length];
+                onChangeControlMode(next);
+              }}
+              className="p-2 sm:p-2.5 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-slate-800 hover:bg-slate-800 text-slate-300 hover:text-white transition-all shadow-lg flex items-center gap-1"
+              title={`حالت کنترل: ${controlMode === 'touch' ? 'لمسی (گوشی)' : controlMode === 'desktop' ? 'کیبورد (ویندوز)' : 'خودکار'}`}
+            >
+              {controlMode === 'touch' ? (
+                <Smartphone className="w-5 h-5 text-emerald-400" />
+              ) : controlMode === 'desktop' ? (
+                <Laptop className="w-5 h-5 text-cyan-400" />
+              ) : (
+                <RefreshCw className="w-5 h-5 text-amber-400" />
+              )}
+            </button>
+          )}
+
+          {/* Fullscreen Toggle Button */}
+          {onToggleFullscreen && (
+            <button
+              id="btn_hud_toggle_fullscreen"
+              onClick={onToggleFullscreen}
+              className="p-2 sm:p-2.5 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-slate-800 hover:bg-slate-800 text-slate-300 hover:text-white transition-all shadow-lg"
+              title={isFullscreen ? 'خروج از تمام‌صفحه' : 'تمام‌صفحه (Fullscreen)'}
+            >
+              {isFullscreen ? <Minimize className="w-5 h-5 text-cyan-400" /> : <Maximize className="w-5 h-5 text-slate-300" />}
+            </button>
+          )}
 
           <button
             id="btn_pause_settings"

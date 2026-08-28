@@ -13,6 +13,7 @@ import { HandsFreeVoiceWidget } from './components/HandsFreeVoiceWidget.tsx';
 import { CloudflareGuideModal } from './components/CloudflareGuideModal.tsx';
 import { createDefaultPuzzleState } from './types.ts';
 import { proximityVoiceManager } from './audio/proximityVoice.ts';
+import { useFullscreen, toggleFullscreen } from './utils/fullscreen.ts';
 import type {
   PlayerRole,
   RoomData,
@@ -29,6 +30,24 @@ export default function App() {
   const [myName, setMyName] = useState(() => localStorage.getItem('aether_player_name') || 'ماجراجو ۱');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+
+  // Control Mode & Fullscreen state
+  const [controlMode, setControlMode] = useState<'auto' | 'desktop' | 'touch'>(
+    () => (localStorage.getItem('aether_control_mode') as any) || 'auto'
+  );
+  const { isFullscreen } = useFullscreen();
+
+  const handleControlModeChange = (mode: 'auto' | 'desktop' | 'touch') => {
+    setControlMode(mode);
+    localStorage.setItem('aether_control_mode', mode);
+  };
+
+  const isTouchDevice =
+    typeof window !== 'undefined' &&
+    ('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches);
+
+  const showTouchControls =
+    controlMode === 'touch' || (controlMode === 'auto' && isTouchDevice);
 
   // In-Game state
   const [currentStageId, setCurrentStageId] = useState(1);
@@ -376,6 +395,10 @@ export default function App() {
           onStartSoloPractice={handleStartSoloPractice}
           errorMessage={errorMessage}
           isConnecting={isConnecting}
+          controlMode={controlMode}
+          onChangeControlMode={handleControlModeChange}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
         />
       )}
 
@@ -411,16 +434,22 @@ export default function App() {
                 ? engineRef.current.getPuzzleState()
                 : createDefaultPuzzleState(currentStageId)
             }
+            controlMode={controlMode}
+            onChangeControlMode={handleControlModeChange}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
           />
 
           {/* Touch Controls for Mobile & Tablets */}
-          <TouchControls
-            myRole={myRole}
-            onUpdateInput={handleTouchInput}
-            onSendEmote={handleSendEmote}
-            onSendPing={handleSendPing}
-            onOpenGeminiCall={() => setIsGeminiCallOpen(true)}
-          />
+          {showTouchControls && (
+            <TouchControls
+              myRole={myRole}
+              onUpdateInput={handleTouchInput}
+              onSendEmote={handleSendEmote}
+              onSendPing={handleSendPing}
+              onOpenGeminiCall={() => setIsGeminiCallOpen(true)}
+            />
+          )}
 
           {/* Pause Menu Modal */}
           <PauseMenu
@@ -443,6 +472,10 @@ export default function App() {
             onOpenStory={() => setIsStoryOpen(true)}
             onOpenGeminiCall={() => setIsGeminiCallOpen(true)}
             onOpenCloudflareGuide={() => setIsCloudflareGuideOpen(true)}
+            controlMode={controlMode}
+            onChangeControlMode={handleControlModeChange}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
           />
 
           {/* In-Game Story & Lore Modal */}

@@ -102,7 +102,19 @@ export class NetworkClient {
     const storedWorker = typeof localStorage !== 'undefined' ? localStorage.getItem('aether_cf_worker_url') : null;
     const envWorker = (import.meta as any).env?.VITE_CF_WORKER_URL;
 
-    let target = (paramWorker || storedWorker || envWorker || DEFAULT_USER_WORKER).trim();
+    // Use custom setting if explicitly configured in URL or localStorage or env
+    let target = (paramWorker || storedWorker || envWorker || '').trim();
+
+    if (!target) {
+      if (this.isCloudflareStaticHost()) {
+        target = DEFAULT_USER_WORKER;
+      } else if (typeof window !== 'undefined') {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        return `${protocol}//${window.location.host}/ws`;
+      } else {
+        target = DEFAULT_USER_WORKER;
+      }
+    }
 
     if (target) {
       if (target.startsWith('http://')) target = 'ws://' + target.substring(7);

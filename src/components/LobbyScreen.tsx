@@ -23,7 +23,7 @@ import {
   Laptop,
 } from 'lucide-react';
 import type { PlayerRole, RoomData } from '../types.ts';
-import { networkClient, type NetworkMode } from '../multiplayer/networkClient.ts';
+import { networkClient, normalizeRoomCode, type NetworkMode } from '../multiplayer/networkClient.ts';
 import { StoryModal } from './StoryModal.tsx';
 import { CloudflareGuideModal } from './CloudflareGuideModal.tsx';
 
@@ -85,7 +85,8 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
     const params = new URLSearchParams(window.location.search);
     const roomParam = params.get('room');
     if (roomParam && !roomData) {
-      setJoinCode(roomParam.toUpperCase());
+      const clean = normalizeRoomCode(roomParam);
+      setJoinCode(clean);
       setSelectedRole('guardian');
       setView('join');
     }
@@ -570,7 +571,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                     id="input_join_code"
                     type="text"
                     value={joinCode}
-                    onChange={(e) => setJoinCode(e.target.value.toUpperCase().trim())}
+                    onChange={(e) => setJoinCode(normalizeRoomCode(e.target.value))}
                     maxLength={10}
                     placeholder="مثال: NOVA42"
                     className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-cyan-500/50 text-cyan-400 font-mono text-center text-xl font-bold tracking-widest focus:outline-none focus:border-cyan-400 transition-colors"

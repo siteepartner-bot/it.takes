@@ -16,6 +16,17 @@ type MessageHandler<T> = (data: T) => void;
 export type NetworkMode = 'auto' | 'p2p' | 'websocket';
 
 const WORDS = ['AURA', 'NOVA', 'LUNA', 'SOL', 'ECHO', 'ZEST', 'PEAK', 'IRIS', 'VALE', 'FLUX'];
+export function normalizeRoomCode(code: string): string {
+  if (!code) return '';
+  const pDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+  const aDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+  let str = code.trim().toUpperCase();
+  for (let i = 0; i < 10; i++) {
+    str = str.split(pDigits[i]).join(String(i)).split(aDigits[i]).join(String(i));
+  }
+  return str.replace(/[^A-Z0-9]/g, '');
+}
+
 function generateP2PRoomCode(): string {
   const word = WORDS[Math.floor(Math.random() * WORDS.length)];
   const num = Math.floor(10 + Math.random() * 90);
@@ -367,7 +378,7 @@ export class NetworkClient {
 
   // --- P2P Guest Join Room ---
   private async joinRoomP2P(code: string, playerName: string, preferredRole?: PlayerRole): Promise<void> {
-    const cleanCode = code.trim().toUpperCase();
+    const cleanCode = normalizeRoomCode(code);
     const targetPeerId = `${PEER_ID_PREFIX}${cleanCode.toLowerCase()}`;
 
     const guestPeer = await this.initPeer();
@@ -560,7 +571,7 @@ export class NetworkClient {
 
   public async joinRoom(code: string, playerName: string, preferredRole?: PlayerRole): Promise<void> {
     this.myName = playerName;
-    const cleanCode = code.trim().toUpperCase();
+    const cleanCode = normalizeRoomCode(code);
 
     if (this.shouldUseP2PFirst()) {
       try {

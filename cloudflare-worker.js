@@ -202,13 +202,219 @@ export default {
 
       server.accept();
 
+      let clientInfo = {
+        ws: server,
+        roomCode: null,
+        role: null,
+        id: null,
+      };
+
       server.addEventListener('message', (event) => {
         try {
           const msg = JSON.parse(event.data);
+
           if (msg.type === 'ping_server') {
             server.send(JSON.stringify({ type: 'pong', clientTime: msg.clientTime, serverTime: Date.now() }));
+            return;
+          }
+
+          if (msg.type === 'create_room') {
+            const WORDS = ['AURA', 'NOVA', 'LUNA', 'SOL', 'ECHO', 'ZEST', 'PEAK', 'IRIS', 'VALE', 'FLUX'];
+            const word = WORDS[Math.floor(Math.random() * WORDS.length)];
+            const num = Math.floor(10 + Math.random() * 90);
+            const code = `${word}${num}`;
+            const role = msg.preferredRole || 'explorer';
+            const clientId = `p_${Math.random().toString(36).substring(2, 9)}`;
+
+            clientInfo.roomCode = code;
+            clientInfo.role = role;
+            clientInfo.id = clientId;
+
+            const roomData = {
+              code,
+              stageId: 1,
+              checkpointId: 0,
+              players: {
+                [role]: {
+                  id: clientId,
+                  name: msg.playerName || (role === 'explorer' ? 'Explorer' : 'Guardian'),
+                  ready: true,
+                  connected: true,
+                  pingMs: 1,
+                },
+              },
+              puzzleState: {
+                stageId: 1,
+                checkpointId: 0,
+                gate1Open: false,
+                lever1Activated: false,
+                heavyBlockPlaced: false,
+                aqueductElevatorHeight: 0,
+                lightBridgeActive: false,
+                crystalPillarCharged: false,
+                laserTurretDisabled: false,
+                cloudPlatformPos: { x: 0, y: 0, z: 0 },
+                cloudWindActive: false,
+                boilerValve1: false,
+                boilerValve2: false,
+                steamPistonHalted: false,
+                grandClockworkEngaged: false,
+                finalGateOpen: false,
+                customData: {},
+              },
+              status: 'waiting',
+            };
+
+            const roomRecord = {
+              data: roomData,
+              clients: new Map([[role, clientInfo]]),
+            };
+
+            activeRooms.set(code, roomRecord);
+
+            server.send(JSON.stringify({
+              type: 'room_joined',
+              room: roomData,
+              assignedRole: role,
+              yourId: clientId,
+            }));
+            return;
+          }
+
+          if (msg.type === 'join_room') {
+            const pDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+            const aDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            let cleanCode = String(msg.code || '').trim().toUpperCase();
+            for (let i = 0; i < 10; i++) {
+              cleanCode = cleanCode.split(pDigits[i]).join(String(i)).split(aDigits[i]).join(String(i));
+            }
+            cleanCode = cleanCode.replace(/[^A-Z0-9]/g, '');
+
+            const room = activeRooms.get(cleanCode);
+
+            if (!room) {
+              server.send(JSON.stringify({
+                type: 'error',
+                message: `اتاقی با کد ${cleanCode} یافت نشد. لطفاً کد را بررسی کرده یا مطمئن شوید سازنده اتاق آنلاین است.`,
+              }));
+              return;
+            }
+
+            const preferred = msg.preferredRole;
+            let assignedRole;
+            const expConn = room.data.players.explorer?.connected;
+            const grdConn = room.data.players.guardian?.connected;
+
+            if (preferred && !room.data.players[preferred]?.connected) {
+              assignedRole = preferred;
+            } else if (!expConn) {
+              assignedRole = 'explorer';
+            } else if (!grdConn) {
+              assignedRole = 'guardian';
+            } else {
+              server.send(JSON.stringify({
+                type: 'error',
+                message: `ظرفیت اتاق ${cleanCode} تکمیل است.`,
+              }));
+              return;
+            }
+
+            const clientId = `p_${Math.random().toString(36).substring(2, 9)}`;
+            clientInfo.roomCode = cleanCode;
+            clientInfo.role = assignedRole;
+            clientInfo.id = clientId;
+
+            room.data.players[assignedRole] = {
+              id: clientId,
+              name: msg.playerName || (assignedRole === 'explorer' ? 'Explorer' : 'Guardian'),
+              ready: true,
+              connected: true,
+              pingMs: 15,
+            };
+            room.data.status = 'ready';
+            room.clients.set(assignedRole, clientInfo);
+
+            server.send(JSON.stringify({
+              type: 'room_joined',
+              room: room.data,
+              assignedRole,
+              yourId: clientId,
+            }));
+
+            // Notify partner
+            const partnerRole = assignedRole === 'explorer' ? 'guardian' : 'explorer';
+            const partner = room.clients.get(partnerRole);
+            if (partner && partner.ws) {
+              try {
+                partner.ws.send(JSON.stringify({
+                  type: 'player_joined',
+                  role: assignedRole,
+                  name: room.data.players[assignedRole].name,
+                }));
+              } catch (e) {}
+            }
+            return;
+          }
+
+          // Relay messages to partner socket
+          if (clientInfo.roomCode) {
+            const room = activeRooms.get(clientInfo.roomCode);
+            if (room) {
+              const partnerRole = clientInfo.role === 'explorer' ? 'guardian' : 'explorer';
+              const partner = room.clients.get(partnerRole);
+
+              if (msg.type === 'player_update' && partner?.ws) {
+                partner.ws.send(JSON.stringify({ type: 'partner_update', state: msg.state }));
+              } else if (msg.type === 'puzzle_trigger') {
+                const ps = room.data.puzzleState;
+                if (msg.key in ps) {
+                  ps[msg.key] = msg.value;
+                } else {
+                  ps.customData[msg.key] = msg.value;
+                }
+                const syncMsg = JSON.stringify({ type: 'puzzle_synced', puzzleState: ps });
+                try { server.send(syncMsg); } catch (e) {}
+                try { partner?.ws?.send(syncMsg); } catch (e) {}
+              } else if (msg.type === 'emote' && partner?.ws) {
+                partner.ws.send(JSON.stringify({ type: 'emote_triggered', data: { role: clientInfo.role, emote: msg.emote } }));
+              } else if (msg.type === 'ping' && partner?.ws) {
+                partner.ws.send(JSON.stringify({ type: 'ping_triggered', data: { id: `ping_${Date.now()}`, x: msg.x, y: msg.y, z: msg.z, senderRole: clientInfo.role, senderName: msg.senderName, timestamp: Date.now() } }));
+              } else if (msg.type === 'checkpoint_update') {
+                room.data.checkpointId = msg.checkpointId;
+                const cpMsg = JSON.stringify({ type: 'checkpoint_updated', checkpointId: msg.checkpointId });
+                try { server.send(cpMsg); } catch (e) {}
+                try { partner?.ws?.send(cpMsg); } catch (e) {}
+              } else if (msg.type === 'stage_change') {
+                room.data.stageId = msg.stageId;
+                const scMsg = JSON.stringify({ type: 'stage_changed', stageId: msg.stageId });
+                try { server.send(scMsg); } catch (e) {}
+                try { partner?.ws?.send(scMsg); } catch (e) {}
+              }
+            }
           }
         } catch { /* ignore */ }
+      });
+
+      server.addEventListener('close', () => {
+        if (clientInfo.roomCode && clientInfo.role) {
+          const room = activeRooms.get(clientInfo.roomCode);
+          if (room) {
+            room.clients.delete(clientInfo.role);
+            if (room.data.players[clientInfo.role]) {
+              room.data.players[clientInfo.role].connected = false;
+            }
+            const partnerRole = clientInfo.role === 'explorer' ? 'guardian' : 'explorer';
+            const partner = room.clients.get(partnerRole);
+            if (partner?.ws) {
+              try {
+                partner.ws.send(JSON.stringify({ type: 'player_disconnected', role: clientInfo.role }));
+              } catch (e) {}
+            }
+            if (room.clients.size === 0) {
+              activeRooms.delete(clientInfo.roomCode);
+            }
+          }
+        }
       });
 
       return new Response(null, {
@@ -216,6 +422,11 @@ export default {
         webSocket: client,
         headers: corsHeaders,
       });
+    }
+
+    // Module scoped activeRooms map
+    if (typeof activeRooms === 'undefined') {
+      globalThis.activeRooms = globalThis.activeRooms || new Map();
     }
 
     return new Response('Aether Duo Cloudflare Worker Active', {

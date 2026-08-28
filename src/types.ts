@@ -73,6 +73,39 @@ export interface PuzzleState {
   customData: Record<string, any>;
 }
 
+export function createDefaultPuzzleState(stageId = 1): PuzzleState {
+  return {
+    stageId,
+    checkpointId: 0,
+    gate1Open: false,
+    lever1Activated: false,
+    heavyBlockPos: [12, 1, 4],
+    heavyBlockPlaced: false,
+    aqueductElevatorHeight: 0,
+    lightBridgeActive: false,
+    bridgePedestalRotated: false,
+    stage1ExitP1Ready: false,
+    stage1ExitP2Ready: false,
+
+    floatingIslandBridgeActive: false,
+    turretShieldDeflected: false,
+    laserTurretDisabled: false,
+    vortexActivated: false,
+    stage2ExitP1Ready: false,
+    stage2ExitP2Ready: false,
+
+    crusherJammed: false,
+    boilerValve1: false,
+    boilerValve2: false,
+    boilerSequenceSuccess: false,
+    grandClockworkEngaged: false,
+    stage3ExitP1Ready: false,
+    stage3ExitP2Ready: false,
+
+    customData: {},
+  };
+}
+
 export interface RoomData {
   code: string;
   stageId: number;

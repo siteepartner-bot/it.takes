@@ -12,6 +12,7 @@ import {
   RotateCcw,
   Radio,
   Settings2,
+  Share2,
 } from 'lucide-react';
 import type { GraphicsSettings, AudioSettings } from '../types.ts';
 import { networkClient } from '../multiplayer/networkClient.ts';
@@ -99,7 +100,7 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({
 
         {/* Room Code Card */}
         {roomCode && (
-          <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-950/80 border border-slate-800 mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-2xl bg-slate-950/80 border border-slate-800 mb-4">
             <div>
               <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">
                 کد دعوت به اتاق
@@ -108,14 +109,30 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({
                 {roomCode}
               </div>
             </div>
-            <button
-              id="btn_pause_copy_code"
-              onClick={handleCopy}
-              className="px-3 py-1.5 rounded-xl bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/30 text-cyan-300 text-xs font-semibold flex items-center gap-1.5 transition-colors"
-            >
-              {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-              <span>{copied ? 'کپی شد' : 'کپی کد'}</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                id="btn_pause_copy_link"
+                onClick={() => {
+                  const url = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
+                  navigator.clipboard.writeText(url);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                className="px-2.5 py-1.5 rounded-xl bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/30 text-cyan-300 text-xs font-semibold flex items-center gap-1 transition-colors"
+                title="کپی لینک مستقیم دعوت"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>لینک دعوت</span>
+              </button>
+              <button
+                id="btn_pause_copy_code"
+                onClick={handleCopy}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              >
+                {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                <span>{copied ? 'کپی شد' : 'کپی کد'}</span>
+              </button>
+            </div>
           </div>
         )}
 

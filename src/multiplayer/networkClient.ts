@@ -1,3 +1,4 @@
+import { Peer, type DataConnection } from 'peerjs';
 import type {
   ClientMessage,
   ServerMessage,
@@ -9,19 +10,44 @@ import type {
   PingData,
   EmoteType,
 } from '../types.ts';
+import { createDefaultPuzzleState } from '../types.ts';
 
 type MessageHandler<T> = (data: T) => void;
+export type NetworkMode = 'auto' | 'p2p' | 'websocket';
 
-class NetworkClient {
+const WORDS = ['AURA', 'NOVA', 'LUNA', 'SOL', 'ECHO', 'ZEST', 'PEAK', 'IRIS', 'VALE', 'FLUX'];
+function generateP2PRoomCode(): string {
+  const word = WORDS[Math.floor(Math.random() * WORDS.length)];
+  const num = Math.floor(10 + Math.random() * 90);
+  return `${word}${num}`;
+}
+
+const PEER_ID_PREFIX = 'aether-duo-v1-';
+
+export class NetworkClient {
+  // WebSocket state
   private ws: WebSocket | null = null;
+  private wsConnected: boolean = false;
+  private reconnectAttempts: number = 0;
+
+  // PeerJS (P2P) state
+  private peer: Peer | null = null;
+  private p2pConn: DataConnection | null = null;
+  private isP2PHost: boolean = false;
+  private hostRoomData: RoomData | null = null;
+
+  // Common room state
+  private activeTransport: 'ws' | 'p2p' = 'ws';
   private roomCode: string | null = null;
   private myRole: PlayerRole | null = null;
   private myId: string | null = null;
-  private myName: string = 'Player';
+  private myName: string = 'ماجراجو';
   private isConnected: boolean = false;
-  private reconnectAttempts: number = 0;
   private pingInterval: number | null = null;
   public latencyMs: number = 0;
+
+  // Configuration
+  private networkMode: NetworkMode = 'auto';
 
   // Handlers
   public onRoomJoined: MessageHandler<{ room: RoomData; assignedRole: PlayerRole; yourId: string }> | null = null;
@@ -37,7 +63,36 @@ class NetworkClient {
   public onError: MessageHandler<string> | null = null;
   public onConnectionChange: ((connected: boolean, pingMs: number) => void) | null = null;
 
-  private pendingAction: (() => void) | null = null;
+  constructor() {
+    if (typeof localStorage !== 'undefined') {
+      const savedMode = localStorage.getItem('aether_network_mode') as NetworkMode;
+      if (savedMode && ['auto', 'p2p', 'websocket'].includes(savedMode)) {
+        this.networkMode = savedMode;
+      }
+    }
+  }
+
+  public getNetworkMode(): NetworkMode {
+    return this.networkMode;
+  }
+
+  public setNetworkMode(mode: NetworkMode): void {
+    this.networkMode = mode;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('aether_network_mode', mode);
+    }
+    this.disconnect();
+  }
+
+  public getActiveTransport(): 'ws' | 'p2p' {
+    return this.activeTransport;
+  }
+
+  public isCloudflareStaticHost(): boolean {
+    if (typeof window === 'undefined') return false;
+    const h = window.location.hostname;
+    return h.includes('pages.dev') || h.includes('workers.dev') || (!h.includes('run.app') && !h.includes('localhost') && window.location.port !== '3000');
+  }
 
   public getEffectiveWsUrl(): string {
     const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
@@ -81,40 +136,69 @@ class NetworkClient {
     } else {
       localStorage.removeItem('aether_cf_worker_url');
     }
-    // Reconnect on next action
-    if (this.ws) {
-      this.disconnect();
-    }
+    this.disconnect();
   }
 
-  public connect(): Promise<void> {
+  // Determine whether to attempt WebSocket first or go straight to P2P
+  private shouldUseP2PFirst(): boolean {
+    if (this.networkMode === 'p2p') return true;
+    if (this.networkMode === 'websocket') return false;
+
+    // Auto mode
+    const hasCustomWorker = typeof localStorage !== 'undefined' && !!localStorage.getItem('aether_cf_worker_url');
+    if (hasCustomWorker) return false;
+
+    return this.isCloudflareStaticHost();
+  }
+
+  // --- WebSocket Connection with strict timeout ---
+  public connectWs(): Promise<boolean> {
     return new Promise((resolve) => {
-      if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
-        resolve();
+      if (this.ws && (this.ws.readyState === WebSocket.OPEN)) {
+        resolve(true);
         return;
       }
 
+      if (this.ws) {
+        try { this.ws.close(); } catch { /* ignore */ }
+        this.ws = null;
+      }
+
       const wsUrl = this.getEffectiveWsUrl();
+      let isResolved = false;
+
+      const finish = (success: boolean) => {
+        if (isResolved) return;
+        isResolved = true;
+        clearTimeout(timeoutId);
+        resolve(success);
+      };
+
+      const timeoutId = window.setTimeout(() => {
+        if (!isResolved) {
+          console.warn('WebSocket connection timed out on:', wsUrl);
+          try { this.ws?.close(); } catch { /* ignore */ }
+          this.ws = null;
+          finish(false);
+        }
+      }, 3000);
 
       try {
         this.ws = new WebSocket(wsUrl);
       } catch (err) {
-        console.error('WebSocket instantiate error:', err);
-        resolve();
+        console.warn('WebSocket init exception:', err);
+        finish(false);
         return;
       }
 
       this.ws.onopen = () => {
+        this.wsConnected = true;
         this.isConnected = true;
+        this.activeTransport = 'ws';
         this.reconnectAttempts = 0;
         this.startPingLoop();
         this.onConnectionChange?.(true, this.latencyMs);
-
-        if (this.pendingAction) {
-          this.pendingAction();
-          this.pendingAction = null;
-        }
-        resolve();
+        finish(true);
       };
 
       this.ws.onmessage = (event) => {
@@ -127,27 +211,377 @@ class NetworkClient {
       };
 
       this.ws.onclose = () => {
-        this.isConnected = false;
-        this.stopPingLoop();
-        this.onConnectionChange?.(false, 0);
-
-        // Attempt reconnection if in room
-        if (this.roomCode && this.reconnectAttempts < 5) {
-          this.reconnectAttempts++;
-          setTimeout(() => {
-            this.connect().then(() => {
-              if (this.roomCode) {
-                this.joinRoom(this.roomCode, this.myName, this.myRole || undefined);
-              }
-            });
-          }, 1500 * Math.min(this.reconnectAttempts, 4));
+        this.wsConnected = false;
+        if (this.activeTransport === 'ws') {
+          this.isConnected = false;
+          this.stopPingLoop();
+          this.onConnectionChange?.(false, 0);
         }
+        finish(false);
       };
 
       this.ws.onerror = (err) => {
         console.warn('WebSocket error encountered:', err);
+        finish(false);
       };
     });
+  }
+
+  // --- PeerJS (P2P) Engine for Serverless Multiplayer ---
+  private initPeer(customId?: string): Promise<Peer> {
+    return new Promise((resolve, reject) => {
+      if (this.peer && !this.peer.destroyed) {
+        if (!customId || this.peer.id === customId) {
+          resolve(this.peer);
+          return;
+        }
+        try { this.peer.destroy(); } catch { /* ignore */ }
+        this.peer = null;
+      }
+
+      const peerOptions = {
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:global.stun.twilio.com:3478' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+          ],
+        },
+      };
+
+      const p = customId ? new Peer(customId, peerOptions) : new Peer(peerOptions);
+
+      let opened = false;
+      const timeoutId = window.setTimeout(() => {
+        if (!opened) {
+          reject(new Error('اتصال به شبکه همتا‌به‌همتا (P2P) به دلیل کندی شبکه برقرار نشد.'));
+        }
+      }, 7000);
+
+      p.on('open', (id) => {
+        opened = true;
+        clearTimeout(timeoutId);
+        this.peer = p;
+        resolve(p);
+      });
+
+      p.on('error', (err: any) => {
+        clearTimeout(timeoutId);
+        console.warn('PeerJS error:', err?.type, err);
+        if (err?.type === 'unavailable-id') {
+          reject(new Error('شناسه اتاق تکراری است. لطفاً مجدداً امتحان کنید.'));
+        } else if (err?.type === 'peer-unavailable') {
+          reject(new Error('اتاقی با این کد یافت نشد. لطفاً کد اتاق را بررسی کنید یا مطمئن شوید سازنده اتاق آنلاین است.'));
+        } else {
+          reject(new Error(`خطای ارتباط P2P: ${err?.message || err?.type || 'مشکل در شبکه'}`));
+        }
+      });
+    });
+  }
+
+  // --- P2P Host Room Creation ---
+  private async createRoomP2P(playerName: string, preferredRole: PlayerRole = 'explorer'): Promise<void> {
+    const code = generateP2PRoomCode();
+    const peerId = `${PEER_ID_PREFIX}${code.toLowerCase()}`;
+
+    const hostPeer = await this.initPeer(peerId);
+
+    this.isP2PHost = true;
+    this.roomCode = code;
+    this.myRole = preferredRole;
+    this.myId = hostPeer.id;
+    this.myName = playerName;
+    this.activeTransport = 'p2p';
+    this.isConnected = true;
+
+    // Create fresh authoritative room state
+    const puzzleState = createDefaultPuzzleState(1);
+    this.hostRoomData = {
+      code,
+      stageId: 1,
+      checkpointId: 0,
+      players: {
+        [preferredRole]: {
+          id: hostPeer.id,
+          name: playerName,
+          ready: true,
+          connected: true,
+          pingMs: 1,
+        },
+      },
+      puzzleState,
+      status: 'waiting',
+    };
+
+    // Listen for connecting guest
+    hostPeer.on('connection', (conn) => {
+      this.p2pConn = conn;
+
+      conn.on('open', () => {
+        // Setup data channel listeners
+      });
+
+      conn.on('data', (raw: any) => {
+        this.handleP2PMessage(raw);
+      });
+
+      conn.on('close', () => {
+        if (this.hostRoomData) {
+          const guestRole: PlayerRole = this.myRole === 'explorer' ? 'guardian' : 'explorer';
+          if (this.hostRoomData.players[guestRole]) {
+            this.hostRoomData.players[guestRole]!.connected = false;
+          }
+          this.hostRoomData.status = 'waiting';
+          this.onPlayerDisconnected?.({ role: guestRole });
+          this.onConnectionChange?.(true, 0);
+        }
+      });
+
+      conn.on('error', (err) => {
+        console.warn('P2P connection error:', err);
+      });
+    });
+
+    // Inform local UI that room is created and joined
+    this.onRoomJoined?.({
+      room: this.hostRoomData,
+      assignedRole: preferredRole,
+      yourId: hostPeer.id,
+    });
+    this.onConnectionChange?.(true, 1);
+  }
+
+  // --- P2P Guest Join Room ---
+  private async joinRoomP2P(code: string, playerName: string, preferredRole?: PlayerRole): Promise<void> {
+    const cleanCode = code.trim().toUpperCase();
+    const targetPeerId = `${PEER_ID_PREFIX}${cleanCode.toLowerCase()}`;
+
+    const guestPeer = await this.initPeer();
+    this.isP2PHost = false;
+    this.roomCode = cleanCode;
+    this.myName = playerName;
+    this.myId = guestPeer.id;
+    this.activeTransport = 'p2p';
+
+    return new Promise((resolve, reject) => {
+      const conn = guestPeer.connect(targetPeerId, {
+        reliable: true,
+      });
+
+      let opened = false;
+      const timeoutId = window.setTimeout(() => {
+        if (!opened) {
+          try { conn.close(); } catch { /* ignore */ }
+          reject(new Error('اتاقی با این کد پیدا نشد. مطمئن شوید دوستتان اتاق را ساخته و در انتظار شماست.'));
+        }
+      }, 7000);
+
+      conn.on('open', () => {
+        opened = true;
+        clearTimeout(timeoutId);
+        this.p2pConn = conn;
+        this.isConnected = true;
+
+        // Send join request to host
+        conn.send({
+          type: 'p2p_join',
+          code: cleanCode,
+          playerName,
+          preferredRole,
+          peerId: guestPeer.id,
+        });
+
+        this.startP2PPingLoop();
+        resolve();
+      });
+
+      conn.on('data', (raw: any) => {
+        this.handleP2PMessage(raw);
+      });
+
+      conn.on('close', () => {
+        this.isConnected = false;
+        this.stopPingLoop();
+        this.onConnectionChange?.(false, 0);
+        const partnerRole: PlayerRole = this.myRole === 'explorer' ? 'guardian' : 'explorer';
+        this.onPlayerDisconnected?.({ role: partnerRole });
+      });
+
+      conn.on('error', (err) => {
+        clearTimeout(timeoutId);
+        console.warn('P2P Conn error:', err);
+        reject(new Error('خطا در اتصال مستقیم به هم‌تیمی.'));
+      });
+    });
+  }
+
+  // Handle incoming P2P data
+  private handleP2PMessage(msg: any) {
+    if (!msg || !msg.type) return;
+
+    if (this.isP2PHost) {
+      // Host side handling
+      if (msg.type === 'p2p_join') {
+        const guestPreferred: PlayerRole = msg.preferredRole || (this.myRole === 'explorer' ? 'guardian' : 'explorer');
+        const guestRole: PlayerRole = guestPreferred === this.myRole ? (this.myRole === 'explorer' ? 'guardian' : 'explorer') : guestPreferred;
+
+        if (this.hostRoomData) {
+          this.hostRoomData.players[guestRole] = {
+            id: msg.peerId,
+            name: msg.playerName,
+            ready: true,
+            connected: true,
+            pingMs: 15,
+          };
+          this.hostRoomData.status = 'ready';
+
+          // Reply to guest with initial room state
+          this.p2pConn?.send({
+            type: 'p2p_welcome',
+            room: this.hostRoomData,
+            assignedRole: guestRole,
+            yourId: msg.peerId,
+          });
+
+          // Inform host UI that partner joined
+          this.onPlayerJoined?.({
+            role: guestRole,
+            name: msg.playerName,
+          });
+
+          this.startP2PPingLoop();
+        }
+        return;
+      }
+    }
+
+    // Guest receives welcome
+    if (msg.type === 'p2p_welcome') {
+      this.myRole = msg.assignedRole;
+      this.onRoomJoined?.({
+        room: msg.room,
+        assignedRole: msg.assignedRole,
+        yourId: msg.yourId,
+      });
+      this.onConnectionChange?.(true, this.latencyMs || 20);
+      return;
+    }
+
+    // P2P Ping/Pong
+    if (msg.type === 'p2p_ping') {
+      this.p2pConn?.send({ type: 'p2p_pong', clientTime: msg.clientTime });
+      return;
+    }
+    if (msg.type === 'p2p_pong') {
+      this.latencyMs = Math.max(1, Math.round(Date.now() - msg.clientTime));
+      this.onConnectionChange?.(true, this.latencyMs);
+      return;
+    }
+
+    // Puzzle sync: Host updates authoritative state and syncs
+    if (msg.type === 'puzzle_trigger' && this.isP2PHost && this.hostRoomData) {
+      const ps = this.hostRoomData.puzzleState;
+      if (msg.key in ps) {
+        (ps as any)[msg.key] = msg.value;
+      } else {
+        ps.customData[msg.key] = msg.value;
+      }
+      this.p2pConn?.send({ type: 'puzzle_synced', puzzleState: ps });
+      this.onPuzzleSynced?.(ps);
+      return;
+    }
+
+    // Regular ServerMessage translation
+    this.handleServerMessage(msg as ServerMessage);
+  }
+
+  private startP2PPingLoop() {
+    this.stopPingLoop();
+    this.pingInterval = window.setInterval(() => {
+      if (this.isConnected && this.p2pConn?.open) {
+        this.p2pConn.send({ type: 'p2p_ping', clientTime: Date.now() });
+      }
+    }, 2500);
+  }
+
+  // --- Public API for Room Lifecycle ---
+  public async createRoom(playerName: string, preferredRole?: PlayerRole): Promise<void> {
+    this.myName = playerName;
+    const role = preferredRole || 'explorer';
+
+    if (this.shouldUseP2PFirst()) {
+      try {
+        await this.createRoomP2P(playerName, role);
+        return;
+      } catch (p2pErr: any) {
+        console.warn('P2P creation failed, attempting fallback to WebSocket:', p2pErr);
+      }
+    }
+
+    // Try WebSocket
+    const wsSuccess = await this.connectWs();
+    if (wsSuccess) {
+      this.send({
+        type: 'create_room',
+        playerName,
+        preferredRole: role,
+      });
+      return;
+    }
+
+    // If WebSocket failed and we hadn't tried P2P yet, auto-fallback to P2P!
+    if (!this.shouldUseP2PFirst()) {
+      try {
+        await this.createRoomP2P(playerName, role);
+        return;
+      } catch (p2pErr: any) {
+        const msg = p2pErr?.message || 'امکان ساخت اتاق نه با وب‌سوکت و نه با P2P فراهم نشد.';
+        this.onError?.(msg);
+        throw new Error(msg);
+      }
+    }
+
+    throw new Error('عدم دسترسی به سرور بازی و شبکه همتا‌به‌همتا.');
+  }
+
+  public async joinRoom(code: string, playerName: string, preferredRole?: PlayerRole): Promise<void> {
+    this.myName = playerName;
+    const cleanCode = code.trim().toUpperCase();
+
+    if (this.shouldUseP2PFirst()) {
+      try {
+        await this.joinRoomP2P(cleanCode, playerName, preferredRole);
+        return;
+      } catch (p2pErr: any) {
+        console.warn('P2P join failed, attempting fallback to WebSocket:', p2pErr);
+      }
+    }
+
+    // Try WebSocket
+    const wsSuccess = await this.connectWs();
+    if (wsSuccess) {
+      this.send({
+        type: 'join_room',
+        code: cleanCode,
+        playerName,
+        preferredRole,
+      });
+      return;
+    }
+
+    // If WebSocket failed, auto-try P2P
+    if (!this.shouldUseP2PFirst()) {
+      try {
+        await this.joinRoomP2P(cleanCode, playerName, preferredRole);
+        return;
+      } catch (p2pErr: any) {
+        const msg = p2pErr?.message || 'اتصال به اتاق ناموفق بود.';
+        this.onError?.(msg);
+        throw new Error(msg);
+      }
+    }
+
+    throw new Error('اتصال به سرور بازی برقرار نشد.');
   }
 
   private handleServerMessage(msg: ServerMessage) {
@@ -223,30 +657,78 @@ class NetworkClient {
   }
 
   public send(msg: ClientMessage) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+    // 1. Send via WebSocket if active
+    if (this.activeTransport === 'ws' && this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
+      return;
     }
-  }
 
-  public async createRoom(playerName: string, preferredRole?: PlayerRole) {
-    this.myName = playerName;
-    await this.connect();
-    this.send({
-      type: 'create_room',
-      playerName,
-      preferredRole,
-    });
-  }
-
-  public async joinRoom(code: string, playerName: string, preferredRole?: PlayerRole) {
-    this.myName = playerName;
-    await this.connect();
-    this.send({
-      type: 'join_room',
-      code: code.trim().toUpperCase(),
-      playerName,
-      preferredRole,
-    });
+    // 2. Send via P2P DataConnection if active
+    if (this.activeTransport === 'p2p' && this.p2pConn?.open) {
+      if (msg.type === 'player_update') {
+        this.p2pConn.send({
+          type: 'partner_update',
+          state: {
+            ...msg.state,
+            id: this.myId || 'self',
+            name: this.myName,
+            role: this.myRole || 'explorer',
+            timestamp: Date.now(),
+          },
+        });
+      } else if (msg.type === 'puzzle_trigger') {
+        if (this.isP2PHost && this.hostRoomData) {
+          const ps = this.hostRoomData.puzzleState;
+          if (msg.key in ps) {
+            (ps as any)[msg.key] = msg.value;
+          } else {
+            ps.customData[msg.key] = msg.value;
+          }
+          this.p2pConn.send({ type: 'puzzle_synced', puzzleState: ps });
+          this.onPuzzleSynced?.(ps);
+        } else {
+          this.p2pConn.send(msg);
+        }
+      } else if (msg.type === 'emote') {
+        this.p2pConn.send({
+          type: 'emote_triggered',
+          data: {
+            role: this.myRole || 'explorer',
+            emote: msg.emote,
+            timestamp: Date.now(),
+          },
+        });
+      } else if (msg.type === 'ping') {
+        this.p2pConn.send({
+          type: 'ping_triggered',
+          data: {
+            id: Math.random().toString(36).slice(2),
+            x: msg.x,
+            y: msg.y,
+            z: msg.z,
+            senderRole: this.myRole || 'explorer',
+            senderName: this.myName,
+            timestamp: Date.now(),
+          },
+        });
+      } else if (msg.type === 'checkpoint_reach') {
+        this.p2pConn.send({
+          type: 'checkpoint_updated',
+          checkpointId: msg.checkpointId,
+          respawnPos: [0, 1, 0],
+        });
+      } else if (msg.type === 'stage_advance') {
+        this.p2pConn.send({
+          type: 'stage_changed',
+          stageId: msg.nextStageId,
+        });
+      } else if (msg.type === 'leave_room') {
+        this.p2pConn.send({
+          type: 'player_disconnected',
+          role: this.myRole || 'explorer',
+        });
+      }
+    }
   }
 
   public sendPlayerUpdate(state: Omit<PlayerNetState, 'id' | 'role' | 'name' | 'timestamp'>) {
@@ -300,23 +782,34 @@ class NetworkClient {
 
   public leaveRoom() {
     this.send({ type: 'leave_room' });
-    this.roomCode = null;
-    this.myRole = null;
-    this.myId = null;
-    this.stopPingLoop();
+    this.disconnect();
   }
 
   public disconnect(): void {
     this.stopPingLoop();
+
     if (this.ws) {
-      try {
-        this.ws.close();
-      } catch {
-        // ignore
-      }
+      try { this.ws.close(); } catch { /* ignore */ }
       this.ws = null;
     }
+
+    if (this.p2pConn) {
+      try { this.p2pConn.close(); } catch { /* ignore */ }
+      this.p2pConn = null;
+    }
+
+    if (this.peer) {
+      try { this.peer.destroy(); } catch { /* ignore */ }
+      this.peer = null;
+    }
+
+    this.roomCode = null;
+    this.myRole = null;
+    this.myId = null;
     this.isConnected = false;
+    this.wsConnected = false;
+    this.isP2PHost = false;
+    this.hostRoomData = null;
   }
 
   public getRole(): PlayerRole | null {

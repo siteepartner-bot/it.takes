@@ -204,7 +204,13 @@ export default function App() {
     setErrorMessage(null);
     setMyName(name);
     setMyRole(role);
-    await networkClient.createRoom(name, role);
+    try {
+      await networkClient.createRoom(name, role);
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'خطا در برقراری ارتباط و ساخت اتاق.');
+    } finally {
+      setIsConnecting(false);
+    }
   };
 
   const handleJoinRoom = async (code: string, name: string, role: PlayerRole) => {
@@ -212,7 +218,13 @@ export default function App() {
     setErrorMessage(null);
     setMyName(name);
     setMyRole(role);
-    await networkClient.joinRoom(code, name, role);
+    try {
+      await networkClient.joinRoom(code, name, role);
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'خطا در ورود به اتاق. لطفاً کد را بررسی کنید.');
+    } finally {
+      setIsConnecting(false);
+    }
   };
 
   const handleStartGame = () => {

@@ -96,8 +96,8 @@ export default {
 "${query && query.trim() ? query.trim() : 'استاد الیاس، الان دقیقا باید چکار کنیم؟'}"
 `;
 
-          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`;
-          const geminiReq = await fetch(geminiUrl, {
+          let geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey.trim()}`;
+          let geminiReq = await fetch(geminiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -114,6 +114,21 @@ export default {
               },
             }),
           });
+
+          if (!geminiReq.ok) {
+            // Fallback model attempt if gemini-3.6-flash returned an issue
+            geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`;
+            geminiReq = await fetch(geminiUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: {
+                  parts: [{ text: 'تو استاد الیاس هستی. در ۲ جمله کوتاه و صوتی راهنمایی کن.' }],
+                },
+              }),
+            });
+          }
 
           if (geminiReq.ok) {
             const data = await geminiReq.json();

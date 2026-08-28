@@ -24,6 +24,8 @@ function generateP2PRoomCode(): string {
 
 const PEER_ID_PREFIX = 'aether-duo-v1-';
 
+const DEFAULT_USER_WORKER = 'https://dry-snow-f534.sitee-partner.workers.dev';
+
 export class NetworkClient {
   // WebSocket state
   private ws: WebSocket | null = null;
@@ -100,7 +102,7 @@ export class NetworkClient {
     const storedWorker = typeof localStorage !== 'undefined' ? localStorage.getItem('aether_cf_worker_url') : null;
     const envWorker = (import.meta as any).env?.VITE_CF_WORKER_URL;
 
-    let target = (paramWorker || storedWorker || envWorker || '').trim();
+    let target = (paramWorker || storedWorker || envWorker || DEFAULT_USER_WORKER).trim();
 
     if (target) {
       if (target.startsWith('http://')) target = 'ws://' + target.substring(7);
@@ -126,7 +128,7 @@ export class NetworkClient {
     if (stored && stored.trim()) {
       return { url: stored.trim(), isCustom: true };
     }
-    return { url: this.getEffectiveWsUrl(), isCustom: false };
+    return { url: DEFAULT_USER_WORKER, isCustom: true };
   }
 
   public setWorkerConfig(url: string | null): void {

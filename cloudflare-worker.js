@@ -108,8 +108,8 @@ export default {
 "${query && query.trim() ? query.trim() : 'استاد الیاس، الان دقیقا باید چکار کنیم و قدم بعدیمون چیه؟'}"
 `;
 
-          // Try gemini-3.7-flash first for maximum speed and intelligence
-          let geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key=${apiKey.trim()}`;
+          // Try gemini-3.6-flash for maximum speed and intelligence
+          let geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey.trim()}`;
           let geminiReq = await fetch(geminiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -118,7 +118,7 @@ export default {
               systemInstruction: {
                 parts: [
                   {
-                    text: 'تو "استاد الیاس" (Master Elias) هستی؛ ساعت‌ساز فرزانه و دانای کهن که نورا (دختر چابک با صاعقه [F]) و برسام (پسر تایتان با سپر [F]) را تراشیده‌ای. از طریق بیسیم اِیتِر پاسخ می‌دهی. بر اساس وضعیت زنده پازل، بسیار دقیق، عاقلانه، راهبردی، پرانرژی و کوتاه (حداکثر ۲ تا ۳ جمله صریح فارسی) راهنمایی کن.',
+                    text: 'تو "استاد الیاس" (Master Elias) هستی؛ ساعت‌ساز فرزانه و دانای کهن که نورا (دختر چابک با صاعقه [F]) و برسام (پسر تایتان با سپر [F]) را تراشیده‌ای. از طریق بیسیم اِیتِر پاسخ می‌دهی. بر اساس وضعیت زنده پازل، بسیار دقیق، راهبردی، پرانرژی و بدون تکرار کلمات کلیشه‌ای در ۲ تا ۳ جمله صریح فارسی راهنمایی کن.',
                   },
                 ],
               },

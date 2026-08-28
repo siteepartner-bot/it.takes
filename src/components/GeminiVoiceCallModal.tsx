@@ -62,17 +62,17 @@ export const GeminiVoiceCallModal: React.FC<GeminiVoiceCallModalProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isLoadingAdvice, setIsLoadingAdvice] = useState(false);
   const [lastAdvice, setLastAdvice] = useState<string>(
-    'درود بر فرزندان چوبی من! نورا و برسام، چه کمکی از دست ساعت‌ساز کهن برایتان ساخته است؟'
+    'در حال برقراری ارتباط با بیسیم استاد الیاس...'
   );
-  const [adviceSource, setAdviceSource] = useState<string>('gemini-3.7-flash');
-  const [autoListen, setAutoListen] = useState(true);
+  const [adviceSource, setAdviceSource] = useState<string>('gemini-3.6-flash');
+  const [autoListen, setAutoListen] = useState(false);
   const [customQuestion, setCustomQuestion] = useState('');
   const [showCfGuide, setShowCfGuide] = useState(false);
 
   const recognizerRef = useRef<any>(null);
   const isExplorer = myRole === 'explorer';
 
-  // Timer for active call
+  // Fetch initial guidance when modal opens
   useEffect(() => {
     if (!isOpen) {
       setCallDuration(0);
@@ -85,19 +85,8 @@ export const GeminiVoiceCallModal: React.FC<GeminiVoiceCallModalProps> = ({
       setCallDuration((prev) => prev + 1);
     }, 1000);
 
-    // Initial greeting voice narration
-    speakWithVoice(
-      lastAdvice,
-      () => setIsSpeaking(true),
-      () => {
-        setIsSpeaking(false);
-        if (autoListen && recognizerRef.current?.isSupported) {
-          setTimeout(() => {
-            recognizerRef.current?.start();
-          }, 300);
-        }
-      }
-    );
+    // Request initial Gemini guidance based on current puzzle state
+    handleSendQuestion('راهنمایی برای وضعیت فعلی مرحله');
 
     return () => {
       clearInterval(interval);
@@ -105,13 +94,24 @@ export const GeminiVoiceCallModal: React.FC<GeminiVoiceCallModalProps> = ({
     };
   }, [isOpen]);
 
-  // Setup Speech Recognition
+  // Setup Speech Recognition with echo filtering
   useEffect(() => {
     if (!isOpen) return;
 
     const recognizer = createSpeechRecognizer(
       (transcript) => {
-        handleSendQuestion(transcript);
+        if (transcript && transcript.trim()) {
+          const lower = transcript.trim().toLowerCase();
+          if (
+            lower.includes('درود') ||
+            lower.includes('فرزندان') ||
+            lower.includes('ساعت‌ساز') ||
+            lower.includes('ال یاس')
+          ) {
+            return;
+          }
+          handleSendQuestion(transcript);
+        }
       },
       (listening) => {
         setIsListening(listening);
@@ -157,7 +157,7 @@ export const GeminiVoiceCallModal: React.FC<GeminiVoiceCallModalProps> = ({
       });
 
       setLastAdvice(response.text);
-      setAdviceSource(response.source || 'gemini-3.7-flash');
+      setAdviceSource(response.source || 'gemini-3.6-flash');
       setCustomQuestion('');
 
       if (!isMuted) {

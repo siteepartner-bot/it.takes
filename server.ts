@@ -199,17 +199,21 @@ ${stageInfo.keyObjectives}
         let response;
         try {
           response = await ai.models.generateContent({
-            model: 'gemini-3.7-flash',
+            model: 'gemini-3.6-flash',
             contents: promptText,
             config: {
-              systemInstruction,
+              systemInstruction: `تو "استاد الیاس" (Master Elias) هستی، ساعت‌ساز دانای کهن که دو آدمک چوبی نورا و برسام را تراشیده است.
+اکنون از طریق بیسیم اِیتِر با آن‌ها صحبت می‌کنی.
+- با لحنی خردمندانه، کاربردی و پرانرژی به زبان فارسی پاسخ بده.
+- مستقیماً به سوال یا درخواست راهنمایی پاسخ بده و از تکرار کلمات کلیشه‌ای مثل "درود بر فرزندان من" یا مقدمه‌های تکراری پرهیز کن.
+- در ۲ الی ۳ جمله کوتاه بگو دقیقا باید چکار کنند (مثلاً: زدن کلید F برای صاعقه/سپر، هل دادن سنگ، کشیدن اهرم).`,
               temperature: 0.6,
             },
           });
         } catch (modelErr: any) {
-          console.warn('Fallback to gemini-3.1-flash-lite due to:', modelErr?.message);
+          console.warn('Fallback Gemini call due to:', modelErr?.message);
           response = await ai.models.generateContent({
-            model: 'gemini-3.1-flash-lite',
+            model: 'gemini-3.6-flash',
             contents: promptText,
             config: {
               systemInstruction,

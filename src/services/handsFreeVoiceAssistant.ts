@@ -70,7 +70,20 @@ class HandsFreeVoiceAssistant {
       this.recognition.onresult = async (event: any) => {
         const transcript = event.results?.[0]?.[0]?.transcript;
         if (transcript && transcript.trim()) {
-          this.lastTranscript = transcript.trim();
+          const text = transcript.trim();
+          const lower = text.toLowerCase();
+          // Filter out mic echo of Elias's own voice
+          if (
+            lower.includes('درود') ||
+            lower.includes('فرزندان') ||
+            lower.includes('ساعت‌ساز') ||
+            lower.includes('ال یاس') ||
+            text === this.lastResponse
+          ) {
+            console.log('Ignored audio echo:', text);
+            return;
+          }
+          this.lastTranscript = text;
           await this.processUserSpeech(this.lastTranscript);
         }
       };

@@ -319,7 +319,8 @@ wss.on('connection', (ws: WebSocket) => {
       }
 
       if (msg.type === 'create_room') {
-        const code = generateRoomCode();
+        const customCode = msg.code ? String(msg.code).toUpperCase().trim() : '';
+        const code = customCode || generateRoomCode();
         const role: PlayerRole = msg.preferredRole || 'explorer';
         const clientId = `p_${Math.random().toString(36).substring(2, 9)}`;
 

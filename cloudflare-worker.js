@@ -219,10 +219,18 @@ export default {
           }
 
           if (msg.type === 'create_room') {
+            const pDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+            const aDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            let customCode = msg.code ? String(msg.code).trim().toUpperCase() : '';
+            for (let i = 0; i < 10; i++) {
+              customCode = customCode.split(pDigits[i]).join(String(i)).split(aDigits[i]).join(String(i));
+            }
+            customCode = customCode.replace(/[^A-Z0-9]/g, '');
+
             const WORDS = ['AURA', 'NOVA', 'LUNA', 'SOL', 'ECHO', 'ZEST', 'PEAK', 'IRIS', 'VALE', 'FLUX'];
             const word = WORDS[Math.floor(Math.random() * WORDS.length)];
             const num = Math.floor(10 + Math.random() * 90);
-            const code = `${word}${num}`;
+            const code = customCode || `${word}${num}`;
             const role = msg.preferredRole || 'explorer';
             const clientId = `p_${Math.random().toString(36).substring(2, 9)}`;
 

@@ -41,6 +41,18 @@ export interface GeminiStatusResponse {
  * - Otherwise returns the current origin or relative path
  */
 export function getEffectiveApiBaseUrl(): string {
+  // Check if a dedicated custom Gemini Worker URL is stored
+  const customGeminiUrl = localStorage.getItem('gemini_custom_worker_url');
+  if (customGeminiUrl && customGeminiUrl.trim()) {
+    let url = customGeminiUrl.trim();
+    if (url.startsWith('wss://')) {
+      url = 'https://' + url.substring(6);
+    } else if (url.startsWith('ws://')) {
+      url = 'http://' + url.substring(5);
+    }
+    return url.replace(/\/+$/, '');
+  }
+
   const workerConfig = networkClient.getWorkerConfig();
   if (workerConfig.isCustom && workerConfig.url) {
     let url = workerConfig.url.trim();

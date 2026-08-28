@@ -137,10 +137,24 @@ export const GeminiActivationModal: React.FC<GeminiActivationModalProps> = ({ is
   const [liveTestResponse, setLiveTestResponse] = useState<string | null>(null);
   const [liveTestSource, setLiveTestSource] = useState<string | null>(null);
 
-  // Cloudflare worker custom URL test
-  const [cfUrl, setCfUrl] = useState('https://it-takes.sitee-partner.workers.dev');
+  // Cloudflare worker custom URL test & active persistence
+  const [cfUrl, setCfUrl] = useState(() => {
+    return localStorage.getItem('gemini_custom_worker_url') || 'https://gemini.sitee-partner.workers.dev';
+  });
+  const [activeWorkerUrl, setActiveWorkerUrl] = useState(() => {
+    return localStorage.getItem('gemini_custom_worker_url') || '';
+  });
   const [cfTestResult, setCfTestResult] = useState<string | null>(null);
   const [cfTesting, setCfTesting] = useState(false);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    // If user hasn't saved a custom worker URL yet, default to gemini.sitee-partner.workers.dev
+    if (!localStorage.getItem('gemini_custom_worker_url')) {
+      localStorage.setItem('gemini_custom_worker_url', 'https://gemini.sitee-partner.workers.dev');
+      setActiveWorkerUrl('https://gemini.sitee-partner.workers.dev');
+    }
+  }, []);
 
   if (!isOpen) return null;
 
@@ -148,6 +162,24 @@ export const GeminiActivationModal: React.FC<GeminiActivationModalProps> = ({ is
     navigator.clipboard.writeText(CLOUDFLARE_WORKER_CODE_SNIPPET);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
+  };
+
+  const handleSaveWorkerUrl = (urlToSave: string) => {
+    const cleanUrl = urlToSave.trim().replace(/\/+$/, '');
+    if (cleanUrl) {
+      localStorage.setItem('gemini_custom_worker_url', cleanUrl);
+      setActiveWorkerUrl(cleanUrl);
+      setSaveSuccessMsg('آدرس ورکر با موفقیت ذخیره شد و فعال است!');
+      setTimeout(() => setSaveSuccessMsg(null), 3500);
+    }
+  };
+
+  const handleResetWorkerUrl = () => {
+    localStorage.removeItem('gemini_custom_worker_url');
+    setActiveWorkerUrl('');
+    setCfUrl('https://gemini.sitee-partner.workers.dev');
+    setSaveSuccessMsg('تنظیمات به سرور پیش‌فرض بازی بازگشت.');
+    setTimeout(() => setSaveSuccessMsg(null), 3500);
   };
 
   const handleRunDiagnostic = async () => {
@@ -190,7 +222,7 @@ export const GeminiActivationModal: React.FC<GeminiActivationModalProps> = ({ is
         setLiveTestResponse(res.text);
         setLiveTestSource(`${res.source === 'gemini-live' ? 'هوش مصنوعی زنده (Gemini)' : 'راهنمای هوشمند آفلاین'} • زمان پاسخ: ${duration}ms`);
       } else {
-        setLiveTestResponse('پاسخی دریاقت نشد.');
+        setLiveTestResponse('پاسخی دریافت نشد.');
       }
     } catch (err: any) {
       setLiveTestResponse(`خطا: ${err?.message || 'برقراری ارتباط با شکست مواجه شد.'}`);
@@ -204,7 +236,7 @@ export const GeminiActivationModal: React.FC<GeminiActivationModalProps> = ({ is
     setCfTesting(true);
     setCfTestResult(null);
     try {
-      const cleanUrl = cfUrl.trim().replace(/\/$/, '');
+      const cleanUrl = cfUrl.trim().replace(/\/+$/, '');
       const res = await fetch(`${cleanUrl}/api/gemini/guidance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -214,6 +246,8 @@ export const GeminiActivationModal: React.FC<GeminiActivationModalProps> = ({ is
       if (res.ok) {
         const data = await res.json();
         setCfTestResult(`✅ پاسخ ورکر دریافت شد: "${data.text || 'بدون متن'}" (منبع: ${data.source || 'نامشخص'})`);
+        // Save automatically as active worker since test succeeded
+        handleSaveWorkerUrl(cleanUrl);
       } else {
         setCfTestResult(`⚠️ خطا کد ${res.status}: ورکر پاسخ نامعتبر داد.`);
       }
@@ -309,6 +343,33 @@ export const GeminiActivationModal: React.FC<GeminiActivationModalProps> = ({ is
           {/* TAB 1: DIAGNOSTIC & LIVE TEST */}
           {activeTab === 'diagnostic' && (
             <div className="space-y-4 text-xs">
+              {/* Active Worker Status Badge */}
+              <div className="p-3 rounded-2xl bg-slate-950/80 border border-cyan-500/30 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <Globe className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <div className="truncate">
+                    <span className="text-slate-400 text-[11px]">آدرس فعال API هوش مصنوعی: </span>
+                    <span className="text-cyan-300 font-mono font-bold text-[11px]">
+                      {activeWorkerUrl || 'سرور داخلی / پیش‌فرض بازی'}
+                    </span>
+                  </div>
+                </div>
+                {activeWorkerUrl && (
+                  <button
+                    onClick={handleResetWorkerUrl}
+                    className="text-[10px] px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-rose-300 transition-colors shrink-0"
+                  >
+                    ریست به پیش‌فرض
+                  </button>
+                )}
+              </div>
+
+              {saveSuccessMsg && (
+                <div className="p-2.5 rounded-xl bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-bold text-center animate-fade-in text-[11px]">
+                  {saveSuccessMsg}
+                </div>
+              )}
+
               {/* Server Status Box */}
               <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="space-y-1">
@@ -543,7 +604,7 @@ export const GeminiActivationModal: React.FC<GeminiActivationModalProps> = ({ is
                     type="text"
                     value={cfUrl}
                     onChange={(e) => setCfUrl(e.target.value)}
-                    placeholder="https://it-takes.sitee-partner.workers.dev"
+                    placeholder="https://gemini.sitee-partner.workers.dev"
                     dir="ltr"
                     className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-cyan-300 font-mono placeholder-slate-600 focus:outline-none focus:border-cyan-400"
                   />
@@ -554,6 +615,13 @@ export const GeminiActivationModal: React.FC<GeminiActivationModalProps> = ({ is
                     className="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs flex items-center gap-1 shrink-0 disabled:opacity-50"
                   >
                     {cfTesting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : 'تست آدرس'}
+                  </button>
+                  <button
+                    id="btn_save_cf_url"
+                    onClick={() => handleSaveWorkerUrl(cfUrl)}
+                    className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1 shrink-0"
+                  >
+                    <span>ذخیره و فعال‌سازی</span>
                   </button>
                 </div>
                 {cfTestResult && (

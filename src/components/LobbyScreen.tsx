@@ -17,13 +17,9 @@ import {
   Wifi,
   BookOpen,
   Cloud,
-  Maximize,
-  Minimize,
-  Smartphone,
-  Laptop,
 } from 'lucide-react';
 import type { PlayerRole, RoomData } from '../types.ts';
-import { networkClient, normalizeRoomCode, type NetworkMode } from '../multiplayer/networkClient.ts';
+import { networkClient, type NetworkMode } from '../multiplayer/networkClient.ts';
 import { StoryModal } from './StoryModal.tsx';
 import { CloudflareGuideModal } from './CloudflareGuideModal.tsx';
 
@@ -36,10 +32,6 @@ interface LobbyScreenProps {
   onStartSoloPractice: () => void;
   errorMessage: string | null;
   isConnecting: boolean;
-  controlMode: 'auto' | 'desktop' | 'touch';
-  onChangeControlMode: (mode: 'auto' | 'desktop' | 'touch') => void;
-  isFullscreen: boolean;
-  onToggleFullscreen: () => void;
 }
 
 export const LobbyScreen: React.FC<LobbyScreenProps> = ({
@@ -51,10 +43,6 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   onStartSoloPractice,
   errorMessage,
   isConnecting,
-  controlMode,
-  onChangeControlMode,
-  isFullscreen,
-  onToggleFullscreen,
 }) => {
   const [view, setView] = useState<'home' | 'create' | 'join'>('home');
   const [playerName, setPlayerName] = useState(
@@ -85,8 +73,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
     const params = new URLSearchParams(window.location.search);
     const roomParam = params.get('room');
     if (roomParam && !roomData) {
-      const clean = normalizeRoomCode(roomParam);
-      setJoinCode(clean);
+      setJoinCode(roomParam.toUpperCase());
       setSelectedRole('guardian');
       setView('join');
     }
@@ -155,25 +142,15 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
           <p className="text-slate-400 text-xs sm:text-sm mt-1.5 max-w-lg mx-auto leading-relaxed">
             سفری هم‌زمان و مشارکتی که دو آدمک چوبی با توانایی‌های مکمل، معماهای باستانی و فیزیکی را حل می‌کنند.
           </p>
-          <div className="mt-2.5 flex flex-wrap items-center justify-center gap-2">
-            <button
-              id="btn_toggle_fullscreen_lobby"
-              onClick={onToggleFullscreen}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-cyan-950/80 hover:bg-cyan-900/90 border border-cyan-500/40 text-cyan-300 text-xs font-bold transition-all active:scale-95 shadow-md shadow-cyan-500/10"
-              title="حالت تمام‌صفحه بازی"
-            >
-              {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
-              <span>{isFullscreen ? 'خروج از تمام‌صفحه' : 'بازی تمام‌صفحه (Full Screen)'}</span>
-            </button>
-
+          <div className="mt-2.5 flex items-center justify-center">
             <button
               id="btn_open_story_modal_header"
               onClick={() => setShowStoryModal(true)}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-amber-950/60 hover:bg-amber-900/70 border border-amber-500/50 text-amber-300 hover:text-amber-200 text-xs font-bold shadow-lg shadow-amber-500/10 transition-all active:scale-95"
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-2xl bg-amber-950/60 hover:bg-amber-900/70 border border-amber-500/50 text-amber-300 hover:text-amber-200 text-xs font-bold shadow-lg shadow-amber-500/10 transition-all active:scale-95"
             >
-              <BookOpen className="w-3.5 h-3.5 text-amber-400" />
-              <span>داستان و تاریخچه</span>
-              <Sparkles className="w-3 h-3 text-amber-400" />
+              <BookOpen className="w-4 h-4 text-amber-400" />
+              <span>کتابچه داستان و تاریخچه آدمک‌های چوبی</span>
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
             </button>
           </div>
         </div>
@@ -376,59 +353,6 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
               />
             </div>
 
-            {/* Control Mode Selection (Windows/Desktop vs Mobile/Touch) */}
-            <div className="mb-4">
-              <label className="block text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1.5">
-                حالت کنترل بازی
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  id="btn_control_desktop"
-                  onClick={() => onChangeControlMode('desktop')}
-                  className={`py-2 px-2.5 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all ${
-                    controlMode === 'desktop'
-                      ? 'bg-cyan-950 border-cyan-500 text-cyan-300 shadow-md shadow-cyan-950/50'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <Laptop className="w-4 h-4 text-cyan-400" />
-                  <span className="text-xs font-bold">ویندوز / کیبورد</span>
-                  <span className="text-[10px] text-slate-400">WASD / جهت‌نما</span>
-                </button>
-
-                <button
-                  type="button"
-                  id="btn_control_touch"
-                  onClick={() => onChangeControlMode('touch')}
-                  className={`py-2 px-2.5 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all ${
-                    controlMode === 'touch'
-                      ? 'bg-emerald-950 border-emerald-500 text-emerald-300 shadow-md shadow-emerald-950/50'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <Smartphone className="w-4 h-4 text-emerald-400" />
-                  <span className="text-xs font-bold">گوشی / صفحه لمسی</span>
-                  <span className="text-[10px] text-slate-400">جوی‌استیک روی صفحه</span>
-                </button>
-
-                <button
-                  type="button"
-                  id="btn_control_auto"
-                  onClick={() => onChangeControlMode('auto')}
-                  className={`py-2 px-2.5 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all ${
-                    controlMode === 'auto'
-                      ? 'bg-slate-800 border-slate-600 text-amber-300 shadow-md'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <RefreshCw className="w-4 h-4 text-amber-400" />
-                  <span className="text-xs font-bold">تشخیص خودکار</span>
-                  <span className="text-[10px] text-slate-400">بر اساس دستگاه</span>
-                </button>
-              </div>
-            </div>
-
             {/* Character Selection */}
             <div className="mb-5">
               <div className="flex items-center justify-between mb-2">
@@ -571,7 +495,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                     id="input_join_code"
                     type="text"
                     value={joinCode}
-                    onChange={(e) => setJoinCode(normalizeRoomCode(e.target.value))}
+                    onChange={(e) => setJoinCode(e.target.value.toUpperCase().trim())}
                     maxLength={10}
                     placeholder="مثال: NOVA42"
                     className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-cyan-500/50 text-cyan-400 font-mono text-center text-xl font-bold tracking-widest focus:outline-none focus:border-cyan-400 transition-colors"

@@ -16,17 +16,6 @@ type MessageHandler<T> = (data: T) => void;
 export type NetworkMode = 'auto' | 'p2p' | 'websocket';
 
 const WORDS = ['AURA', 'NOVA', 'LUNA', 'SOL', 'ECHO', 'ZEST', 'PEAK', 'IRIS', 'VALE', 'FLUX'];
-export function normalizeRoomCode(code: string): string {
-  if (!code) return '';
-  const pDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
-  const aDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-  let str = code.trim().toUpperCase();
-  for (let i = 0; i < 10; i++) {
-    str = str.split(pDigits[i]).join(String(i)).split(aDigits[i]).join(String(i));
-  }
-  return str.replace(/[^A-Z0-9]/g, '');
-}
-
 function generateP2PRoomCode(): string {
   const word = WORDS[Math.floor(Math.random() * WORDS.length)];
   const num = Math.floor(10 + Math.random() * 90);
@@ -35,7 +24,7 @@ function generateP2PRoomCode(): string {
 
 const PEER_ID_PREFIX = 'aether-duo-v1-';
 
-const DEFAULT_USER_WORKER = 'https://it-takes.sitee-partner.workers.dev';
+const DEFAULT_USER_WORKER = 'https://dry-snow-f534.sitee-partner.workers.dev';
 
 export class NetworkClient {
   // WebSocket state
@@ -113,16 +102,7 @@ export class NetworkClient {
     const storedWorker = typeof localStorage !== 'undefined' ? localStorage.getItem('aether_cf_worker_url') : null;
     const envWorker = (import.meta as any).env?.VITE_CF_WORKER_URL;
 
-    // Use custom setting if explicitly configured in URL or localStorage or env
-    let target = (paramWorker || storedWorker || envWorker || '').trim();
-
-    if (!target) {
-      if (typeof window !== 'undefined') {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        return `${protocol}//${window.location.host}/ws`;
-      }
-      target = DEFAULT_USER_WORKER;
-    }
+    let target = (paramWorker || storedWorker || envWorker || DEFAULT_USER_WORKER).trim();
 
     if (target) {
       if (target.startsWith('http://')) target = 'ws://' + target.substring(7);
@@ -302,8 +282,8 @@ export class NetworkClient {
   }
 
   // --- P2P Host Room Creation ---
-  private async createRoomP2P(playerName: string, preferredRole: PlayerRole = 'explorer', customCode?: string): Promise<string> {
-    const code = customCode || generateP2PRoomCode();
+  private async createRoomP2P(playerName: string, preferredRole: PlayerRole = 'explorer'): Promise<void> {
+    const code = generateP2PRoomCode();
     const peerId = `${PEER_ID_PREFIX}${code.toLowerCase()}`;
 
     const hostPeer = await this.initPeer(peerId);
@@ -375,7 +355,7 @@ export class NetworkClient {
 
   // --- P2P Guest Join Room ---
   private async joinRoomP2P(code: string, playerName: string, preferredRole?: PlayerRole): Promise<void> {
-    const cleanCode = normalizeRoomCode(code);
+    const cleanCode = code.trim().toUpperCase();
     const targetPeerId = `${PEER_ID_PREFIX}${cleanCode.toLowerCase()}`;
 
     const guestPeer = await this.initPeer();
@@ -530,109 +510,80 @@ export class NetworkClient {
   public async createRoom(playerName: string, preferredRole?: PlayerRole): Promise<void> {
     this.myName = playerName;
     const role = preferredRole || 'explorer';
-    const code = generateP2PRoomCode();
 
-    // 1. Always start P2P host listener in background so guests across any domain can connect via PeerJS!
-    let p2pCreated = false;
-    try {
-      await this.createRoomP2P(playerName, role, code);
-      p2pCreated = true;
-    } catch (err) {
-      console.warn('Could not init background P2P listener:', err);
+    if (this.shouldUseP2PFirst()) {
+      try {
+        await this.createRoomP2P(playerName, role);
+        return;
+      } catch (p2pErr: any) {
+        console.warn('P2P creation failed, attempting fallback to WebSocket:', p2pErr);
+      }
     }
 
-    // 2. Also register on WebSocket server so WS guests on same server can connect!
+    // Try WebSocket
     const wsSuccess = await this.connectWs();
     if (wsSuccess) {
-      this.activeTransport = 'ws';
       this.send({
         type: 'create_room',
-        code,
         playerName,
         preferredRole: role,
       });
       return;
     }
 
-    // If WS failed but P2P host is live, inform local UI
-    if (p2pCreated && this.hostRoomData) {
-      this.activeTransport = 'p2p';
-      this.onRoomJoined?.({
-        room: this.hostRoomData,
-        assignedRole: role,
-        yourId: this.myId || 'p2p_host',
-      });
-      this.onConnectionChange?.(true, 1);
-      return;
+    // If WebSocket failed and we hadn't tried P2P yet, auto-fallback to P2P!
+    if (!this.shouldUseP2PFirst()) {
+      try {
+        await this.createRoomP2P(playerName, role);
+        return;
+      } catch (p2pErr: any) {
+        const msg = p2pErr?.message || 'امکان ساخت اتاق نه با وب‌سوکت و نه با P2P فراهم نشد.';
+        this.onError?.(msg);
+        throw new Error(msg);
+      }
     }
 
-    throw new Error('امکان ساخت اتاق فراهم نشد.');
+    throw new Error('عدم دسترسی به سرور بازی و شبکه همتا‌به‌همتا.');
   }
 
   public async joinRoom(code: string, playerName: string, preferredRole?: PlayerRole): Promise<void> {
     this.myName = playerName;
-    const cleanCode = normalizeRoomCode(code);
+    const cleanCode = code.trim().toUpperCase();
 
-    if (!cleanCode) {
-      throw new Error('کد اتاق وارد شده معتبر نیست.');
-    }
-
-    // 1. Try WebSocket join first with a 1.5s response timeout
-    let wsJoined = false;
-    try {
-      const wsSuccess = await this.connectWs();
-      if (wsSuccess) {
-        wsJoined = await new Promise<boolean>((resolve) => {
-          const originalOnRoomJoined = this.onRoomJoined;
-          const originalOnError = this.onError;
-
-          const timer = setTimeout(() => {
-            this.onRoomJoined = originalOnRoomJoined;
-            this.onError = originalOnError;
-            resolve(false);
-          }, 1500);
-
-          this.onRoomJoined = (data) => {
-            clearTimeout(timer);
-            this.onRoomJoined = originalOnRoomJoined;
-            this.onError = originalOnError;
-            this.activeTransport = 'ws';
-            originalOnRoomJoined?.(data);
-            resolve(true);
-          };
-
-          this.onError = (err) => {
-            clearTimeout(timer);
-            this.onRoomJoined = originalOnRoomJoined;
-            this.onError = originalOnError;
-            resolve(false);
-          };
-
-          this.send({
-            type: 'join_room',
-            code: cleanCode,
-            playerName,
-            preferredRole,
-          });
-        });
+    if (this.shouldUseP2PFirst()) {
+      try {
+        await this.joinRoomP2P(cleanCode, playerName, preferredRole);
+        return;
+      } catch (p2pErr: any) {
+        console.warn('P2P join failed, attempting fallback to WebSocket:', p2pErr);
       }
-    } catch {
-      wsJoined = false;
     }
 
-    if (wsJoined) {
+    // Try WebSocket
+    const wsSuccess = await this.connectWs();
+    if (wsSuccess) {
+      this.send({
+        type: 'join_room',
+        code: cleanCode,
+        playerName,
+        preferredRole,
+      });
       return;
     }
 
-    // 2. Fallback to P2P Join immediately if WS room was not found or failed!
-    try {
-      await this.joinRoomP2P(cleanCode, playerName, preferredRole);
-      return;
-    } catch (p2pErr: any) {
-      const msg = p2pErr?.message || `اتاقی با کد ${cleanCode} یافت نشد. لطفاً کد را بررسی کرده و مطمئن شوید سازنده اتاق آنلاین است.`;
-      this.onError?.(msg);
-      throw new Error(msg);
+    // If WebSocket failed, auto-try P2P
+    if (!this.shouldUseP2PFirst()) {
+      try {
+        await this.joinRoomP2P(cleanCode, playerName, preferredRole);
+        return;
+      } catch (p2pErr: any) {
+        const msg = p2pErr?.message || 'اتصال به اتاق ناموفق بود.';
+        this.onError?.(msg);
+        throw new Error(msg);
+      }
     }
+
+    throw new Error('اتصال به سرور بازی برقرار نشد.');
   }
 
   private handleServerMessage(msg: ServerMessage) {

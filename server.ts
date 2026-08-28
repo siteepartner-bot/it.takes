@@ -127,7 +127,7 @@ app.get('/api/gemini/status', (req, res) => {
   const isAvailable = !!getGeminiClient();
   res.json({
     available: isAvailable,
-    model: 'gemini-3.7-flash',
+    model: 'gemini-3.5-flash-lite',
     host: 'node-express',
     message: isAvailable
       ? 'جمینای به صورت بلادرنگ و فعال روی سرور متصل است.'
@@ -199,19 +199,15 @@ ${stageInfo.keyObjectives}
         let response;
         try {
           response = await ai.models.generateContent({
-            model: 'gemini-3.6-flash',
+            model: 'gemini-3.5-flash-lite',
             contents: promptText,
             config: {
-              systemInstruction: `تو "استاد الیاس" (Master Elias) هستی، ساعت‌ساز دانای کهن که دو آدمک چوبی نورا و برسام را تراشیده است.
-اکنون از طریق بیسیم اِیتِر با آن‌ها صحبت می‌کنی.
-- با لحنی خردمندانه، کاربردی و پرانرژی به زبان فارسی پاسخ بده.
-- مستقیماً به سوال یا درخواست راهنمایی پاسخ بده و از تکرار کلمات کلیشه‌ای مثل "درود بر فرزندان من" یا مقدمه‌های تکراری پرهیز کن.
-- در ۲ الی ۳ جمله کوتاه بگو دقیقا باید چکار کنند (مثلاً: زدن کلید F برای صاعقه/سپر، هل دادن سنگ، کشیدن اهرم).`,
+              systemInstruction,
               temperature: 0.6,
             },
           });
         } catch (modelErr: any) {
-          console.warn('Fallback Gemini call due to:', modelErr?.message);
+          console.warn('Fallback to gemini-3.6-flash due to:', modelErr?.message);
           response = await ai.models.generateContent({
             model: 'gemini-3.6-flash',
             contents: promptText,
@@ -323,8 +319,7 @@ wss.on('connection', (ws: WebSocket) => {
       }
 
       if (msg.type === 'create_room') {
-        const customCode = msg.code ? String(msg.code).toUpperCase().trim() : '';
-        const code = customCode || generateRoomCode();
+        const code = generateRoomCode();
         const role: PlayerRole = msg.preferredRole || 'explorer';
         const clientId = `p_${Math.random().toString(36).substring(2, 9)}`;
 
@@ -377,7 +372,7 @@ wss.on('connection', (ws: WebSocket) => {
         const room = rooms.get(code);
 
         if (!room) {
-          send(ws, { type: 'error', message: `اتاقی با کد ${code} یافت نشد. لطفاً کد را بررسی کرده و مطمئن شوید سازنده اتاق آنلاین است.` });
+          send(ws, { type: 'error', message: `Room ${code} not found. Check code or create a new room.` });
           return;
         }
 
@@ -395,7 +390,7 @@ wss.on('connection', (ws: WebSocket) => {
         } else if (!guardianConnected) {
           assignedRole = 'guardian';
         } else {
-          send(ws, { type: 'error', message: `ظرفیت اتاق ${code} تکمیل است (هر ۲ بازیکن نورا و برسام متصل هستند).` });
+          send(ws, { type: 'error', message: `Room ${code} is full (2/2 players connected).` });
           return;
         }
 

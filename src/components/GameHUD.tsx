@@ -12,8 +12,9 @@ import {
   Shield,
   Radio,
 } from 'lucide-react';
-import type { PlayerRole, EmoteType } from '../types.ts';
+import type { PlayerRole, EmoteType, PuzzleState } from '../types.ts';
 import { ProximityVoiceBar } from './ProximityVoiceBar.tsx';
+import { HandsFreeVoiceWidget } from './HandsFreeVoiceWidget.tsx';
 
 interface GameHUDProps {
   roomCode: string | null;
@@ -33,6 +34,7 @@ interface GameHUDProps {
   onOpenGeminiCall: () => void;
   soloMode: boolean;
   onToggleSoloHero: () => void;
+  puzzleState?: PuzzleState;
 }
 
 const STAGE_TITLES: Record<number, { name: string; desc: string }> = {
@@ -54,6 +56,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   roomCode,
   stageId,
   myRole,
+  myName,
   partnerName,
   partnerRole,
   partnerConnected,
@@ -67,6 +70,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   onOpenGeminiCall,
   soloMode,
   onToggleSoloHero,
+  puzzleState,
 }) => {
   const [copied, setCopied] = React.useState(false);
 
@@ -154,6 +158,15 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Hands-Free Live Gemini Assistant Toggle */}
+          <HandsFreeVoiceWidget
+            stageId={stageId}
+            myRole={myRole}
+            puzzleState={puzzleState || ({} as any)}
+            myName={myName}
+            partnerDistance={partnerDistance}
+          />
 
           {/* Gemini AI Voice Call Button */}
           <button

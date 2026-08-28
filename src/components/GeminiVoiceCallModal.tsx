@@ -65,6 +65,7 @@ export const GeminiVoiceCallModal: React.FC<GeminiVoiceCallModalProps> = ({
     'درود بر فرزندان چوبی من! نورا و برسام، چه کمکی از دست ساعت‌ساز کهن برایتان ساخته است؟'
   );
   const [adviceSource, setAdviceSource] = useState<string>('gemini-3.5-flash-lite');
+  const [autoListen, setAutoListen] = useState(true);
   const [customQuestion, setCustomQuestion] = useState('');
   const [showCfGuide, setShowCfGuide] = useState(false);
 
@@ -88,7 +89,14 @@ export const GeminiVoiceCallModal: React.FC<GeminiVoiceCallModalProps> = ({
     speakWithVoice(
       lastAdvice,
       () => setIsSpeaking(true),
-      () => setIsSpeaking(false)
+      () => {
+        setIsSpeaking(false);
+        if (autoListen && recognizerRef.current?.isSupported) {
+          setTimeout(() => {
+            recognizerRef.current?.start();
+          }, 300);
+        }
+      }
     );
 
     return () => {
@@ -156,7 +164,15 @@ export const GeminiVoiceCallModal: React.FC<GeminiVoiceCallModalProps> = ({
         speakWithVoice(
           response.text,
           () => setIsSpeaking(true),
-          () => setIsSpeaking(false)
+          () => {
+            setIsSpeaking(false);
+            // Auto restart speech recognition loop after Elias finishes speaking!
+            if (autoListen && recognizerRef.current?.isSupported) {
+              setTimeout(() => {
+                recognizerRef.current?.start();
+              }, 400);
+            }
+          }
         );
       }
     } catch (e: any) {

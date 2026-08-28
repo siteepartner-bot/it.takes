@@ -9,6 +9,7 @@ import { PauseMenu } from './components/PauseMenu.tsx';
 import { StageClearModal } from './components/StageClearModal.tsx';
 import { StoryModal } from './components/StoryModal.tsx';
 import { GeminiVoiceCallModal } from './components/GeminiVoiceCallModal.tsx';
+import { HandsFreeVoiceWidget } from './components/HandsFreeVoiceWidget.tsx';
 import { CloudflareGuideModal } from './components/CloudflareGuideModal.tsx';
 import { createDefaultPuzzleState } from './types.ts';
 import { proximityVoiceManager } from './audio/proximityVoice.ts';
@@ -405,6 +406,11 @@ export default function App() {
             onOpenGeminiCall={() => setIsGeminiCallOpen(true)}
             soloMode={soloMode}
             onToggleSoloHero={handleToggleSoloHero}
+            puzzleState={
+              engineRef.current
+                ? engineRef.current.getPuzzleState()
+                : createDefaultPuzzleState(currentStageId)
+            }
           />
 
           {/* Touch Controls for Mobile & Tablets */}

@@ -22,6 +22,7 @@ import {
 import type { PlayerRole, RoomData } from '../types.ts';
 import { networkClient, type NetworkMode } from '../multiplayer/networkClient.ts';
 import { StoryModal } from './StoryModal.tsx';
+import { GeminiActivationModal } from './GeminiActivationModal.tsx';
 import { isFullscreen, toggleFullscreen } from '../utils/fullscreen.ts';
 
 interface LobbyScreenProps {
@@ -54,6 +55,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   const [copied, setCopied] = useState(false);
   const [showNetworkModal, setShowNetworkModal] = useState(false);
   const [showStoryModal, setShowStoryModal] = useState(false);
+  const [showGeminiModal, setShowGeminiModal] = useState(false);
   const [inFullscreen, setInFullscreen] = useState(false);
   const [networkMode, setNetworkMode] = useState<NetworkMode>(() => networkClient.getNetworkMode());
 
@@ -129,20 +131,31 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
       <div className="fixed top-1/4 -right-20 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none" />
       <div className="fixed bottom-1/4 -left-20 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Top action bar: Fullscreen & Story */}
-      <div className="w-full max-w-2xl flex items-center justify-between z-20 mb-2 sm:mb-4 px-1">
-        <button
-          onClick={() => setShowStoryModal(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-950/60 hover:bg-amber-900/70 border border-amber-500/40 text-amber-300 text-xs font-bold transition-all active:scale-95"
-        >
-          <BookOpen className="w-3.5 h-3.5 text-amber-400" />
-          <span className="hidden sm:inline">داستان بازی</span>
-          <span>نیوشا و حسن</span>
-        </button>
+      {/* Top action bar: Story, Gemini Setup & Fullscreen */}
+      <div className="w-full max-w-2xl flex items-center justify-between z-20 mb-2 sm:mb-4 px-1 gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowStoryModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-950/60 hover:bg-amber-900/70 border border-amber-500/40 text-amber-300 text-xs font-bold transition-all active:scale-95"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">داستان بازی</span>
+            <span>نیوشا و حسن</span>
+          </button>
+
+          <button
+            id="btn_lobby_open_gemini_setup"
+            onClick={() => setShowGeminiModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-950 to-slate-900 hover:from-amber-900 hover:to-slate-800 border border-amber-500/50 text-amber-300 text-xs font-bold transition-all active:scale-95 shadow-md shadow-amber-500/10"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+            <span>فعال‌سازی جمینای</span>
+          </button>
+        </div>
 
         <button
           onClick={() => toggleFullscreen()}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-850 border border-slate-800 text-slate-300 hover:text-white text-xs font-semibold transition-all active:scale-95"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-850 border border-slate-800 text-slate-300 hover:text-white text-xs font-semibold transition-all active:scale-95 shrink-0"
           title="حالت تمام صفحه"
         >
           {inFullscreen ? (
@@ -625,6 +638,9 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
       {/* Narrative Lore & History Modal */}
       <StoryModal isOpen={showStoryModal} onClose={() => setShowStoryModal(false)} />
+
+      {/* Gemini Activation & Diagnostic Setup Wizard */}
+      <GeminiActivationModal isOpen={showGeminiModal} onClose={() => setShowGeminiModal(false)} />
     </div>
   );
 };

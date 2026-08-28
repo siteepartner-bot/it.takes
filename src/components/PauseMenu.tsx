@@ -39,6 +39,7 @@ interface PauseMenuProps {
   onToggleSoloHero: () => void;
   onOpenStory?: () => void;
   onOpenGeminiCall?: () => void;
+  onOpenGeminiSetup?: () => void;
   controlMode?: 'windows' | 'mobile';
   onChangeControlMode?: (mode: 'windows' | 'mobile') => void;
   ambientWakeWordEnabled?: boolean;
@@ -59,6 +60,7 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({
   onToggleSoloHero,
   onOpenStory,
   onOpenGeminiCall,
+  onOpenGeminiSetup,
   controlMode = 'windows',
   onChangeControlMode,
   ambientWakeWordEnabled = true,
@@ -424,17 +426,33 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({
 
         {/* Master Gemini AI Guidance Messenger Modal Trigger */}
         {onOpenGeminiCall && (
-          <button
-            id="btn_pause_gemini_call"
-            onClick={() => {
-              onClose();
-              onOpenGeminiCall();
-            }}
-            className="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-amber-950 to-slate-900 hover:from-amber-900 hover:to-slate-800 border border-amber-500/50 text-amber-300 text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-md shadow-amber-500/20"
-          >
-            <MessageSquare className="w-4 h-4 text-amber-400" />
-            <span>پیام‌رسان راهنمای استاد الیاس (Gemini AI)</span>
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+            <button
+              id="btn_pause_gemini_call"
+              onClick={() => {
+                onClose();
+                onOpenGeminiCall();
+              }}
+              className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-950 to-slate-900 hover:from-amber-900 hover:to-slate-800 border border-amber-500/50 text-amber-300 text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-md shadow-amber-500/20"
+            >
+              <MessageSquare className="w-4 h-4 text-amber-400" />
+              <span>استاد الیاس (Gemini)</span>
+            </button>
+
+            {onOpenGeminiSetup && (
+              <button
+                id="btn_pause_gemini_setup"
+                onClick={() => {
+                  onClose();
+                  onOpenGeminiSetup();
+                }}
+                className="py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center justify-center gap-2 transition-colors"
+              >
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <span>فعال‌سازی و تست AI</span>
+              </button>
+            )}
+          </div>
         )}
 
         <button

@@ -9,6 +9,7 @@ import { PauseMenu } from './components/PauseMenu.tsx';
 import { StageClearModal } from './components/StageClearModal.tsx';
 import { StoryModal } from './components/StoryModal.tsx';
 import { GeminiVoiceCallModal } from './components/GeminiVoiceCallModal.tsx';
+import { GeminiActivationModal } from './components/GeminiActivationModal.tsx';
 import { VoiceCallPanel } from './components/VoiceCallPanel.tsx';
 import { useWebRTCVoice } from './hooks/useWebRTCVoice.ts';
 import { createDefaultPuzzleState } from './types.ts';
@@ -44,6 +45,7 @@ export default function App() {
   const [isStageClearOpen, setIsStageClearOpen] = useState(false);
   const [isStoryOpen, setIsStoryOpen] = useState(false);
   const [isGeminiCallOpen, setIsGeminiCallOpen] = useState(false);
+  const [isGeminiSetupOpen, setIsGeminiSetupOpen] = useState(false);
   const [soloMode, setSoloMode] = useState(false);
 
   // Control Mode: 'windows' (mouse-look + WASD) vs 'mobile' (touch joystick + buttons)
@@ -544,6 +546,7 @@ export default function App() {
             onToggleSoloHero={handleToggleSoloHero}
             onOpenStory={() => setIsStoryOpen(true)}
             onOpenGeminiCall={() => setIsGeminiCallOpen(true)}
+            onOpenGeminiSetup={() => setIsGeminiSetupOpen(true)}
             controlMode={controlMode}
             onChangeControlMode={handleSetControlMode}
             ambientWakeWordEnabled={ambientWakeWordEnabled}
@@ -567,6 +570,12 @@ export default function App() {
                 : createDefaultPuzzleState(currentStageId)
             }
             partnerDistance={partnerDistance}
+          />
+
+          {/* Gemini Activation & Setup Wizard Modal */}
+          <GeminiActivationModal
+            isOpen={isGeminiSetupOpen}
+            onClose={() => setIsGeminiSetupOpen(false)}
           />
 
           {/* Stage Cleared Celebration Modal */}

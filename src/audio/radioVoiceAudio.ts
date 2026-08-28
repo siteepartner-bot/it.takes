@@ -253,20 +253,87 @@ export function createSpeechRecognizer(
 }
 
 /**
- * Ambient Wake Word Listener (Safe manual / non-looping)
+ * Ambient Wake Word Listener for In-Game Voice Call ("استاد")
  */
 export function createWakeWordRecognizer(
   onWakeWordDetected: (fullPhrase: string) => void,
   onListeningChange?: (listening: boolean) => void,
   onError?: (err: string) => void
 ): { start: () => void; stop: () => void; isSupported: boolean } {
+  if (typeof window === 'undefined') {
+    return { start: () => {}, stop: () => {}, isSupported: false };
+  }
+
+  const SpeechClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+  if (!SpeechClass) {
+    return { start: () => {}, stop: () => {}, isSupported: false };
+  }
+
+  let recognition: any = null;
+  let isActive = false;
+
+  try {
+    recognition = new SpeechClass();
+    recognition.lang = 'fa-IR';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onstart = () => {
+      isActive = true;
+      onListeningChange?.(true);
+    };
+
+    recognition.onresult = (event: any) => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0]?.transcript || '';
+        if (transcript.trim()) {
+          const lower = transcript.toLowerCase();
+          if (
+            lower.includes('استاد') ||
+            lower.includes('الیاس') ||
+            lower.includes('مربی') ||
+            lower.includes('راهنما')
+          ) {
+            onWakeWordDetected(transcript.trim());
+            break;
+          }
+        }
+      }
+    };
+
+    recognition.onerror = (e: any) => {
+      if (e.error !== 'no-speech') {
+        onError?.(e.error);
+      }
+    };
+
+    recognition.onend = () => {
+      onListeningChange?.(false);
+      // Auto-restart if still intended to be active
+      if (isActive) {
+        try {
+          recognition.start();
+        } catch (_) {}
+      }
+    };
+  } catch (err: any) {
+    return { start: () => {}, stop: () => {}, isSupported: false };
+  }
+
   return {
     start: () => {
-      onListeningChange?.(false);
+      isActive = true;
+      try {
+        recognition.start();
+      } catch (_) {}
     },
     stop: () => {
+      isActive = false;
+      try {
+        recognition.stop();
+      } catch (_) {}
       onListeningChange?.(false);
     },
-    isSupported: false,
+    isSupported: true,
   };
 }

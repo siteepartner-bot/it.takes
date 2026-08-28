@@ -80,6 +80,10 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   soloMode,
   onToggleSoloHero,
   puzzleState,
+  controlMode,
+  onChangeControlMode,
+  isFullscreen,
+  onToggleFullscreen,
 }) => {
   const [copied, setCopied] = React.useState(false);
 

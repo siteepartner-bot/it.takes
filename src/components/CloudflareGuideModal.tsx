@@ -14,7 +14,7 @@ import {
   RefreshCw,
   Terminal,
 } from 'lucide-react';
-import { checkGeminiStatus } from '../services/geminiService.ts';
+import { checkGeminiStatus, getSavedTestApiKey, saveTestApiKey } from '../services/geminiService.ts';
 
 interface CloudflareGuideModalProps {
   isOpen: boolean;
@@ -72,6 +72,7 @@ export default {
 export const CloudflareGuideModal: React.FC<CloudflareGuideModalProps> = ({ isOpen, onClose }) => {
   const [copied, setCopied] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [testKeyInput, setTestKeyInput] = useState(() => getSavedTestApiKey());
   const [testResult, setTestResult] = useState<{
     available: boolean;
     model: string;
@@ -87,11 +88,16 @@ export const CloudflareGuideModal: React.FC<CloudflareGuideModalProps> = ({ isOp
     setTimeout(() => setCopied(false), 2500);
   };
 
+  const handleSaveTestKey = () => {
+    saveTestApiKey(testKeyInput);
+    handleRunDiagnostic();
+  };
+
   const handleRunDiagnostic = async () => {
     setTesting(true);
     setTestResult(null);
     try {
-      const result = await checkGeminiStatus();
+      const result = await checkGeminiStatus(testKeyInput);
       setTestResult(result);
     } catch (e: any) {
       setTestResult({
@@ -145,40 +151,64 @@ export const CloudflareGuideModal: React.FC<CloudflareGuideModalProps> = ({ isOp
             </button>
           </div>
 
-          {/* Diagnostic Box */}
-          <div className="mb-5 p-4 rounded-2xl bg-slate-950/80 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <div className="text-xs font-bold text-slate-300 flex items-center gap-2">
-                <Server className="w-4 h-4 text-cyan-400" />
-                <span>بررسی وضعیت کنونی اتصال جمینای:</span>
+          {/* Diagnostic & Quick Test Key Box */}
+          <div className="mb-5 p-4 rounded-2xl bg-slate-950/80 border border-cyan-500/30 flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="text-xs font-bold text-slate-300 flex items-center gap-2">
+                  <Server className="w-4 h-4 text-cyan-400" />
+                  <span>بررسی وضعیت کنونی اتصال جمینای:</span>
+                </div>
+                {testResult ? (
+                  <div className="mt-1 flex items-center gap-2 text-xs">
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        testResult.available ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                      }`}
+                    />
+                    <span className={testResult.available ? 'text-emerald-300 font-bold' : 'text-amber-300'}>
+                      {testResult.message} ({testResult.model})
+                    </span>
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    کلید در سرور یا به صورت مستقیم در کادر زیر وارد کنید تا زنده تست شود.
+                  </div>
+                )}
               </div>
-              {testResult ? (
-                <div className="mt-1 flex items-center gap-2 text-xs">
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      testResult.available ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
-                    }`}
-                  />
-                  <span className={testResult.available ? 'text-emerald-300 font-bold' : 'text-amber-300'}>
-                    {testResult.message} ({testResult.model})
-                  </span>
-                </div>
-              ) : (
-                <div className="text-[11px] text-slate-400 mt-0.5">
-                  برای ارزیابی وضعیت کلید API در محیط کنونی دکمه تست را بزنید.
-                </div>
-              )}
+
+              <button
+                id="btn_test_gemini_cf"
+                onClick={handleRunDiagnostic}
+                disabled={testing}
+                className="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition-all self-start sm:self-auto shrink-0 shadow-md shadow-cyan-600/20 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${testing ? 'animate-spin' : ''}`} />
+                <span>{testing ? 'در حال تست...' : 'تست اتصال به جمینای'}</span>
+              </button>
             </div>
 
-            <button
-              id="btn_test_gemini_cf"
-              onClick={handleRunDiagnostic}
-              disabled={testing}
-              className="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition-all self-start sm:self-auto shrink-0 shadow-md shadow-cyan-600/20 disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${testing ? 'animate-spin' : ''}`} />
-              <span>{testing ? 'در حال تست...' : 'تست اتصال به جمینای'}</span>
-            </button>
+            {/* Quick API Key Input for Preview Testing */}
+            <div className="pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="flex items-center gap-1.5 text-xs text-amber-400 font-bold shrink-0">
+                <Key className="w-3.5 h-3.5" />
+                <span>کلید مستقیم تست (اختیاری):</span>
+              </div>
+              <input
+                type="password"
+                placeholder="AIzaSy..."
+                value={testKeyInput}
+                onChange={(e) => setTestKeyInput(e.target.value)}
+                className="flex-1 bg-slate-900 border border-slate-700 focus:border-cyan-400 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none"
+                dir="ltr"
+              />
+              <button
+                onClick={handleSaveTestKey}
+                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-colors shrink-0"
+              >
+                ذخیره و تست جمینای
+              </button>
+            </div>
           </div>
 
           {/* 3 Step Deployment Guide */}

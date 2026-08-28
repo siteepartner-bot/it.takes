@@ -68,9 +68,20 @@ export async function checkGeminiStatus(): Promise<GeminiStatusResponse> {
       headers: { Accept: 'application/json' },
     });
 
-    if (res.ok) {
+    const contentType = res.headers.get('content-type') || '';
+    if (res.ok && contentType.includes('application/json')) {
       return await res.json();
     }
+
+    if (res.ok && !contentType.includes('application/json')) {
+      return {
+        available: false,
+        model: 'offline',
+        host: baseUrl ? 'cloudflare-worker' : 'local',
+        message: 'آدرس واردشده صفحه HTML بازگرداند. لطفاً مطمئن شوید آدرس API درست است.',
+      };
+    }
+
     return {
       available: false,
       model: 'unknown',
@@ -82,7 +93,9 @@ export async function checkGeminiStatus(): Promise<GeminiStatusResponse> {
       available: false,
       model: 'offline',
       host: 'local',
-      message: err.message || 'خطا در برقراری ارتباط با سرور',
+      message: err.message?.includes('JSON')
+        ? 'پاسخ سرور فرمت JSON نداشت (صفحه HTML دریافت شد).'
+        : (err.message || 'خطا در برقراری ارتباط با سرور'),
     };
   }
 }
@@ -116,7 +129,8 @@ export async function requestGeminiGuidance(
       body: JSON.stringify(payload),
     });
 
-    if (res.ok) {
+    const contentType = res.headers.get('content-type') || '';
+    if (res.ok && contentType.includes('application/json')) {
       return await res.json();
     }
 

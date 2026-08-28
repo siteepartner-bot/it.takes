@@ -34,6 +34,8 @@ export interface FirebaseSyncCallbacks {
 }
 
 export class FirebaseSync {
+  public static isQuotaExhausted: boolean = false;
+
   private activeRoomCode: string | null = null;
   private myRole: PlayerRole | null = null;
   private myId: string | null = null;
@@ -62,6 +64,26 @@ export class FirebaseSync {
     if (callbacks) this.callbacks = callbacks;
   }
 
+  private static isQuotaError(err: any): boolean {
+    if (!err) return false;
+    const code = err?.code;
+    const msg = String(err?.message || '');
+    return (
+      code === 'resource-exhausted' ||
+      code === 8 ||
+      msg.includes('Quota') ||
+      msg.includes('quota') ||
+      msg.includes('resource-exhausted') ||
+      msg.includes('limit exceeded')
+    );
+  }
+
+  private handleQuotaExceeded(err?: any) {
+    FirebaseSync.isQuotaExhausted = true;
+    console.warn('Firestore write quota reached; gracefully switching to WebSocket / P2P transport.');
+    this.cleanup();
+  }
+
   public setCallbacks(callbacks: FirebaseSyncCallbacks) {
     this.callbacks = { ...this.callbacks, ...callbacks };
   }
@@ -86,6 +108,10 @@ export class FirebaseSync {
     stageId: number = 1
   ): Promise<RoomData> {
     this.cleanup();
+
+    if (FirebaseSync.isQuotaExhausted) {
+      throw new Error('Firestore quota limit reached. Using WebSocket / P2P.');
+    }
 
     const cleanCode = code.toUpperCase().trim();
     this.activeRoomCode = cleanCode;
@@ -146,7 +172,11 @@ export class FirebaseSync {
 
       return roomData;
     } catch (err: any) {
-      console.error('Failed to create room in Firebase:', err);
+      if (FirebaseSync.isQuotaError(err)) {
+        this.handleQuotaExceeded(err);
+      } else {
+        console.error('Failed to create room in Firebase:', err);
+      }
       const msg = err?.message || 'خطا در ثبت اتاق در سرور ابری فایربیس.';
       this.callbacks.onError?.(msg);
       throw new Error(msg);
@@ -160,6 +190,10 @@ export class FirebaseSync {
     preferredRole?: PlayerRole
   ): Promise<{ room: RoomData; assignedRole: PlayerRole; yourId: string }> {
     this.cleanup();
+
+    if (FirebaseSync.isQuotaExhausted) {
+      throw new Error('Firestore quota limit reached. Using WebSocket / P2P.');
+    }
 
     const cleanCode = code.toUpperCase().trim();
     const roomRef = doc(db, 'rooms', cleanCode);
@@ -246,7 +280,11 @@ export class FirebaseSync {
         yourId: this.myId,
       };
     } catch (err: any) {
-      console.error('Failed to join room in Firebase:', err);
+      if (FirebaseSync.isQuotaError(err)) {
+        this.handleQuotaExceeded(err);
+      } else {
+        console.error('Failed to join room in Firebase:', err);
+      }
       const msg = err?.message || 'خطا در پیوستن به اتاق در سرور ابری.';
       this.callbacks.onError?.(msg);
       throw new Error(msg);
@@ -310,7 +348,11 @@ export class FirebaseSync {
         }
       },
       (err) => {
-        console.warn('Firestore room snapshot error:', err);
+        if (FirebaseSync.isQuotaError(err)) {
+          this.handleQuotaExceeded(err);
+        } else {
+          console.warn('Firestore room snapshot warning:', err?.message || err);
+        }
       }
     );
     this.unsubscribers.push(unsubRoom);
@@ -338,7 +380,11 @@ export class FirebaseSync {
         }
       },
       (err) => {
-        console.warn('Firestore partner live snapshot error:', err);
+        if (FirebaseSync.isQuotaError(err)) {
+          this.handleQuotaExceeded(err);
+        } else {
+          console.warn('Firestore partner live snapshot warning:', err?.message || err);
+        }
       }
     );
     this.unsubscribers.push(unsubPartnerLive);
@@ -375,7 +421,11 @@ export class FirebaseSync {
         }
       },
       (err) => {
-        console.warn('Firestore events snapshot error:', err);
+        if (FirebaseSync.isQuotaError(err)) {
+          this.handleQuotaExceeded(err);
+        } else {
+          console.warn('Firestore events snapshot warning:', err?.message || err);
+        }
       }
     );
     this.unsubscribers.push(unsubEvents);
@@ -383,7 +433,7 @@ export class FirebaseSync {
 
   // --- Real-time Player Movement Sync (Delta Throttled ~100ms) ---
   public sendPlayerUpdate(state: Omit<PlayerNetState, 'id' | 'role' | 'name' | 'timestamp'>) {
-    if (!this.activeRoomCode || !this.myRole) return;
+    if (FirebaseSync.isQuotaExhausted || !this.activeRoomCode || !this.myRole) return;
     this.pendingMoveUpdate = state;
 
     const now = Date.now();
@@ -403,7 +453,7 @@ export class FirebaseSync {
       window.clearTimeout(this.moveTimer);
       this.moveTimer = null;
     }
-    if (!this.pendingMoveUpdate || !this.activeRoomCode || !this.myRole) return;
+    if (FirebaseSync.isQuotaExhausted || !this.pendingMoveUpdate || !this.activeRoomCode || !this.myRole) return;
 
     const current = this.pendingMoveUpdate;
     this.pendingMoveUpdate = null;
@@ -445,13 +495,17 @@ export class FirebaseSync {
 
     const myLiveRef = doc(db, 'rooms', this.activeRoomCode, 'live', this.myRole);
     setDoc(myLiveRef, payload).catch((err) => {
-      console.warn('Failed to sync live position to Firebase:', err);
+      if (FirebaseSync.isQuotaError(err)) {
+        this.handleQuotaExceeded(err);
+      } else {
+        console.warn('Failed to sync live position to Firebase:', err?.message || err);
+      }
     });
   }
 
   // --- Puzzle State Sync ---
   public sendPuzzleTrigger(key: string, value: any, currentPuzzleState: PuzzleState) {
-    if (!this.activeRoomCode) return;
+    if (FirebaseSync.isQuotaExhausted || !this.activeRoomCode) return;
 
     const updatedState = { ...currentPuzzleState };
     if (key in updatedState) {
@@ -465,24 +519,30 @@ export class FirebaseSync {
       puzzleState: updatedState,
       updatedAt: Date.now(),
     }).catch((err) => {
-      console.warn('Failed to sync puzzle state to Firebase:', err);
+      if (FirebaseSync.isQuotaError(err)) {
+        this.handleQuotaExceeded(err);
+      } else {
+        console.warn('Failed to sync puzzle state to Firebase:', err?.message || err);
+      }
     });
   }
 
   // --- Emotes & Pings ---
   public sendEmote(emote: EmoteType) {
-    if (!this.activeRoomCode || !this.myRole) return;
+    if (FirebaseSync.isQuotaExhausted || !this.activeRoomCode || !this.myRole) return;
     const eventRef = doc(db, 'rooms', this.activeRoomCode, 'events', 'latest');
     setDoc(eventRef, {
       type: 'emote',
       emote,
       role: this.myRole,
       timestamp: Date.now(),
-    }).catch(() => {});
+    }).catch((err) => {
+      if (FirebaseSync.isQuotaError(err)) this.handleQuotaExceeded(err);
+    });
   }
 
   public sendPing(x: number, y: number, z: number) {
-    if (!this.activeRoomCode || !this.myRole) return;
+    if (FirebaseSync.isQuotaExhausted || !this.activeRoomCode || !this.myRole) return;
     const eventRef = doc(db, 'rooms', this.activeRoomCode, 'events', 'latest');
     setDoc(eventRef, {
       type: 'ping',
@@ -493,35 +553,41 @@ export class FirebaseSync {
       senderRole: this.myRole,
       senderName: this.myName,
       timestamp: Date.now(),
-    }).catch(() => {});
+    }).catch((err) => {
+      if (FirebaseSync.isQuotaError(err)) this.handleQuotaExceeded(err);
+    });
   }
 
   // --- Checkpoint & Stage Advance ---
   public sendCheckpoint(checkpointId: number) {
-    if (!this.activeRoomCode) return;
+    if (FirebaseSync.isQuotaExhausted || !this.activeRoomCode) return;
     const roomRef = doc(db, 'rooms', this.activeRoomCode);
     updateDoc(roomRef, {
       checkpointId,
       updatedAt: Date.now(),
-    }).catch(() => {});
+    }).catch((err) => {
+      if (FirebaseSync.isQuotaError(err)) this.handleQuotaExceeded(err);
+    });
   }
 
   public sendStageAdvance(nextStageId: number) {
-    if (!this.activeRoomCode) return;
+    if (FirebaseSync.isQuotaExhausted || !this.activeRoomCode) return;
     const roomRef = doc(db, 'rooms', this.activeRoomCode);
     updateDoc(roomRef, {
       stageId: nextStageId,
       checkpointId: 0,
       puzzleState: createDefaultPuzzleState(nextStageId),
       updatedAt: Date.now(),
-    }).catch(() => {});
+    }).catch((err) => {
+      if (FirebaseSync.isQuotaError(err)) this.handleQuotaExceeded(err);
+    });
   }
 
   // --- Heartbeat Loop ---
   private startHeartbeat() {
     this.stopHeartbeat();
     this.heartbeatInterval = window.setInterval(async () => {
-      if (!this.activeRoomCode || !this.myRole) return;
+      if (FirebaseSync.isQuotaExhausted || !this.activeRoomCode || !this.myRole) return;
       const start = Date.now();
       try {
         const roomRef = doc(db, 'rooms', this.activeRoomCode);
@@ -531,8 +597,10 @@ export class FirebaseSync {
         const measured = Math.min(120, Math.max(15, Date.now() - start));
         this.lastPingMs = Math.round(0.7 * this.lastPingMs + 0.3 * measured);
         this.callbacks.onConnectionChange?.(true, this.lastPingMs);
-      } catch {
-        // Suppress transient network blips
+      } catch (err) {
+        if (FirebaseSync.isQuotaError(err)) {
+          this.handleQuotaExceeded(err);
+        }
       }
     }, 20000);
   }
@@ -546,7 +614,7 @@ export class FirebaseSync {
 
   // --- Leave / Cleanup ---
   public leaveRoom() {
-    if (this.activeRoomCode && this.myRole) {
+    if (!FirebaseSync.isQuotaExhausted && this.activeRoomCode && this.myRole) {
       const roomRef = doc(db, 'rooms', this.activeRoomCode);
       updateDoc(roomRef, {
         [`players.${this.myRole}.connected`]: false,

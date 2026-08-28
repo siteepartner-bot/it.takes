@@ -568,8 +568,22 @@ export class NetworkClient {
     this.myName = playerName;
     const role = preferredRole || 'explorer';
 
-    // 1. Primary: Firebase Firestore (Google Cloud Database)
-    if (this.networkMode === 'auto' || this.networkMode === 'firebase') {
+    // 1. If explicit WebSocket or Auto mode on full-stack server: Try high-speed WebSocket first
+    if (this.networkMode === 'websocket' || (!this.shouldUseP2PFirst() && this.networkMode === 'auto')) {
+      const wsSuccess = await this.connectWs();
+      if (wsSuccess && this.ws?.readyState === WebSocket.OPEN) {
+        this.activeTransport = 'ws';
+        this.ws.send(JSON.stringify({
+          type: 'create_room',
+          playerName,
+          preferredRole: role,
+        }));
+        return;
+      }
+    }
+
+    // 2. Firebase Firestore (if not quota exhausted)
+    if (!FirebaseSync.isQuotaExhausted && (this.networkMode === 'firebase' || this.networkMode === 'auto')) {
       try {
         const code = generateP2PRoomCode();
         await this.firebaseSync.createRoom(code, playerName, role, 1);
@@ -579,8 +593,8 @@ export class NetworkClient {
         this.isConnected = true;
         return;
       } catch (fbErr: any) {
-        console.warn('Firebase room creation failed, falling back to other transports:', fbErr);
-        if (this.networkMode === 'firebase') {
+        console.warn('Firebase room creation failed, falling back to other transports:', fbErr?.message || fbErr);
+        if (this.networkMode === 'firebase' && !FirebaseSync.isQuotaExhausted) {
           const msg = fbErr?.message || 'خطا در ثبت اتاق در سرور ابری فایربیس.';
           this.onError?.(msg);
           throw new Error(msg);
@@ -588,16 +602,15 @@ export class NetworkClient {
       }
     }
 
-    if (this.shouldUseP2PFirst()) {
-      try {
-        await this.createRoomP2P(playerName, role);
-        return;
-      } catch (p2pErr: any) {
-        console.warn('P2P creation failed, attempting fallback to WebSocket:', p2pErr);
-      }
+    // 3. P2P WebRTC Fallback (Zero server load, zero database quota)
+    try {
+      await this.createRoomP2P(playerName, role);
+      return;
+    } catch (p2pErr: any) {
+      console.warn('P2P creation failed, attempting final fallback to WebSocket:', p2pErr);
     }
 
-    // Try WebSocket
+    // Final attempt WebSocket if not tried
     const wsSuccess = await this.connectWs();
     if (wsSuccess && this.ws?.readyState === WebSocket.OPEN) {
       this.activeTransport = 'ws';
@@ -609,27 +622,30 @@ export class NetworkClient {
       return;
     }
 
-    // If WebSocket failed and we hadn't tried P2P yet, auto-fallback to P2P!
-    if (!this.shouldUseP2PFirst()) {
-      try {
-        await this.createRoomP2P(playerName, role);
-        return;
-      } catch (p2pErr: any) {
-        const msg = p2pErr?.message || 'امکان ساخت اتاق نه با وب‌سوکت و نه با P2P فراهم نشد.';
-        this.onError?.(msg);
-        throw new Error(msg);
-      }
-    }
-
-    throw new Error('عدم دسترسی به سرور بازی و شبکه همتا‌به‌همتا.');
+    throw new Error('امکان ساخت اتاق با پروتکل‌های موجود فراهم نشد. اتصال اینترنت خود را بررسی کنید.');
   }
 
   public async joinRoom(code: string, playerName: string, preferredRole?: PlayerRole): Promise<void> {
     this.myName = playerName;
     const cleanCode = code.trim().toUpperCase();
 
-    // 1. Primary: Firebase Firestore (Google Cloud Database)
-    if (this.networkMode === 'auto' || this.networkMode === 'firebase') {
+    // 1. If explicit WebSocket or Auto mode on full-stack server: Try high-speed WebSocket first
+    if (this.networkMode === 'websocket' || (!this.shouldUseP2PFirst() && this.networkMode === 'auto')) {
+      const wsSuccess = await this.connectWs();
+      if (wsSuccess && this.ws?.readyState === WebSocket.OPEN) {
+        this.activeTransport = 'ws';
+        this.ws.send(JSON.stringify({
+          type: 'join_room',
+          code: cleanCode,
+          playerName,
+          preferredRole,
+        }));
+        return;
+      }
+    }
+
+    // 2. Firebase Firestore (if not quota exhausted)
+    if (!FirebaseSync.isQuotaExhausted && (this.networkMode === 'firebase' || this.networkMode === 'auto')) {
       try {
         const res = await this.firebaseSync.joinRoom(cleanCode, playerName, preferredRole);
         this.activeTransport = 'firebase';
@@ -638,23 +654,22 @@ export class NetworkClient {
         this.isConnected = true;
         return;
       } catch (fbErr: any) {
-        console.warn('Firebase join failed, checking fallback transports:', fbErr);
-        if (this.networkMode === 'firebase') {
+        console.warn('Firebase join failed, checking fallback transports:', fbErr?.message || fbErr);
+        if (this.networkMode === 'firebase' && !FirebaseSync.isQuotaExhausted) {
           throw fbErr;
         }
       }
     }
 
-    if (this.shouldUseP2PFirst()) {
-      try {
-        await this.joinRoomP2P(cleanCode, playerName, preferredRole);
-        return;
-      } catch (p2pErr: any) {
-        console.warn('P2P join failed, attempting fallback to WebSocket:', p2pErr);
-      }
+    // 3. P2P WebRTC Fallback
+    try {
+      await this.joinRoomP2P(cleanCode, playerName, preferredRole);
+      return;
+    } catch (p2pErr: any) {
+      console.warn('P2P join failed:', p2pErr);
     }
 
-    // Try WebSocket
+    // Final attempt WebSocket
     const wsSuccess = await this.connectWs();
     if (wsSuccess && this.ws?.readyState === WebSocket.OPEN) {
       this.activeTransport = 'ws';
@@ -667,19 +682,7 @@ export class NetworkClient {
       return;
     }
 
-    // If WebSocket failed, auto-try P2P
-    if (!this.shouldUseP2PFirst()) {
-      try {
-        await this.joinRoomP2P(cleanCode, playerName, preferredRole);
-        return;
-      } catch (p2pErr: any) {
-        const msg = p2pErr?.message || 'اتصال به اتاق ناموفق بود.';
-        this.onError?.(msg);
-        throw new Error(msg);
-      }
-    }
-
-    throw new Error('اتصال به سرور بازی برقرار نشد.');
+    throw new Error('اتصال به اتاق ناموفق بود. مطمئن شوید دوستتان اتاق را ساخته و کد صحیح است.');
   }
 
   private handleServerMessage(msg: ServerMessage) {

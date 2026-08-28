@@ -9,8 +9,10 @@ export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 async function testConnection() {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
+  } catch (error: any) {
+    if (error?.code === 'resource-exhausted' || error?.message?.includes('Quota')) {
+      console.warn('Firebase Firestore: Daily free quota limit reached, app will use high-speed WebSocket/P2P fallback seamlessly.');
+    } else if (error instanceof Error && error.message.includes('the client is offline')) {
       console.warn('Firebase Firestore: client is currently offline or connecting...');
     }
   }

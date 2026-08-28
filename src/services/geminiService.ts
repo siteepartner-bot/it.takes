@@ -52,34 +52,11 @@ export function getEffectiveApiBaseUrl(): string {
 }
 
 /**
- * Helper to get test API key from localStorage if saved by user in preview
- */
-export function getSavedTestApiKey(): string {
-  try {
-    return localStorage.getItem('aether_gemini_test_key') || '';
-  } catch {
-    return '';
-  }
-}
-
-export function saveTestApiKey(key: string): void {
-  try {
-    if (key.trim()) {
-      localStorage.setItem('aether_gemini_test_key', key.trim());
-    } else {
-      localStorage.removeItem('aether_gemini_test_key');
-    }
-  } catch {}
-}
-
-/**
  * Check Gemini API connectivity and configuration status
  */
-export async function checkGeminiStatus(customKey?: string): Promise<GeminiStatusResponse> {
+export async function checkGeminiStatus(): Promise<GeminiStatusResponse> {
   const baseUrl = getEffectiveApiBaseUrl();
-  const testKey = customKey || getSavedTestApiKey();
-  const queryParam = testKey ? `?key=${encodeURIComponent(testKey)}` : '';
-  const endpoint = `${baseUrl}/api/gemini/status${queryParam}`;
+  const endpoint = `${baseUrl}/api/gemini/status`;
 
   try {
     const res = await fetch(endpoint, {
@@ -114,12 +91,6 @@ export async function requestGeminiGuidance(
 ): Promise<GeminiGuidanceResponse> {
   const baseUrl = getEffectiveApiBaseUrl();
   const endpoint = `${baseUrl}/api/gemini/guidance`;
-  const testKey = getSavedTestApiKey();
-
-  const payload = {
-    ...params,
-    apiKey: testKey || undefined,
-  };
 
   try {
     const res = await fetch(endpoint, {
@@ -128,7 +99,7 @@ export async function requestGeminiGuidance(
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(params),
     });
 
     if (res.ok) {

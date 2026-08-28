@@ -10,20 +10,24 @@ const app = express();
 const PORT = 3000;
 const server = http.createServer(app);
 
-// Initialize Gemini SDK with User-Agent header and support for optional test key
-function getGeminiClient(overrideKey?: string): GoogleGenAI | null {
-  const apiKey = (overrideKey || process.env.GEMINI_API_KEY || '').trim();
-  if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
+// Initialize Gemini SDK with User-Agent header and lazy client
+let aiClient: GoogleGenAI | null = null;
+function getGeminiClient(): GoogleGenAI | null {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey.trim() === '' || apiKey === 'MY_GEMINI_API_KEY') {
     return null;
   }
-  return new GoogleGenAI({
-    apiKey,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
+  if (!aiClient) {
+    aiClient = new GoogleGenAI({
+      apiKey: apiKey.trim(),
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
       },
-    },
-  });
+    });
+  }
+  return aiClient;
 }
 
 // Trust Cloudflare proxy headers (CF-Connecting-IP, X-Forwarded-For, X-Forwarded-Proto)
@@ -120,11 +124,10 @@ app.get('/api/room/:code', (req, res) => {
 
 // Gemini AI Status Check
 app.get('/api/gemini/status', (req, res) => {
-  const customKey = typeof req.query.key === 'string' ? req.query.key : undefined;
-  const isAvailable = !!getGeminiClient(customKey);
+  const isAvailable = !!getGeminiClient();
   res.json({
     available: isAvailable,
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.5-flash-lite',
     host: 'node-express',
     message: isAvailable
       ? 'جمینای به صورت بلادرنگ و فعال روی سرور متصل است.'
@@ -153,7 +156,7 @@ const STAGE_CONTEXT_DATA: Record<number, { name: string; keyObjectives: string }
 
 app.post('/api/gemini/guidance', async (req, res) => {
   try {
-    const { stageId = 1, role = 'explorer', puzzleState, query, playerName, apiKey: customKey } = req.body || {};
+    const { stageId = 1, role = 'explorer', puzzleState, query, playerName } = req.body || {};
     const stageInfo = STAGE_CONTEXT_DATA[stageId] || STAGE_CONTEXT_DATA[1];
     const isNora = role === 'explorer';
     const characterName = isNora ? 'نورا (دختر چوبی / کاوشگر صاعقه)' : 'برسام (پسر چوبی / نگهبان تایتان)';
@@ -183,7 +186,7 @@ ${stageInfo.keyObjectives}
 "${query && query.trim() ? query.trim() : 'استاد الیاس، لطفا یک راهنمایی سریع و مستقیم بده، الان باید چکار کنیم و قدم بعدیمون چیه؟'}"
 `;
 
-    const ai = getGeminiClient(customKey);
+    const ai = getGeminiClient();
     if (ai) {
       try {
         const systemInstruction = `تو "استاد الیاس" (Master Elias) هستی، ساعت‌ساز دانای کهن که دو آدمک چوبی نورا و برسام را تراشیده است.
@@ -194,24 +197,25 @@ ${stageInfo.keyObjectives}
 - هرگز توضیحات طولانی یا خسته‌کننده نده.`;
 
         let response;
-        const modelsToTry = ['gemini-2.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.6-flash'];
-        let lastErr: any = null;
-
-        for (const modelName of modelsToTry) {
-          try {
-            response = await ai.models.generateContent({
-              model: modelName,
-              contents: promptText,
-              config: {
-                systemInstruction,
-                temperature: 0.6,
-              },
-            });
-            if (response?.text) break;
-          } catch (mErr: any) {
-            lastErr = mErr;
-            console.warn(`Model ${modelName} failed:`, mErr?.message);
-          }
+        try {
+          response = await ai.models.generateContent({
+            model: 'gemini-3.5-flash-lite',
+            contents: promptText,
+            config: {
+              systemInstruction,
+              temperature: 0.6,
+            },
+          });
+        } catch (modelErr: any) {
+          console.warn('Fallback to gemini-3.6-flash due to:', modelErr?.message);
+          response = await ai.models.generateContent({
+            model: 'gemini-3.6-flash',
+            contents: promptText,
+            config: {
+              systemInstruction,
+              temperature: 0.6,
+            },
+          });
         }
 
         const adviceText = response?.text || 'صدا قطع و وصل می‌شود، اما هماهنگی شما کلید هر در بسته‌ای است!';

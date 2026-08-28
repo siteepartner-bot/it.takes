@@ -59,9 +59,8 @@ export default function App() {
 
   const [isPointerLocked, setIsPointerLocked] = useState(false);
 
-  // Smart Wake-Word Test Mode: automatic response when saying "استاد" without opening a modal
-  // User can revert to classic modal view anytime in 1 click!
-  const [ambientWakeWordEnabled, setAmbientWakeWordEnabled] = useState(true);
+  // Smart Wake-Word Test Mode: optional ambient trigger
+  const [ambientWakeWordEnabled, setAmbientWakeWordEnabled] = useState(false);
   const [triggerGuidanceKey, setTriggerGuidanceKey] = useState(0);
 
   // Settings
@@ -238,13 +237,28 @@ export default function App() {
       }
 
       // V or G triggers Master Radio Guidance
-      if ((e.key === 'v' || e.key === 'V' || e.key === 'g' || e.key === 'G') && gameState === 'playing') {
+      if (
+        (e.code === 'KeyV' ||
+          e.code === 'KeyG' ||
+          e.key === 'v' ||
+          e.key === 'V' ||
+          e.key === 'g' ||
+          e.key === 'G' ||
+          e.key === 'ر' ||
+          e.key === 'ل') &&
+        gameState === 'playing'
+      ) {
         e.preventDefault();
         handleTriggerGeminiCall();
       }
 
       // M toggles Real-time WebRTC Voice Chat Microphone
-      if (e.key === 'm' || e.key === 'M') {
+      if (
+        e.code === 'KeyM' ||
+        e.key === 'm' ||
+        e.key === 'M' ||
+        e.key === 'ئ'
+      ) {
         e.preventDefault();
         if (!voice.isInVoice) {
           voice.joinVoice();
@@ -257,7 +271,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameState, isGeminiCallOpen, isStoryOpen, ambientWakeWordEnabled, voice]);
+  }, [gameState, isGeminiCallOpen, isStoryOpen, voice]);
 
   // Audio settings sync
   useEffect(() => {
@@ -362,7 +376,7 @@ export default function App() {
 
   const handleNextStage = () => {
     const next = currentStageId + 1;
-    if (next <= 3) {
+    if (next <= 6) {
       networkClient.advanceStage(next);
       setCurrentStageId(next);
       setIsStageClearOpen(false);
@@ -423,13 +437,9 @@ export default function App() {
     []
   );
 
-  // Trigger Master Elias Radio (In-game ambient or classic modal)
+  // Trigger Master Elias Radio / Guidance Modal
   const handleTriggerGeminiCall = () => {
-    if (ambientWakeWordEnabled) {
-      setTriggerGuidanceKey((prev) => prev + 1);
-    } else {
-      setIsGeminiCallOpen(true);
-    }
+    setIsGeminiCallOpen(true);
   };
 
   const partnerDisplayName = soloMode

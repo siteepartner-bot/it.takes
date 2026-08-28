@@ -1,6 +1,6 @@
 {
   "name": "Aether Duo 3D Co-op Adventure",
-  "description": "A real-time 3D online cooperative adventure game featuring handcrafted wooden puppets Nora (the girl) and Barsam (the boy) with unique abilities, deep chronicle lore, and precision controls.",
-  "requestFramePermissions": [],
+  "description": "A real-time 3D online cooperative adventure game featuring handcrafted wooden puppets Nora and Barsam with unique abilities, deep chronicle lore, and Gemini AI voice-call guidance.",
+  "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

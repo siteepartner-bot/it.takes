@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { ArrowUp, Hand, Zap, Shield, MapPin, Smile, Compass } from 'lucide-react';
+import { ArrowUp, Hand, Zap, Shield, MapPin, Smile, Compass, Radio } from 'lucide-react';
 import type { PlayerRole, EmoteType } from '../types.ts';
 
 interface TouchControlsProps {
@@ -13,6 +13,7 @@ interface TouchControlsProps {
   }) => void;
   onSendEmote: (emote: EmoteType) => void;
   onSendPing: () => void;
+  onOpenGeminiCall?: () => void;
 }
 
 export const TouchControls: React.FC<TouchControlsProps> = ({
@@ -20,6 +21,7 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
   onUpdateInput,
   onSendEmote,
   onSendPing,
+  onOpenGeminiCall,
 }) => {
   const [sprintActive, setSprintActive] = useState(false);
   const [showEmotes, setShowEmotes] = useState(false);
@@ -238,6 +240,19 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
 
           {/* Secondary Utility Controls */}
           <div className="flex items-center gap-2">
+            {/* Gemini Voice Call Button */}
+            {onOpenGeminiCall && (
+              <button
+                id="touch_btn_gemini_call"
+                onClick={onOpenGeminiCall}
+                className="w-10 h-10 rounded-2xl bg-cyan-950/90 border border-cyan-400/50 text-cyan-300 flex items-center justify-center shadow-lg active:scale-90 transition-transform relative"
+                title="بیسیم جمینای (استاد الیاس)"
+              >
+                <Radio className="w-4 h-4" />
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping absolute -top-1 -right-1" />
+              </button>
+            )}
+
             {/* Ping Beacon Button */}
             <button
               id="touch_btn_ping"

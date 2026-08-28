@@ -3,11 +3,32 @@ import http from 'http';
 import path from 'path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer as createViteServer } from 'vite';
+import { GoogleGenAI } from '@google/genai';
 import type { ClientMessage, ServerMessage, RoomData, PlayerRole, PuzzleState, PlayerNetState } from './src/types.js';
 
 const app = express();
 const PORT = 3000;
 const server = http.createServer(app);
+
+// Initialize Gemini SDK with User-Agent header and lazy client
+let aiClient: GoogleGenAI | null = null;
+function getGeminiClient(): GoogleGenAI | null {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey.trim() === '' || apiKey === 'MY_GEMINI_API_KEY') {
+    return null;
+  }
+  if (!aiClient) {
+    aiClient = new GoogleGenAI({
+      apiKey: apiKey.trim(),
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
+      },
+    });
+  }
+  return aiClient;
+}
 
 // Trust Cloudflare proxy headers (CF-Connecting-IP, X-Forwarded-For, X-Forwarded-Proto)
 app.set('trust proxy', true);
@@ -99,6 +120,158 @@ app.get('/api/room/:code', (req, res) => {
     explorerJoined: !!room.data.players.explorer?.connected,
     guardianJoined: !!room.data.players.guardian?.connected,
   });
+});
+
+// Gemini AI Status Check
+app.get('/api/gemini/status', (req, res) => {
+  const isAvailable = !!getGeminiClient();
+  res.json({
+    available: isAvailable,
+    model: 'gemini-2.5-flash',
+    host: 'node-express',
+    message: isAvailable
+      ? 'جمینای به صورت بلادرنگ و فعال روی سرور متصل است.'
+      : 'کلید GEMINI_API_KEY تنظیم نشده است یا در حالت آفلاین/لوکال اجرا می‌شود.',
+  });
+});
+
+// Gemini In-Game Voice Guidance Endpoint
+const STAGE_CONTEXT_DATA: Record<number, { name: string; keyObjectives: string }> = {
+  1: {
+    name: 'باغ فراموش‌شده و قنات باستانی',
+    keyObjectives:
+      '۱. باز کردن دروازه رونیک با اهرم اول. ۲. هل دادن مکعب سنگین سنگی توسط برسام روی پد فشاری قنات برای بالا آمدن آسانسور آبی. ۳. هدایت نورا به بلندی و شلیک صاعقه [F] به پدستال آینه‌ای برای گسترش پل نوری. ۴. عبور هر دو از پل و قرار گرفتن روی پدهای خروجی دروازه اِیتِر.',
+  },
+  2: {
+    name: 'جزایر معلق آسمانی و برجک لیزری کهن',
+    keyObjectives:
+      '۱. عبور از پل معلق ابرها با هماهنگی گام‌ها. ۲. برخورد با پرتو مرگبار لیزر دفاعی: برسام باید فورا با کلید [F] سپر تایتان را فعال کند و پرتو را به سمت بازتاب‌دهنده انرژی برگرداند تا برجک از کار بیفتد. ۳. نورا از صاعقه [F] برای شارژ توربین باد و ایجاد جریان بالابرنده استفاده کند. ۴. رسیدن همزمان هر دو به پورتال ابری.',
+  },
+  3: {
+    name: 'کارخانه مکانیکی، پیستون‌های غول‌آسا و چرخ‌دنده اعظم',
+    keyObjectives:
+      '۱. متوقف کردن پیستون کوبنده مکانیکی توسط استقامت برسام یا قرار دادن بلوک فلزی زیر آن. ۲. چرخاندن همزمان شیر فلکه‌های بخار شماره ۱ و ۲ توسط نورا و برسام در فاصله کمتر از ۳ ثانیه. ۳. شلیک جهش صاعقه نورا به هسته ژنراتور اصلی برای درگیر کردن چرخ‌دنده اعظم ساعت و باز شدن خروجی نهایی.',
+  },
+};
+
+app.post('/api/gemini/guidance', async (req, res) => {
+  try {
+    const { stageId = 1, role = 'explorer', puzzleState, query, playerName } = req.body || {};
+    const stageInfo = STAGE_CONTEXT_DATA[stageId] || STAGE_CONTEXT_DATA[1];
+    const isNora = role === 'explorer';
+    const characterName = isNora ? 'نورا (دختر چوبی / کاوشگر صاعقه)' : 'برسام (پسر چوبی / نگهبان تایتان)';
+
+    const pState = puzzleState || {};
+    const stateSummary = [
+      `مرحله: ${stageId} (${stageInfo.name})`,
+      `شخصیت تماس‌گیرنده: ${characterName} (نام بازیکن: ${playerName || 'ماجراجو'})`,
+      `وضعیت دروازه اول: ${pState.gate1Open ? 'باز شده' : 'بسته'}`,
+      `وضعیت اهرم اول: ${pState.lever1Activated ? 'کشیده شده' : 'هنوز فعال نشده'}`,
+      `مکعب سنگین: ${pState.heavyBlockPlaced ? 'روی پد فشاری قرار گرفته' : 'هنوز سر جای خود قرار نگرفته'}`,
+      `ارتفاع آسانسور قنات: ${pState.aqueductElevatorHeight > 0 ? 'بالا رفته' : 'پایین'}`,
+      `پل نوری: ${pState.lightBridgeActive ? 'روشن و فعال است' : 'خاموش است'}`,
+      `برجک لیزری مرحله ۲: ${pState.laserTurretDisabled ? 'غیرفعال شده' : 'هنوز شلیک می‌کند'}`,
+      `شیرهای بخار مرحله ۳: ۱=${pState.boilerValve1 ? 'باز' : 'بسته'}، ۲=${pState.boilerValve2 ? 'باز' : 'بسته'}`,
+      `چرخ‌دنده ساعت: ${pState.grandClockworkEngaged ? 'به کار افتاده' : 'متوقف است'}`,
+    ].join('\n');
+
+    const promptText = `
+اطلاعات زنده بازی:
+${stateSummary}
+
+اهداف کلی این مرحله:
+${stageInfo.keyObjectives}
+
+پرسش یا درخواست راهنمایی بازیکن:
+"${query && query.trim() ? query.trim() : 'استاد الیاس، لطفا یک راهنمایی سریع و مستقیم بده، الان باید چکار کنیم و قدم بعدیمون چیه؟'}"
+`;
+
+    const ai = getGeminiClient();
+    if (ai) {
+      try {
+        const systemInstruction = `تو "استاد الیاس" (Master Elias) هستی، ساعت‌ساز دانای کهن که دو آدمک چوبی نورا و برسام را تراشیده است.
+اکنون از طریق بیسیم اِیتِر (Voice Call) با آن‌ها صحبت می‌کنی.
+- با لحنی خردمندانه، گرم، پرانرژی و به زبان فارسی پاسخ بده.
+- پاسخت باید حداکثر ۲ تا ۳ جمله کوتاه، دقیق و هیجان‌انگیز باشد تا پشت بی‌سیم سریع خوانده و شنیده شود.
+- مستقیما بگو بازیکن الان باید چکار کند (مثلا: استفاده از کلید F برای صاعقه نورا یا سپر برسام، کشیدن اهرم، هل دادن سنگ، یا تنظیم زمان‌بندی).
+- هرگز توضیحات طولانی یا خسته‌کننده نده.`;
+
+        let response;
+        try {
+          response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: promptText,
+            config: {
+              systemInstruction,
+              temperature: 0.7,
+            },
+          });
+        } catch (modelErr: any) {
+          console.warn('Fallback to gemini-2.0-flash due to:', modelErr?.message);
+          response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: promptText,
+            config: {
+              systemInstruction,
+              temperature: 0.7,
+            },
+          });
+        }
+
+        const adviceText = response?.text || 'صدا قطع و وصل می‌شود، اما هماهنگی شما کلید هر در بسته‌ای است!';
+        return res.json({
+          success: true,
+          text: adviceText.trim(),
+          source: 'gemini-live',
+          stageId,
+        });
+      } catch (geminiCallErr: any) {
+        console.warn('Gemini API call failed (e.g. quota limit reached):', geminiCallErr?.message);
+        // Seamlessly continue to the intelligent fallback mentor below
+      }
+    }
+
+    // Fallback mentor oracle if API key is not configured or quota is exhausted
+    let fallbackText = '';
+    if (stageId === 1) {
+      if (!pState.gate1Open) {
+        fallbackText = 'نورا، برسام! ابتدا به سمت چپ تالار بروید و اهرم کریستالی را بکشید تا دروازه سنگی باز شود. برسام، آماده باش سنگ‌های سنگین را جابجا کنی!';
+      } else if (!pState.heavyBlockPlaced) {
+        fallbackText = 'برسام، قدرت بازوان بلوطین تو اینجاست! آن مکعب مغناطیسی سنگین را به روی کلید فشاری قنات هل بده تا جریان آب آسانسور را بالا ببرد!';
+      } else if (!pState.lightBridgeActive) {
+        fallbackText = 'نورا، حالا نوبت توست! با آسانسور بالا برو و با دستکش اِیتِر [کلید F] به پدستال آینه‌ای شلیک کن تا پل نوری سراسر پرتگاه را روشن کند!';
+      } else {
+        fallbackText = 'عالی بود بچه‌ها! هر دو با هم از روی پل نورانی رد شوید و همزمان روی پدهای خروجی انتهای باغ بایستید تا دروازه آسمان باز شود!';
+      }
+    } else if (stageId === 2) {
+      if (!pState.laserTurretDisabled) {
+        fallbackText = 'مواظب باشید! برجک نگهبان لیزری فعال است! برسام، فورا کلید [F] را بزن و سپر تایتان را بالا بیاور تا پرتو مرگبار به خود برجک بازتاب کند و خاموش شود!';
+      } else {
+        fallbackText = 'برجک خاموش شد! حالا نورا، با شلیک صاعقه [F] به توربین باد، جریان بالابرنده ابرها را فعال کن تا به سکوی خروج برسید!';
+      }
+    } else {
+      if (!pState.grandClockworkEngaged) {
+        fallbackText = 'اینجا قلب ساعت اعظم است! باید هر دو نفر همزمان شیرهای بخار ۱ و ۲ را بچرخانید، سپس نورا به ژنراتور اصلی صاعقه بزند تا چرخ‌دنده‌ها بچرخند!';
+      } else {
+        fallbackText = 'چرخ‌دنده‌ها به کار افتادند! مسیر آزادی هموار شد، به سمت پورتال مرکزی بشتابید!';
+      }
+    }
+
+    return res.json({
+      success: true,
+      text: fallbackText,
+      source: 'offline-oracle',
+      stageId,
+      note: 'جهت ارتباط هوش مصنوعی مستقیم جمینای، متغیر GEMINI_API_KEY را تنظیم کنید.',
+    });
+  } catch (err: any) {
+    console.error('Error generating Gemini guidance:', err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || 'خطا در ارتباط با بلور جمینای',
+      text: 'امواج اِیتِر دچار اختلال موقت شدند فرزندانم! حواستان به توانایی‌های مکمل هم باشد، نورا با صاعقه و برسام با سپر!',
+    });
+  }
 });
 
 // WebSocket Server (supports /ws, /api/ws, and root / for Cloudflare Worker reverse proxies)

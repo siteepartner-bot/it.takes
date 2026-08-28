@@ -14,6 +14,8 @@ import {
   Settings2,
   Share2,
   BookOpen,
+  Cloud,
+  Sparkles,
 } from 'lucide-react';
 import type { GraphicsSettings, AudioSettings } from '../types.ts';
 import { networkClient } from '../multiplayer/networkClient.ts';
@@ -31,6 +33,8 @@ interface PauseMenuProps {
   soloMode: boolean;
   onToggleSoloHero: () => void;
   onOpenStory?: () => void;
+  onOpenGeminiCall?: () => void;
+  onOpenCloudflareGuide?: () => void;
 }
 
 export const PauseMenu: React.FC<PauseMenuProps> = ({
@@ -46,6 +50,8 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({
   soloMode,
   onToggleSoloHero,
   onOpenStory,
+  onOpenGeminiCall,
+  onOpenCloudflareGuide,
 }) => {
   const [copied, setCopied] = useState(false);
   const [workerConfig, setWorkerConfig] = useState(() => networkClient.getWorkerConfig());
@@ -191,6 +197,23 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({
               <span>وضعیت اتصال:</span>
               <span className="text-emerald-400 font-medium">فعال و متصل ({workerConfig.isCustom ? 'ورکر اختصاصی' : 'سرور خودکار'})</span>
             </div>
+          )}
+
+          {onOpenCloudflareGuide && (
+            <button
+              id="btn_pause_cf_guide"
+              onClick={() => {
+                onClose();
+                onOpenCloudflareGuide();
+              }}
+              className="w-full mt-2 py-1.5 px-3 rounded-xl bg-amber-950/40 hover:bg-amber-900/50 border border-amber-500/30 text-amber-300 text-[11px] font-bold flex items-center justify-between transition-colors"
+            >
+              <div className="flex items-center gap-1.5">
+                <Cloud className="w-3.5 h-3.5 text-amber-400" />
+                <span>راهنمای فعال‌سازی جمینای روی Cloudflare</span>
+              </div>
+              <span className="text-[10px] text-amber-400/80">مشاهده کد ورکر</span>
+            </button>
           )}
         </div>
 
@@ -349,6 +372,21 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({
           >
             <BookOpen className="w-4 h-4 text-amber-400" />
             <span>کتابچه داستان و تاریخچه آدمک‌های چوبی</span>
+          </button>
+        )}
+
+        {/* Gemini Voice Guidance Button */}
+        {onOpenGeminiCall && (
+          <button
+            id="btn_pause_gemini_call"
+            onClick={() => {
+              onClose();
+              onOpenGeminiCall();
+            }}
+            className="w-full mt-2.5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-950 to-slate-900 hover:from-cyan-900 hover:to-slate-800 border border-cyan-500/50 text-cyan-300 text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-md shadow-cyan-500/20"
+          >
+            <Radio className="w-4 h-4 text-cyan-400 animate-pulse" />
+            <span>بیسیم صوتی با جمینای • استاد الیاس (کلید V)</span>
           </button>
         )}
 

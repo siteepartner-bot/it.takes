@@ -8,6 +8,9 @@ import { TouchControls } from './components/TouchControls.tsx';
 import { PauseMenu } from './components/PauseMenu.tsx';
 import { StageClearModal } from './components/StageClearModal.tsx';
 import { StoryModal } from './components/StoryModal.tsx';
+import { GeminiVoiceCallModal } from './components/GeminiVoiceCallModal.tsx';
+import { CloudflareGuideModal } from './components/CloudflareGuideModal.tsx';
+import { createDefaultPuzzleState } from './types.ts';
 import type {
   PlayerRole,
   RoomData,
@@ -35,6 +38,8 @@ export default function App() {
   const [isPauseOpen, setIsPauseOpen] = useState(false);
   const [isStageClearOpen, setIsStageClearOpen] = useState(false);
   const [isStoryOpen, setIsStoryOpen] = useState(false);
+  const [isGeminiCallOpen, setIsGeminiCallOpen] = useState(false);
+  const [isCloudflareGuideOpen, setIsCloudflareGuideOpen] = useState(false);
   const [soloMode, setSoloMode] = useState(false);
 
   // Settings
@@ -154,6 +159,35 @@ export default function App() {
       }
     };
   }, [myRole, gameState, soloMode]);
+
+  // Global Hotkeys for In-Game Modals (V for Gemini Voice Call, Escape for Pause Menu)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+
+      if (e.key === 'Escape') {
+        if (isGeminiCallOpen) {
+          setIsGeminiCallOpen(false);
+        } else if (isStoryOpen) {
+          setIsStoryOpen(false);
+        } else if (isCloudflareGuideOpen) {
+          setIsCloudflareGuideOpen(false);
+        } else if (gameState === 'playing') {
+          setIsPauseOpen((prev) => !prev);
+        }
+      }
+
+      // V or G toggles Gemini AI Voice Call
+      if ((e.key === 'v' || e.key === 'V' || e.key === 'g' || e.key === 'G') && gameState === 'playing') {
+        e.preventDefault();
+        setIsGeminiCallOpen((prev) => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [gameState, isGeminiCallOpen, isStoryOpen, isCloudflareGuideOpen]);
 
   // Audio settings sync
   useEffect(() => {
@@ -361,6 +395,7 @@ export default function App() {
             onSendEmote={handleSendEmote}
             onSendPing={handleSendPing}
             onOpenPause={() => setIsPauseOpen(true)}
+            onOpenGeminiCall={() => setIsGeminiCallOpen(true)}
             soloMode={soloMode}
             onToggleSoloHero={handleToggleSoloHero}
           />
@@ -371,6 +406,7 @@ export default function App() {
             onUpdateInput={handleTouchInput}
             onSendEmote={handleSendEmote}
             onSendPing={handleSendPing}
+            onOpenGeminiCall={() => setIsGeminiCallOpen(true)}
           />
 
           {/* Pause Menu Modal */}
@@ -392,12 +428,41 @@ export default function App() {
             soloMode={soloMode}
             onToggleSoloHero={handleToggleSoloHero}
             onOpenStory={() => setIsStoryOpen(true)}
+            onOpenGeminiCall={() => setIsGeminiCallOpen(true)}
+            onOpenCloudflareGuide={() => setIsCloudflareGuideOpen(true)}
           />
 
           {/* In-Game Story & Lore Modal */}
           <StoryModal
             isOpen={isStoryOpen}
             onClose={() => setIsStoryOpen(false)}
+          />
+
+          {/* Gemini AI Voice Call Guidance Modal */}
+          <GeminiVoiceCallModal
+            isOpen={isGeminiCallOpen}
+            onClose={() => setIsGeminiCallOpen(false)}
+            stageId={currentStageId}
+            myRole={myRole}
+            myName={myName}
+            partnerName={
+              soloMode
+                ? myRole === 'explorer'
+                  ? 'برسام (پسر چوبی)'
+                  : 'نورا (دختر چوبی)'
+                : roomData?.players[myRole === 'explorer' ? 'guardian' : 'explorer']?.name || 'هم‌تیمی'
+            }
+            puzzleState={
+              engineRef.current
+                ? engineRef.current.getPuzzleState()
+                : createDefaultPuzzleState(currentStageId)
+            }
+          />
+
+          {/* Cloudflare & Gemini Deployment Guide Modal */}
+          <CloudflareGuideModal
+            isOpen={isCloudflareGuideOpen}
+            onClose={() => setIsCloudflareGuideOpen(false)}
           />
 
           {/* Stage Cleared Celebration Modal */}

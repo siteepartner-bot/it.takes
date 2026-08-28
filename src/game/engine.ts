@@ -847,6 +847,10 @@ export class GameEngine {
     this.renderer.render(this.scene, this.camera);
   }
 
+  public getPuzzleState(): PuzzleState {
+    return { ...this.puzzleState };
+  }
+
   public destroy() {
     this.stop();
     this.resizeObserver.disconnect();

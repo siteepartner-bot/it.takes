@@ -16,10 +16,12 @@ import {
   RefreshCw,
   Wifi,
   BookOpen,
+  Cloud,
 } from 'lucide-react';
 import type { PlayerRole, RoomData } from '../types.ts';
 import { networkClient, type NetworkMode } from '../multiplayer/networkClient.ts';
 import { StoryModal } from './StoryModal.tsx';
+import { CloudflareGuideModal } from './CloudflareGuideModal.tsx';
 
 interface LobbyScreenProps {
   onCreateRoom: (name: string, role: PlayerRole) => void;
@@ -51,6 +53,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   const [copied, setCopied] = useState(false);
   const [showNetworkModal, setShowNetworkModal] = useState(false);
   const [showStoryModal, setShowStoryModal] = useState(false);
+  const [showCfGuide, setShowCfGuide] = useState(false);
   const [networkMode, setNetworkMode] = useState<NetworkMode>(() => networkClient.getNetworkMode());
   const [customWorkerUrl, setCustomWorkerUrl] = useState(() => networkClient.getWorkerConfig().url);
   const [isCustomWorker, setIsCustomWorker] = useState(() => networkClient.getWorkerConfig().isCustom);
@@ -629,19 +632,31 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-800">
                 <button
-                  onClick={() => setShowNetworkModal(false)}
-                  className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                  id="btn_lobby_cf_guide"
+                  type="button"
+                  onClick={() => setShowCfGuide(true)}
+                  className="text-xs text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1.5 transition-colors self-start sm:self-auto"
                 >
-                  انصراف
+                  <Cloud className="w-3.5 h-3.5" />
+                  <span>راهنمای فعال‌سازی جمینای در Cloudflare</span>
                 </button>
-                <button
-                  onClick={handleSaveNetworkConfig}
-                  className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold"
-                >
-                  ذخیره تنظیمات
-                </button>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    onClick={() => setShowNetworkModal(false)}
+                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                  >
+                    انصراف
+                  </button>
+                  <button
+                    onClick={handleSaveNetworkConfig}
+                    className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold"
+                  >
+                    ذخیره تنظیمات
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>
@@ -650,6 +665,9 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
       {/* Narrative Lore & History Modal */}
       <StoryModal isOpen={showStoryModal} onClose={() => setShowStoryModal(false)} />
+
+      {/* Cloudflare & Gemini Deployment Guide Modal */}
+      <CloudflareGuideModal isOpen={showCfGuide} onClose={() => setShowCfGuide(false)} />
     </div>
   );
 };

@@ -10,6 +10,7 @@ import {
   Sparkles,
   Zap,
   Shield,
+  Radio,
 } from 'lucide-react';
 import type { PlayerRole, EmoteType } from '../types.ts';
 
@@ -28,6 +29,7 @@ interface GameHUDProps {
   onSendEmote: (emote: EmoteType) => void;
   onSendPing: () => void;
   onOpenPause: () => void;
+  onOpenGeminiCall: () => void;
   soloMode: boolean;
   onToggleSoloHero: () => void;
 }
@@ -61,6 +63,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   onSendEmote,
   onSendPing,
   onOpenPause,
+  onOpenGeminiCall,
   soloMode,
   onToggleSoloHero,
 }) => {
@@ -141,6 +144,18 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Gemini AI Voice Call Button */}
+          <button
+            id="btn_gemini_voice_call"
+            onClick={onOpenGeminiCall}
+            className="group relative p-2 sm:p-2.5 rounded-2xl bg-gradient-to-r from-cyan-950/90 to-slate-900/90 backdrop-blur-md border border-cyan-500/50 hover:border-cyan-400 text-cyan-300 hover:text-white transition-all shadow-lg hover:shadow-cyan-500/20 active:scale-95 flex items-center gap-1.5"
+            title="تماس صوتی بیسیم با جمینای • استاد الیاس (کلید V)"
+          >
+            <Radio className="w-5 h-5 text-cyan-400 group-hover:animate-pulse" />
+            <span className="hidden md:inline text-xs font-black">بیسیم جمینای [V]</span>
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping absolute -top-1 -right-1" />
+          </button>
 
           <button
             id="btn_pause_settings"

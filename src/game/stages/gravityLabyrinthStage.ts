@@ -61,7 +61,38 @@ export function buildGravityLabyrinthStage(): StageBuildResult {
     rootGroup.add(ringMesh);
   }
 
-  // --- Puzzle 5-A: Dual Inverted Gravity Switch ---
+  // Ancient Lore Tablet 5
+  const tabletGeo5 = new THREE.BoxGeometry(1.2, 1.8, 0.2);
+  const tabletMat5 = new THREE.MeshStandardMaterial({ color: 0xc084fc, emissive: 0x9333ea, emissiveIntensity: 0.5 });
+  const tablet5 = new THREE.Mesh(tabletGeo5, tabletMat5);
+  tablet5.position.set(-5, 1, 2);
+  rootGroup.add(tablet5);
+
+  interactiveObjects.push({
+    id: 'story_tablet_stage5',
+    type: 'lever',
+    mesh: tablet5,
+    bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(-5, 1, 2), new THREE.Vector3(2.5, 2, 2.5)),
+    prompt: 'خواندن کتیبه راز هزارتوی گرانش و مدار ضدجاذبه (کلید E)',
+  });
+
+  // Pushable Gravity Crate
+  const gravityCrateGeo = new THREE.BoxGeometry(1.6, 1.6, 1.6);
+  const gravityCrateMesh = new THREE.Mesh(gravityCrateGeo, neonCyanMat);
+  gravityCrateMesh.position.set(0, 0.8, 8);
+  gravityCrateMesh.castShadow = true;
+  rootGroup.add(gravityCrateMesh);
+
+  const gravityCrateColliderIndex = colliders.length;
+  colliders.push(new THREE.Box3().setFromObject(gravityCrateMesh));
+
+  interactiveObjects.push({
+    id: 'gravity_push_crate',
+    type: 'heavy_block',
+    mesh: gravityCrateMesh,
+    bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(0, 0.8, 8), new THREE.Vector3(2.5, 2.5, 2.5)),
+    prompt: 'هل دادن / جابجایی مکعب ضدجاذبه روی سوئیچ (کلید E)',
+  });
   const switch1Mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.9, 0.4, 16), neonCyanMat);
   switch1Mesh.position.set(-3, 0.2, 16);
   rootGroup.add(switch1Mesh);

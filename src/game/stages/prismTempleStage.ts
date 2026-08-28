@@ -95,7 +95,40 @@ export function buildPrismTempleStage(): StageBuildResult {
     type: 'bridge_switch',
     mesh: pedestal1,
     bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(-4, 1, 5), new THREE.Vector3(2.5, 2, 2.5)),
-    prompt: 'چرخاندن منشور نوری ۱ (کلید E)',
+    prompt: 'تنظیم منشور نوری ۱ (کلید E - قابل بازگردانی)',
+  });
+
+  // Ancient Lore Tablet 4
+  const tabletGeo4 = new THREE.BoxGeometry(1.2, 1.8, 0.2);
+  const tabletMat4 = new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xeab308, emissiveIntensity: 0.5 });
+  const tablet4 = new THREE.Mesh(tabletGeo4, tabletMat4);
+  tablet4.position.set(-6, 1.2, 2);
+  rootGroup.add(tablet4);
+
+  interactiveObjects.push({
+    id: 'story_tablet_stage4',
+    type: 'lever',
+    mesh: tablet4,
+    bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(-6, 1.2, 2), new THREE.Vector3(2.5, 2, 2.5)),
+    prompt: 'خواندن کتیبه راز معبد خورشید و منشورهای نور (کلید E)',
+  });
+
+  // Pushable Solar Block in Hall of Prisms
+  const solarBoxGeo = new THREE.BoxGeometry(1.6, 1.6, 1.6);
+  const solarBoxMesh = new THREE.Mesh(solarBoxGeo, goldSandstoneMat);
+  solarBoxMesh.position.set(-4, 1.8, 22);
+  solarBoxMesh.castShadow = true;
+  rootGroup.add(solarBoxMesh);
+
+  const solarBoxColliderIndex = colliders.length;
+  colliders.push(new THREE.Box3().setFromObject(solarBoxMesh));
+
+  interactiveObjects.push({
+    id: 'solar_push_crate',
+    type: 'heavy_block',
+    mesh: solarBoxMesh,
+    bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(-4, 1.8, 22), new THREE.Vector3(2.5, 2.5, 2.5)),
+    prompt: 'هل دادن / جابجایی مکعب طلایی خورشید (کلید E)',
   });
 
   // Light Beam 1

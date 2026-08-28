@@ -88,6 +88,9 @@ export class GameEngine {
   private activePingMesh: THREE.Group | null = null;
   private pingTime = 0;
 
+  // Interaction Debounce Cooldown
+  private interactCooldown = 0;
+
   // Solo Testing Dual-Control Mode
   public soloDuoMode = false;
   private soloSwapped = false;
@@ -594,6 +597,11 @@ export class GameEngine {
       soundManager.playFootstep();
     }
 
+    // Decrement interact cooldown
+    if (this.interactCooldown > 0) {
+      this.interactCooldown -= dt;
+    }
+
     // Horizontal friction
     const friction = this.isGrounded ? 8.5 : 2.5;
     this.playerVel.x -= this.playerVel.x * friction * dt;
@@ -814,79 +822,117 @@ export class GameEngine {
           }
         }
 
-        // Discrete E-key interactions
-        if (wantsInteract) {
-          // Lever 1
-          if (obj.id === 'lever_1' && !this.puzzleState.lever1Activated) {
-            networkClient.triggerPuzzle('lever1Activated', true);
-            soundManager.playInteract();
-            this.callbacks.onCheckpointMessage('دروازه کهن برای همیشه قفل‌گشایی شد!');
+        // Discrete E-key interactions with debounced cooldown & bidirectional toggle
+        if (wantsInteract && this.interactCooldown <= 0) {
+          // Ancient Story Lore Tablets
+          if (obj.id.startsWith('story_tablet_')) {
+            soundManager.playCheckpoint();
+            const loreTexts: Record<string, string> = {
+              story_tablet_stage1: '📜 کتیبه باغ کهن: این باغ توسط الیاس ساخته شد. مکعب رسانا سنگ محکی از تیتان است؛ آن را روی پدستال بگذارید تا بالابر آبی فعال گردد.',
+              story_tablet_stage2: '📜 کتیبه جزایر معلق: نگهبانان لیزری پس از خاموشی اِیتِر مجنون شدند. فقط سپر صیقلی حسن می‌تواند پرتو را منحرف کند تا نیوشا مدار را قطع نماید.',
+              story_tablet_stage3: '📜 کتیبه کوره زمان: پیستون‌های کوبنده، ضربان قلب ساعت کیهان هستند. جعبه برنجی سنگین را زیر پیستون بگذارید تا مهار شده و شیرهای بخار همزمان گردند.',
+              story_tablet_stage4: '📜 کتیبه معبد خورشید: منشورهای کریستال نوری انعکاسی از پیوند نیوشا و حسن هستند. نور خورشید باید با زاویه دقیق عبور کند تا چشم هوروس روشن گردد.',
+              story_tablet_stage5: '📜 کتیبه هزارتوی گرانش: در این تالار زمان معکوس می‌شود. هر دو قهرمان باید روی مدارهای ضدجاذبه قرار گیرند تا پل نوری اثیری شکل گیرد.',
+              story_tablet_stage6: '📜 کتیبه دژ ابدیت: هسته بلورین اِیتِر نیازمند تعادل چهار عنصر (آتش، آب، باد، خاک) است. ستون‌ها را بیدار کنید تا ساعت زمان نجات یابد!',
+            };
+            this.callbacks.onCheckpointMessage(loreTexts[obj.id] || '📜 کتیبه راز باستانی ساعت‌ساز');
+            this.interactCooldown = 0.5;
           }
 
-          // Heavy Block
-          if (obj.id === 'heavy_block_1' && this.localRole === 'guardian' && !this.puzzleState.heavyBlockPlaced) {
-            networkClient.triggerPuzzle('heavyBlockPlaced', true);
+          // Lever 1 Toggle
+          if (obj.id === 'lever_1') {
+            const nextVal = !this.puzzleState.lever1Activated;
+            networkClient.triggerPuzzle('lever1Activated', nextVal);
             soundManager.playInteract();
-            this.callbacks.onCheckpointMessage('بلوک سنگین رسانا مستقر شد! بالابر فعال گردید.');
+            this.callbacks.onCheckpointMessage(nextVal ? 'اهرم کشیده شد (دروازه باز شد)' : 'اهرم بازگردانده شد (دروازه بسته شد)');
+            this.interactCooldown = 0.35;
           }
 
-          // Permanent Bridge Anchor
-          if (obj.id === 'explorer_bridge_anchor' && this.localRole === 'explorer' && !this.puzzleState.bridgePedestalRotated) {
-            networkClient.triggerPuzzle('bridgePedestalRotated', true);
+          // Heavy Block Placement / Toggle
+          if (obj.id === 'heavy_block_1') {
+            const nextVal = !this.puzzleState.heavyBlockPlaced;
+            networkClient.triggerPuzzle('heavyBlockPlaced', nextVal);
+            soundManager.playInteract();
+            this.callbacks.onCheckpointMessage(nextVal ? 'مکعب رسانا مستقر شد! بالابر فعال گردید.' : 'مکعب از روی پدستال آزاد شد.');
+            this.interactCooldown = 0.35;
+          }
+
+          // Permanent Bridge Anchor Toggle
+          if (obj.id === 'explorer_bridge_anchor') {
+            const nextVal = !this.puzzleState.bridgePedestalRotated;
+            networkClient.triggerPuzzle('bridgePedestalRotated', nextVal);
             soundManager.playGateMove();
-            this.callbacks.onCheckpointMessage('پل سنگی باستانی مستقر و فرود آمد!');
+            this.callbacks.onCheckpointMessage(nextVal ? 'پل سنگی باستانی مستقر شد!' : 'پل سنگی جمع شد.');
+            this.interactCooldown = 0.35;
           }
 
-          // Stage 2 Moving Platform Crank
+          // Stage 2 Moving Platform Crank Toggle
           if (obj.id === 'crank_island_bridge') {
-            networkClient.triggerPuzzle('floatingIslandBridgeActive', true);
+            const nextVal = !this.puzzleState.floatingIslandBridgeActive;
+            networkClient.triggerPuzzle('floatingIslandBridgeActive', nextVal);
             soundManager.playInteract();
+            this.callbacks.onCheckpointMessage(nextVal ? 'اهرم سکوی پرنده فعال شد' : 'اهرم سکوی پرنده متوقف گردید');
+            this.interactCooldown = 0.35;
           }
 
-          // Stage 2 Sentinel Disruptor
-          if (obj.id === 'disrupt_laser_turret' && this.localRole === 'explorer') {
-            networkClient.triggerPuzzle('laserTurretDisabled', true);
+          // Stage 2 Sentinel Disruptor Toggle
+          if (obj.id === 'disrupt_laser_turret') {
+            const nextVal = !this.puzzleState.laserTurretDisabled;
+            networkClient.triggerPuzzle('laserTurretDisabled', nextVal);
             soundManager.playInteract();
-            this.callbacks.onCheckpointMessage('برجک لیزری نگهبان غیرفعال شد!');
+            this.callbacks.onCheckpointMessage(nextVal ? 'برجک لیزری غیرفعال شد!' : 'برجک لیزری مجدداً فعال شد!');
+            this.interactCooldown = 0.35;
           }
 
-          // Stage 3 Jamming Crate
-          if (obj.id === 'clockwork_jam_crate' && this.localRole === 'guardian' && !this.puzzleState.crusherJammed) {
-            networkClient.triggerPuzzle('crusherJammed', true);
+          // Stage 3 Jamming Crate Toggle
+          if (obj.id === 'clockwork_jam_crate' || obj.id === 'heavy_block') {
+            const nextVal = !this.puzzleState.crusherJammed;
+            networkClient.triggerPuzzle('crusherJammed', nextVal);
             soundManager.playInteract();
-            this.callbacks.onCheckpointMessage('پیستون کوبنده مهار و متوقف شد!');
+            this.callbacks.onCheckpointMessage(nextVal ? 'پیستون کوبنده مهار و متوقف شد!' : 'پیستون آزادسازی شد!');
+            this.interactCooldown = 0.35;
           }
 
-          // Stage 3 Synchronized Valves
+          // Stage 3 Synchronized Valves Toggle
           if (obj.id === 'boiler_valve_1') {
-            networkClient.triggerPuzzle('boilerValve1', true);
+            const nextVal = !this.puzzleState.boilerValve1;
+            networkClient.triggerPuzzle('boilerValve1', nextVal);
             soundManager.playInteract();
             this.checkSynchronizedValves();
+            this.interactCooldown = 0.35;
           }
           if (obj.id === 'boiler_valve_2') {
-            networkClient.triggerPuzzle('boilerValve2', true);
+            const nextVal = !this.puzzleState.boilerValve2;
+            networkClient.triggerPuzzle('boilerValve2', nextVal);
             soundManager.playInteract();
             this.checkSynchronizedValves();
+            this.interactCooldown = 0.35;
           }
 
-          // Stage 4 Prisms
+          // Stage 4 Prisms Toggle
           if (obj.id === 'prism_pedestal_1') {
-            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, prism1Aligned: true });
+            const curr = !!(this.puzzleState.customData && this.puzzleState.customData.prism1Aligned);
+            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, prism1Aligned: !curr });
             soundManager.playInteract();
-            this.callbacks.onCheckpointMessage('منشور نوری ۱ با کانون خورشیدی تنظیم شد!');
+            this.callbacks.onCheckpointMessage(!curr ? 'منشور نوری ۱ با کانون خورشیدی تنظیم شد!' : 'منشور نوری ۱ به حالت اول بازگشت.');
+            this.interactCooldown = 0.35;
           }
           if (obj.id === 'prism_pedestal_2') {
-            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, prism2Aligned: true });
+            const curr = !!(this.puzzleState.customData && this.puzzleState.customData.prism2Aligned);
+            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, prism2Aligned: !curr });
             soundManager.playInteract();
-            this.callbacks.onCheckpointMessage('منشور نوری ۲ تنظیم شد! دروازه خورشیدی باز شد.');
+            this.callbacks.onCheckpointMessage(!curr ? 'منشور نوری ۲ تنظیم شد! دروازه خورشیدی باز شد.' : 'منشور نوری ۲ غیرفعال شد.');
+            this.interactCooldown = 0.35;
           }
 
-          // Stage 6 Monoliths
+          // Stage 6 Monoliths Toggle
           if (obj.id.startsWith('monolith_')) {
             const key = obj.id;
-            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [key]: true });
+            const curr = !!(this.puzzleState.customData && this.puzzleState.customData[key]);
+            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [key]: !curr });
             soundManager.playInteract();
-            this.callbacks.onCheckpointMessage('ستون باستانی عنصری فعال شد و انرژی به هسته کیهان پیوست!');
+            this.callbacks.onCheckpointMessage(!curr ? 'ستون باستانی عنصری فعال شد!' : 'ستون عنصری غیرفعال شد.');
+            this.interactCooldown = 0.35;
           }
         }
 

@@ -181,31 +181,55 @@ export function buildGardenStage(): StageBuildResult {
       new THREE.Vector3(4, 0.8, 22),
       new THREE.Vector3(2.5, 2, 2.5)
     ),
-    prompt: 'اهرم را بکشید تا دروازه برای همیشه باز بماند',
+    prompt: 'تغییر وضعیت اهرم (کلید E - قابل بازگردانی)',
+  });
+
+  // Ancient Lore Tablet 1
+  const tabletGeo = new THREE.BoxGeometry(1.2, 1.8, 0.2);
+  const tabletMat = new THREE.MeshStandardMaterial({
+    color: 0xf59e0b,
+    emissive: 0xd97706,
+    emissiveIntensity: 0.4,
+    metalness: 0.5,
+  });
+  const tablet1 = new THREE.Mesh(tabletGeo, tabletMat);
+  tablet1.position.set(-6, 1, 4);
+  rootGroup.add(tablet1);
+
+  interactiveObjects.push({
+    id: 'story_tablet_stage1',
+    type: 'lever',
+    mesh: tablet1,
+    bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(-6, 1, 4), new THREE.Vector3(2.5, 2, 2.5)),
+    prompt: 'خواندن کتیبه راز باغ کهن ساعت‌ساز (کلید E)',
   });
 
   // --- Puzzle 1-B: Heavy Conductive Block & Rising Elevator ---
-  // Heavy magnetic block that Guardian can carry
+  // Heavy magnetic block that Hassan (Guardian) can push/carry and jump on top of
   const blockGeo = new THREE.BoxGeometry(1.6, 1.6, 1.6);
   const blockMat = new THREE.MeshStandardMaterial({
     color: 0xd97706,
     roughness: 0.4,
     metalness: 0.6,
     emissive: 0x78350f,
-    emissiveIntensity: 0.2,
+    emissiveIntensity: 0.3,
   });
   const heavyBlockMesh = new THREE.Mesh(blockGeo, blockMat);
   heavyBlockMesh.position.set(6, 0.8, 25);
   heavyBlockMesh.castShadow = true;
   rootGroup.add(heavyBlockMesh);
 
+  // Add solid physical Box3 collider for heavy block so player CANNOT walk through it
+  const heavyBlockColliderIndex = colliders.length;
+  const heavyBlockBox = new THREE.Box3().setFromObject(heavyBlockMesh);
+  colliders.push(heavyBlockBox);
+
   interactiveObjects.push({
     id: 'heavy_block_1',
     type: 'heavy_block',
     mesh: heavyBlockMesh,
-    bounds: new THREE.Box3().setFromObject(heavyBlockMesh),
-    targetRole: 'guardian',
-    prompt: 'بِرام: بلوک مغناطیسی سنگین را بردارید و روی سکوی رسانا بگذارید',
+    bounds: new THREE.Box3().setFromCenterAndSize(heavyBlockMesh.position, new THREE.Vector3(2.2, 2.2, 2.2)),
+    prompt: 'هل دادن / جابجایی مکعب سنگین رسانا روی پدستال (کلید E)',
   });
 
   // Conduit Pedestal
@@ -382,6 +406,7 @@ export function buildGardenStage(): StageBuildResult {
     } else {
       heavyBlockMesh.position.set(state.heavyBlockPos[0], state.heavyBlockPos[1], state.heavyBlockPos[2]);
     }
+    colliders[heavyBlockColliderIndex].setFromObject(heavyBlockMesh);
 
     // 3. Light Bridge & Stone Bridge
     const bridgeActive = state.lightBridgeActive || state.bridgePedestalRotated;

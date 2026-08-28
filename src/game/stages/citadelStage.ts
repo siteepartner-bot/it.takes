@@ -58,7 +58,20 @@ export function buildCitadelStage(): StageBuildResult {
   rimMesh.position.set(0, 0.3, 0);
   rootGroup.add(rimMesh);
 
-  // Central Levitating Aether Core (The Goal)
+  // Ancient Lore Tablet 6
+  const tabletGeo6 = new THREE.BoxGeometry(1.2, 1.8, 0.2);
+  const tabletMat6 = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.6 });
+  const tablet6 = new THREE.Mesh(tabletGeo6, tabletMat6);
+  tablet6.position.set(0, 1, -12);
+  rootGroup.add(tablet6);
+
+  interactiveObjects.push({
+    id: 'story_tablet_stage6',
+    type: 'lever',
+    mesh: tablet6,
+    bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(0, 1, -12), new THREE.Vector3(2.5, 2, 2.5)),
+    prompt: 'خواندن کتیبه راز نهایی دژ ابدیت و نجات بلور اِیتِر (کلید E)',
+  });
   const coreMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(2.5, 2), coreAetherMat);
   coreMesh.position.set(0, 5, 0);
   rootGroup.add(coreMesh);

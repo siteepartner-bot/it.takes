@@ -97,19 +97,38 @@ export function buildClockworkStage(): StageBuildResult {
   const pistonColliderIndex = colliders.length;
   colliders.push(new THREE.Box3().setFromObject(pistonMesh));
 
-  // Jamming Crate that Guardian Bram can position
+  // Jamming Crate that Hassan (Guardian) can push/position and jump on top of
   const jamCrate = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.8, 1.8), copperMat);
   jamCrate.position.set(4, 0.9, 5);
   jamCrate.castShadow = true;
   rootGroup.add(jamCrate);
 
+  // Add solid physical Box3 collider so player CANNOT walk through jam crate
+  const jamCrateColliderIndex = colliders.length;
+  const jamCrateBox = new THREE.Box3().setFromObject(jamCrate);
+  colliders.push(jamCrateBox);
+
   interactiveObjects.push({
     id: 'clockwork_jam_crate',
     type: 'heavy_block',
     mesh: jamCrate,
-    bounds: new THREE.Box3().setFromObject(jamCrate),
-    targetRole: 'guardian',
-    prompt: 'بِرام: جعبه فولادی سنگین را زیر پیستون کوبنده بگذارید تا متوقف شود',
+    bounds: new THREE.Box3().setFromCenterAndSize(jamCrate.position, new THREE.Vector3(2.5, 2.5, 2.5)),
+    prompt: 'هل دادن / مهار پیستون با جعبه برنجی (کلید E)',
+  });
+
+  // Ancient Lore Tablet 3
+  const tabletGeo3 = new THREE.BoxGeometry(1.2, 1.8, 0.2);
+  const tabletMat3 = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xd97706, emissiveIntensity: 0.5 });
+  const tablet3 = new THREE.Mesh(tabletGeo3, tabletMat3);
+  tablet3.position.set(-5, 1, 2);
+  rootGroup.add(tablet3);
+
+  interactiveObjects.push({
+    id: 'story_tablet_stage3',
+    type: 'lever',
+    mesh: tablet3,
+    bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(-5, 1, 2), new THREE.Vector3(2.5, 2, 2.5)),
+    prompt: 'خواندن کتیبه راز کوره زمان و چرخ‌دنده‌ها (کلید E)',
   });
 
   // Checkpoint 1
@@ -219,6 +238,12 @@ export function buildClockworkStage(): StageBuildResult {
       pistonMesh.position.y = 5.2;
       colliders[pistonColliderIndex].setFromObject(pistonMesh);
     }
+
+    // Jam crate position & collider update
+    if (state.crusherJammed) {
+      jamCrate.position.set(0, 0.9, 10);
+    }
+    colliders[jamCrateColliderIndex].setFromObject(jamCrate);
 
     // Valves spin when turned
     if (state.boilerValve1) valve1Wheel.rotation.z += dt * 3;

@@ -91,7 +91,22 @@ export function buildFloatingIslandsStage(): StageBuildResult {
     type: 'bridge_switch',
     mesh: crankBase,
     bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(3, 1, 5), new THREE.Vector3(2.5, 2, 2.5)),
-    prompt: 'کلید تعامل (E) را نگه دارید تا سکوی پرنده آسمانی حرکت کند',
+    prompt: 'تغییر وضعیت اهرم سکوی پرنده آسمانی (کلید E - قابل بازگردانی)',
+  });
+
+  // Ancient Lore Tablet 2
+  const tabletGeo2 = new THREE.BoxGeometry(1.2, 1.8, 0.2);
+  const tabletMat2 = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.5 });
+  const tablet2 = new THREE.Mesh(tabletGeo2, tabletMat2);
+  tablet2.position.set(-4, 1, 2);
+  rootGroup.add(tablet2);
+
+  interactiveObjects.push({
+    id: 'story_tablet_stage2',
+    type: 'lever',
+    mesh: tablet2,
+    bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(-4, 1, 2), new THREE.Vector3(2.5, 2, 2.5)),
+    prompt: 'خواندن کتیبه راز جزایر معلق و برجک‌های نگهبان (کلید E)',
   });
 
   // Island 2: The Sentinel Trial (x: 0, y: 2, z: 28)

@@ -142,7 +142,7 @@ app.get('/api/gemini/status', (req, res) => {
   const isAvailable = !!getGeminiClient();
   res.json({
     available: isAvailable,
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.1-flash-lite',
     host: 'node-express',
     message: isAvailable
       ? 'جمینای به صورت بلادرنگ و فعال روی سرور متصل است.'
@@ -225,7 +225,7 @@ ${stageInfo.keyObjectives}
 - از آوردن کلمات اضافه یا متن‌های طولانی بپرهیز.`;
 
       // Models to try in sequence
-      const candidateModels = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-3.7-flash'];
+      const candidateModels = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.7-flash', 'gemini-3.1-pro-preview'];
 
       for (const modelName of candidateModels) {
         try {

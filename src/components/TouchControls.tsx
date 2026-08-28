@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { ArrowUp, Hand, Zap, Shield, MapPin, Smile, Compass, Radio } from 'lucide-react';
+import { ArrowUp, Hand, Zap, Shield, MapPin, Smile, Compass, MessageSquare } from 'lucide-react';
 import type { PlayerRole, EmoteType } from '../types.ts';
 
 interface TouchControlsProps {
@@ -232,15 +232,15 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
 
           {/* Secondary Utility Controls */}
           <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Master Radio Button */}
+            {/* Master Gemini AI Guidance Messenger Button */}
             {onOpenGeminiCall && (
               <button
                 id="touch_btn_gemini_call"
                 onClick={onOpenGeminiCall}
                 className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-amber-950/90 border border-amber-400/50 text-amber-300 flex items-center justify-center shadow-lg active:scale-90 transition-transform relative"
-                title="بیسیم استاد الیاس"
+                title="پیام‌رسان استاد الیاس (Gemini AI)"
               >
-                <Radio className="w-4 h-4 text-amber-400" />
+                <MessageSquare className="w-4 h-4 text-amber-400" />
                 <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping absolute -top-1 -right-1" />
               </button>
             )}

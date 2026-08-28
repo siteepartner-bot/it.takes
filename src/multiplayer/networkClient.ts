@@ -248,11 +248,13 @@ export class NetworkClient {
 
       this.ws.onopen = () => {
         this.wsConnected = true;
-        this.isConnected = true;
-        this.activeTransport = 'ws';
-        this.reconnectAttempts = 0;
-        this.startPingLoop();
-        this.onConnectionChange?.(true, this.latencyMs);
+        if (this.activeTransport !== 'firebase') {
+          this.isConnected = true;
+          this.activeTransport = 'ws';
+          this.reconnectAttempts = 0;
+          this.startPingLoop();
+          this.onConnectionChange?.(true, this.latencyMs);
+        }
         finish(true);
       };
 
@@ -575,18 +577,6 @@ export class NetworkClient {
         this.roomCode = code;
         this.myRole = role;
         this.isConnected = true;
-
-        // Inform local WebSocket in background if available
-        this.connectWs().then((wsOk) => {
-          if (wsOk && this.ws?.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify({
-              type: 'create_room',
-              playerName,
-              preferredRole: role,
-            }));
-          }
-        }).catch(() => {});
-
         return;
       } catch (fbErr: any) {
         console.warn('Firebase room creation failed, falling back to other transports:', fbErr);
@@ -646,19 +636,6 @@ export class NetworkClient {
         this.roomCode = cleanCode;
         this.myRole = res.assignedRole;
         this.isConnected = true;
-
-        // Inform local WebSocket in background if available
-        this.connectWs().then((wsOk) => {
-          if (wsOk && this.ws?.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify({
-              type: 'join_room',
-              code: cleanCode,
-              playerName,
-              preferredRole,
-            }));
-          }
-        }).catch(() => {});
-
         return;
       } catch (fbErr: any) {
         console.warn('Firebase join failed, checking fallback transports:', fbErr);

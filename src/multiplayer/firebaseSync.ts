@@ -373,7 +373,7 @@ export class FirebaseSync {
     this.unsubscribers.push(unsubEvents);
   }
 
-  // --- Real-time Player Movement Sync (Throttled ~65ms) ---
+  // --- Real-time Player Movement Sync (Throttled ~80ms) ---
   public sendPlayerUpdate(state: Omit<PlayerNetState, 'id' | 'role' | 'name' | 'timestamp'>) {
     if (!this.activeRoomCode || !this.myRole) return;
     this.pendingMoveUpdate = state;
@@ -381,12 +381,12 @@ export class FirebaseSync {
     const now = Date.now();
     const elapsed = now - this.lastMoveWriteTime;
 
-    if (elapsed >= 65) {
+    if (elapsed >= 80) {
       this.flushMoveUpdate();
     } else if (!this.moveTimer) {
       this.moveTimer = window.setTimeout(() => {
         this.flushMoveUpdate();
-      }, 65 - elapsed);
+      }, 80 - elapsed);
     }
   }
 

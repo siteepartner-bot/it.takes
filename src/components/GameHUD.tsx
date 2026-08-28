@@ -9,12 +9,14 @@ import {
   Sparkles,
   Zap,
   Shield,
-  Radio,
+  MessageSquare,
   Maximize2,
   Minimize2,
   Monitor,
   Smartphone,
   MousePointer,
+  Lock,
+  Unlock,
   Volume2,
 } from 'lucide-react';
 import type { PlayerRole, EmoteType } from '../types.ts';
@@ -42,6 +44,7 @@ interface GameHUDProps {
   controlMode?: 'windows' | 'mobile';
   onToggleControlMode?: () => void;
   isPointerLocked?: boolean;
+  onTogglePointerLock?: () => void;
 }
 
 const STAGE_TITLES: Record<number, { name: string; desc: string }> = {
@@ -79,6 +82,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   controlMode = 'windows',
   onToggleControlMode,
   isPointerLocked = false,
+  onTogglePointerLock,
 }) => {
   const [copied, setCopied] = useState(false);
   const [inFullscreen, setInFullscreen] = useState(false);
@@ -226,6 +230,36 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             </button>
           )}
 
+          {/* Mouse Pointer Lock Toggle (Windows Mode) */}
+          {controlMode === 'windows' && onTogglePointerLock && (
+            <button
+              id="btn_hud_mouse_lock"
+              onClick={onTogglePointerLock}
+              className={`p-1.5 sm:p-2 rounded-2xl backdrop-blur-md border transition-all shadow-lg flex items-center gap-1.5 ${
+                isPointerLocked
+                  ? 'bg-amber-500/20 border-amber-400/60 text-amber-300 hover:bg-amber-500/30'
+                  : 'bg-slate-900/90 border-slate-700 text-slate-300 hover:text-white'
+              }`}
+              title={
+                isPointerLocked
+                  ? 'ماوس قفل است. کلیک برای آزادسازی ماوس (یا فشردن Alt / Esc)'
+                  : 'ماوس آزاد است. کلیک برای قفل ماوس و چرخش ۳۶۰ درجه دوربین'
+              }
+            >
+              {isPointerLocked ? (
+                <>
+                  <Unlock className="w-4 h-4 text-amber-400 animate-pulse" />
+                  <span className="hidden md:inline text-[11px] font-bold text-amber-200">آزادسازی ماوس [Alt]</span>
+                </>
+              ) : (
+                <>
+                  <Lock className="w-4 h-4 text-cyan-400" />
+                  <span className="hidden md:inline text-[11px] font-bold text-cyan-300">قفل ماوس ۳۶۰°</span>
+                </>
+              )}
+            </button>
+          )}
+
           {/* Fullscreen Toggle Button */}
           <button
             id="btn_hud_fullscreen"
@@ -240,15 +274,15 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             )}
           </button>
 
-          {/* Master Radio Button (بیسیم استاد الیاس) */}
+          {/* Master Elias Gemini AI Messenger Button */}
           <button
             id="btn_gemini_voice_call"
             onClick={onOpenGeminiCall}
             className="group relative p-1.5 sm:p-2 rounded-2xl bg-gradient-to-r from-amber-950/90 to-slate-900/90 backdrop-blur-md border border-amber-500/50 hover:border-amber-400 text-amber-300 hover:text-white transition-all shadow-lg hover:shadow-amber-500/20 active:scale-95 flex items-center gap-1.5"
-            title="بیسیم با استاد الیاس (کلید V یا بگو: استاد)"
+            title="پیام‌رسان راهنمای استاد الیاس (Gemini AI) - کلید V"
           >
-            <Radio className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 group-hover:animate-pulse" />
-            <span className="hidden md:inline text-xs font-black text-amber-300">بیسیم استاد [V]</span>
+            <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 group-hover:scale-110 transition-transform" />
+            <span className="hidden md:inline text-xs font-black text-amber-300">پیام به استاد [V]</span>
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping absolute -top-1 -right-1" />
           </button>
 
@@ -266,7 +300,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
 
       {/* --- CENTER NOTIFICATIONS & MOUSE LOCK HINT --- */}
       <div className="flex flex-col items-center gap-2 my-auto pointer-events-none">
-        {/* Windows Mouse Pointer Lock Visual Prompt */}
+        {/* Windows Mouse Pointer Lock Status Hint */}
         {controlMode === 'windows' && !isPointerLocked && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -274,7 +308,19 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             className="pointer-events-auto px-3 sm:px-4 py-1.5 rounded-full bg-slate-900/90 border border-cyan-500/40 text-cyan-300 text-[11px] sm:text-xs font-semibold shadow-2xl backdrop-blur-md flex items-center gap-1.5"
           >
             <MousePointer className="w-3.5 h-3.5 text-cyan-400 animate-bounce" />
-            <span>برای چرخش آزاد ۳۶۰ درجه دوربین کلیک کنید (خروج: Esc)</span>
+            <span>برای چرخش آزاد ۳۶۰ درجه دوربین کلیک کنید (آزادسازی: Alt یا Esc)</span>
+          </motion.div>
+        )}
+
+        {controlMode === 'windows' && isPointerLocked && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="pointer-events-none px-3 py-1 rounded-full bg-black/50 backdrop-blur-sm text-[10px] text-slate-400 border border-slate-800 flex items-center gap-1.5"
+          >
+            <Unlock className="w-3 h-3 text-amber-400" />
+            <span>ماوس در حال چرخش • برای آزادسازی ماوس کلید [Alt] یا [Esc] را بزنید</span>
           </motion.div>
         )}
 

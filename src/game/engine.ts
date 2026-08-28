@@ -323,6 +323,13 @@ export class GameEngine {
       if (e.key === '4') networkClient.sendEmote('heart');
       if (e.key === '5') networkClient.sendEmote('think');
 
+      // Alt key or Escape to release mouse cursor
+      if (e.code === 'AltLeft' || e.code === 'AltRight' || e.code === 'Escape') {
+        if (this.isPointerLocked) {
+          this.exitPointerLock();
+        }
+      }
+
       // Ping beacon on 'T'
       if (e.code === 'KeyT') {
         const pingPos = this.playerPos.clone().add(new THREE.Vector3(0, 0.1, 0));

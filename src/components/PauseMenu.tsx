@@ -19,6 +19,7 @@ import {
   Minimize2,
   Sparkles,
   Mic,
+  MessageSquare,
 } from 'lucide-react';
 import type { GraphicsSettings, AudioSettings } from '../types.ts';
 import { networkClient } from '../multiplayer/networkClient.ts';
@@ -421,7 +422,7 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({
           </button>
         )}
 
-        {/* Master Voice Guidance Modal Trigger (Classic View) */}
+        {/* Master Gemini AI Guidance Messenger Modal Trigger */}
         {onOpenGeminiCall && (
           <button
             id="btn_pause_gemini_call"
@@ -431,8 +432,8 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({
             }}
             className="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-amber-950 to-slate-900 hover:from-amber-900 hover:to-slate-800 border border-amber-500/50 text-amber-300 text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-md shadow-amber-500/20"
           >
-            <Radio className="w-4 h-4 text-amber-400 animate-pulse" />
-            <span>صفحه اختصاصی بیسیم با استاد الیاس (کلید V)</span>
+            <MessageSquare className="w-4 h-4 text-amber-400" />
+            <span>پیام‌رسان راهنمای استاد الیاس (Gemini AI)</span>
           </button>
         )}
 

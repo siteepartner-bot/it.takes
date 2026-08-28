@@ -451,6 +451,15 @@ export default function App() {
               handleSetControlMode(controlMode === 'windows' ? 'mobile' : 'windows')
             }
             isPointerLocked={isPointerLocked}
+            onTogglePointerLock={() => {
+              if (engineRef.current) {
+                if (isPointerLocked) {
+                  engineRef.current.exitPointerLock();
+                } else {
+                  engineRef.current.requestPointerLock();
+                }
+              }
+            }}
           />
 
           {/* Touch Controls for Mobile & Tablets (rendered when mobile mode is active) */}

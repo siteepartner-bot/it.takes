@@ -12,6 +12,7 @@ export interface GeminiGuidanceRequest {
   puzzleState: PuzzleState;
   query?: string;
   playerName?: string;
+  distance?: number;
 }
 
 export interface GeminiGuidanceResponse {

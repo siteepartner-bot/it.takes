@@ -13,6 +13,7 @@ import {
   Radio,
 } from 'lucide-react';
 import type { PlayerRole, EmoteType } from '../types.ts';
+import { ProximityVoiceBar } from './ProximityVoiceBar.tsx';
 
 interface GameHUDProps {
   roomCode: string | null;
@@ -98,25 +99,34 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           </p>
         </div>
 
-        {/* Center: Room Code & Connection Latency */}
-        {roomCode && (
-          <div className="pointer-events-auto flex items-center gap-2 bg-slate-900/90 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-full shadow-lg">
-            <button
-              id="btn_hud_copy_code"
-              onClick={handleCopyCode}
-              className="flex items-center gap-1.5 text-xs font-mono font-bold text-cyan-400 hover:text-cyan-300 transition-colors"
-              title="کپی کردن کد اتاق"
-            >
-              <span dir="ltr">{roomCode}</span>
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
-            </button>
-            <div className="w-px h-3 bg-slate-700" />
-            <div className="flex items-center gap-1 text-[11px] text-slate-400">
-              <span className={`w-1.5 h-1.5 rounded-full ${latencyMs < 100 ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-              <span dir="ltr">{latencyMs > 0 ? `${latencyMs}ms` : 'آنلاین'}</span>
+        {/* Center: Room Code, Latency & Proximity Voice Bar */}
+        <div className="flex flex-col items-center gap-2">
+          {roomCode && (
+            <div className="pointer-events-auto flex items-center gap-2 bg-slate-900/90 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-full shadow-lg">
+              <button
+                id="btn_hud_copy_code"
+                onClick={handleCopyCode}
+                className="flex items-center gap-1.5 text-xs font-mono font-bold text-cyan-400 hover:text-cyan-300 transition-colors"
+                title="کپی کردن کد اتاق"
+              >
+                <span dir="ltr">{roomCode}</span>
+                {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
+              </button>
+              <div className="w-px h-3 bg-slate-700" />
+              <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                <span className={`w-1.5 h-1.5 rounded-full ${latencyMs < 100 ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                <span dir="ltr">{latencyMs > 0 ? `${latencyMs}ms` : 'آنلاین'}</span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* Proximity Voice Call HUD Bar */}
+          <ProximityVoiceBar
+            partnerName={partnerName}
+            partnerDistance={partnerDistance}
+            partnerConnected={partnerConnected}
+          />
+        </div>
 
         {/* Left: Partner Status Card & Settings */}
         <div className="pointer-events-auto flex items-center gap-2">

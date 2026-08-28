@@ -36,6 +36,7 @@ interface GeminiVoiceCallModalProps {
   myName: string;
   partnerName: string;
   puzzleState: PuzzleState;
+  partnerDistance?: number;
 }
 
 const QUICK_PROMPT_CHIPS = [
@@ -53,6 +54,7 @@ export const GeminiVoiceCallModal: React.FC<GeminiVoiceCallModalProps> = ({
   myName,
   partnerName,
   puzzleState,
+  partnerDistance = 0,
 }) => {
   const [callDuration, setCallDuration] = useState(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -62,7 +64,7 @@ export const GeminiVoiceCallModal: React.FC<GeminiVoiceCallModalProps> = ({
   const [lastAdvice, setLastAdvice] = useState<string>(
     'درود بر فرزندان چوبی من! نورا و برسام، چه کمکی از دست ساعت‌ساز کهن برایتان ساخته است؟'
   );
-  const [adviceSource, setAdviceSource] = useState<string>('gemini-3.7-flash');
+  const [adviceSource, setAdviceSource] = useState<string>('gemini-3.5-flash-lite');
   const [customQuestion, setCustomQuestion] = useState('');
   const [showCfGuide, setShowCfGuide] = useState(false);
 
@@ -143,10 +145,11 @@ export const GeminiVoiceCallModal: React.FC<GeminiVoiceCallModalProps> = ({
         puzzleState,
         query: queryText.trim(),
         playerName: myName,
+        distance: partnerDistance,
       });
 
       setLastAdvice(response.text);
-      setAdviceSource(response.source || 'gemini-3.7-flash');
+      setAdviceSource(response.source || 'gemini-3.5-flash-lite');
       setCustomQuestion('');
 
       if (!isMuted) {

@@ -11,6 +11,7 @@ import { StoryModal } from './components/StoryModal.tsx';
 import { GeminiVoiceCallModal } from './components/GeminiVoiceCallModal.tsx';
 import { CloudflareGuideModal } from './components/CloudflareGuideModal.tsx';
 import { createDefaultPuzzleState } from './types.ts';
+import { proximityVoiceManager } from './audio/proximityVoice.ts';
 import type {
   PlayerRole,
   RoomData,
@@ -182,6 +183,12 @@ export default function App() {
       if ((e.key === 'v' || e.key === 'V' || e.key === 'g' || e.key === 'G') && gameState === 'playing') {
         e.preventDefault();
         setIsGeminiCallOpen((prev) => !prev);
+      }
+
+      // M toggles Proximity Voice Chat Microphone
+      if ((e.key === 'm' || e.key === 'M') && gameState === 'playing') {
+        e.preventDefault();
+        proximityVoiceManager.toggleMicrophone();
       }
     };
 
@@ -457,6 +464,7 @@ export default function App() {
                 ? engineRef.current.getPuzzleState()
                 : createDefaultPuzzleState(currentStageId)
             }
+            partnerDistance={partnerDistance}
           />
 
           {/* Cloudflare & Gemini Deployment Guide Modal */}

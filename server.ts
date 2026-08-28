@@ -127,7 +127,7 @@ app.get('/api/gemini/status', (req, res) => {
   const isAvailable = !!getGeminiClient();
   res.json({
     available: isAvailable,
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.5-flash-lite',
     host: 'node-express',
     message: isAvailable
       ? 'جمینای به صورت بلادرنگ و فعال روی سرور متصل است.'
@@ -199,21 +199,21 @@ ${stageInfo.keyObjectives}
         let response;
         try {
           response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3.5-flash-lite',
             contents: promptText,
             config: {
               systemInstruction,
-              temperature: 0.7,
+              temperature: 0.6,
             },
           });
         } catch (modelErr: any) {
-          console.warn('Fallback to gemini-2.0-flash due to:', modelErr?.message);
+          console.warn('Fallback to gemini-3.6-flash due to:', modelErr?.message);
           response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-3.6-flash',
             contents: promptText,
             config: {
               systemInstruction,
-              temperature: 0.7,
+              temperature: 0.6,
             },
           });
         }

@@ -50,7 +50,7 @@ export default {
       return new Response(
         JSON.stringify({
           available: hasKey,
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3.5-flash-lite',
           host: 'cloudflare-worker',
           message: hasKey
             ? 'کلید جمینای با موفقیت در ورکر کلودفلر فعال و متصل است.'
@@ -64,39 +64,52 @@ export default {
     if (url.pathname === '/api/gemini/guidance' && request.method === 'POST') {
       try {
         const body = await request.json();
-        const { stageId = 1, role = 'explorer', puzzleState = {}, query = '', playerName = 'ماجراجو' } = body;
+        const { stageId = 1, role = 'explorer', puzzleState = {}, query = '', playerName = 'ماجراجو', distance = 0 } = body;
         const apiKey = env.GEMINI_API_KEY;
 
         const isNora = role === 'explorer';
         const characterName = isNora ? 'نورا (دختر چوبی / کاوشگر صاعقه)' : 'برسام (پسر چوبی / نگهبان تایتان)';
 
-        const stageNames = {
-          1: 'باغ فراموش‌شده و قنات کهن',
-          2: 'جزایر معلق آسمانی و برجک لیزری',
-          3: 'کارخانه مکانیکی و چرخ‌دنده اعظم',
+        const stageDetails = {
+          1: {
+            name: 'باغ فراموش‌شده و قنات کهن',
+            mechanics: '۱. اهرم ورودی دروازه رونیک را بکشید. ۲. برسام مکعب سنگی سنگین را هل دهد روی پد فشاری تا قنات پر شود و آسانسور بالا برود. ۳. نورا سوار آسانسور شده، پدستال آینه‌ای را تنظیم کرده و با کلید [F] صاعقه بزند تا پل نوری روشن شود. ۴. عبور همزمان هر دو از روی پل نوری.',
+          },
+          2: {
+            name: 'جزایر معلق آسمانی و برجک لیزری',
+            mechanics: '۱. عبور از پل ابرها. ۲. برجک لیزری شلیک می‌کند: برسام کلید [F] را نگه دارد تا با سپر تایتان پرتو مرگبار را بازتاب دهد و برجک خاموش شود. ۳. نورا به توربین باد صاعقه [F] بزند تا جریان بالابرنده هوا فعال شود و به پورتال ابری برسند.',
+          },
+          3: {
+            name: 'کارخانه مکانیکی و چرخ‌دنده اعظم',
+            mechanics: '۱. برسام پیستون کوبنده غول‌آسا را با استقامت یا بلوک متوقف کند. ۲. نورا و برسام همزمان شیر فلکه‌های بخار ۱ و ۲ را با فاصله کمتر از ۳ ثانیه بچرخانند. ۳. نورا با صاعقه [F] به هسته ژنراتور بزند تا چرخ‌دنده اعظم ساعت به کار بیفتد و خروجی باز شود.',
+          },
         };
 
-        const currentStageName = stageNames[stageId] || `مرحله ${stageId}`;
+        const currentStage = stageDetails[stageId] || stageDetails[1];
 
         if (apiKey && apiKey.trim()) {
-          // Direct Google Gemini REST API call securely from Cloudflare edge
           const prompt = `
-اطلاعات زنده بازی:
-مرحله: ${stageId} (${currentStageName})
-شخصیت: ${characterName} (نام: ${playerName})
-وضعیت پازل:
-- دروازه اول: ${puzzleState.gate1Open ? 'باز' : 'بسته'}
-- اهرم اول: ${puzzleState.lever1Activated ? 'فعال' : 'غیرفعال'}
-- بلوک سنگین: ${puzzleState.heavyBlockPlaced ? 'روی پد فشاری قرار دارد' : 'هنوز گذاشته نشده'}
-- آسانسور قنات: ${puzzleState.aqueductElevatorHeight > 0 ? 'بالاست' : 'پایین است'}
-- پل نوری: ${puzzleState.lightBridgeActive ? 'روشن' : 'خاموش'}
-- برجک لیزری: ${puzzleState.laserTurretDisabled ? 'خاموش شده' : 'فعال و شلیک می‌کند'}
+اطلاعات زنده از محیط سه بعدی بازی Aether Duo:
+- مرحله: ${stageId} (${currentStage.name})
+- مکانیزم کلیدی مرحله: ${currentStage.mechanics}
+- مخاطب فعال: ${characterName} (نام: ${playerName})
+- فاصله مکانی از هم‌تیمی: ${Math.round(distance)} متر
+- وضعیت دقیق پازل و پرچم‌های مرحله:
+  * دروازه اول رونیک: ${puzzleState.gate1Open ? 'باز است' : 'بسته است'}
+  * اهرم ورودی: ${puzzleState.lever1Activated ? 'کشیده شده' : 'هنوز غیرفعال'}
+  * مکعب سنگین سنگی: ${puzzleState.heavyBlockPlaced ? 'روی پد فشاری قنات است' : 'هنوز جا به جا نشده'}
+  * آسانسور قنات: ${puzzleState.aqueductElevatorHeight > 0 ? 'در بالا قرار دارد' : 'در پایین است'}
+  * پل نوری اِیتِر: ${puzzleState.lightBridgeActive ? 'روشن و فعال' : 'خاموش'}
+  * برجک لیزری دفاعی (مرحله ۲): ${puzzleState.laserTurretDisabled ? 'از کار افتاده و خاموش' : 'در حال شلیک پرتو مرگبار'}
+  * شیرهای بخار (مرحله ۳): ۱=${puzzleState.boilerValve1 ? 'باز' : 'بسته'} | ۲=${puzzleState.boilerValve2 ? 'باز' : 'بسته'}
+  * چرخ‌دنده اعظم ساعت: ${puzzleState.grandClockworkEngaged ? 'به کار افتاده' : 'متوقف'}
 
-درخواست بازیکن:
-"${query && query.trim() ? query.trim() : 'استاد الیاس، الان دقیقا باید چکار کنیم؟'}"
+سوال / پیام صوتی بازیکن:
+"${query && query.trim() ? query.trim() : 'استاد الیاس، الان دقیقا باید چکار کنیم و قدم بعدیمون چیه؟'}"
 `;
 
-          let geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey.trim()}`;
+          // Try gemini-3.5-flash-lite first for maximum speed and intelligence
+          let geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey.trim()}`;
           let geminiReq = await fetch(geminiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -105,26 +118,30 @@ export default {
               systemInstruction: {
                 parts: [
                   {
-                    text: 'تو "استاد الیاس" (Master Elias) هستی، ساعت‌ساز فرزانه که دو آدمک چوبی نورا (دختر چابک با دستکش صاعقه [F]) و برسام (پسر نیرومند با سپر تایتان [F]) را تراشیده است. اکنون از طریق بیسیم اِیتِر پاسخ می‌دهی. حداکثر در ۲ تا ۳ جمله کوتاه، انرژی‌بخش، مستقیم و به زبان فارسی راهنمایی کن.',
+                    text: 'تو "استاد الیاس" (Master Elias) هستی؛ ساعت‌ساز فرزانه و دانای کهن که نورا (دختر چابک با صاعقه [F]) و برسام (پسر تایتان با سپر [F]) را تراشیده‌ای. از طریق بیسیم اِیتِر پاسخ می‌دهی. بر اساس وضعیت زنده پازل، بسیار دقیق، عاقلانه، راهبردی، پرانرژی و کوتاه (حداکثر ۲ تا ۳ جمله صریح فارسی) راهنمایی کن.',
                   },
                 ],
               },
               generationConfig: {
-                temperature: 0.7,
+                temperature: 0.6,
               },
             }),
           });
 
           if (!geminiReq.ok) {
-            // Fallback model attempt if gemini-3.6-flash returned an issue
-            geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`;
+            // Fallback to gemini-3.6-flash if needed
+            geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey.trim()}`;
             geminiReq = await fetch(geminiUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 contents: [{ parts: [{ text: prompt }] }],
                 systemInstruction: {
-                  parts: [{ text: 'تو استاد الیاس هستی. در ۲ جمله کوتاه و صوتی راهنمایی کن.' }],
+                  parts: [
+                    {
+                      text: 'تو استاد الیاس هستی. با لحنی خردمندانه، گرم و کوتاه به زبان فارسی راهنمایی کن.',
+                    },
+                  ],
                 },
               }),
             });
@@ -132,12 +149,12 @@ export default {
 
           if (geminiReq.ok) {
             const data = await geminiReq.json();
-            const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'هماهنگی شما دو نفر کلید حل این پازل است!';
+            const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'هماهنگی و ترکیب توانایی‌های صاعقه نورا و سپر برسام کلید راه شماست!';
             return new Response(
               JSON.stringify({
                 success: true,
                 text: reply.trim(),
-                source: 'cloudflare-worker-gemini',
+                source: 'cloudflare-worker-gemini-3.5-flash-lite',
                 stageId,
               }),
               { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

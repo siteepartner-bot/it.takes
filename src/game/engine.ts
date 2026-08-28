@@ -573,6 +573,9 @@ export class GameEngine {
   private update(dt: number) {
     if (!this.currentStage) return;
 
+    // 1. Stage Update (Puzzles, animated meshes, moving platforms) - Run first so colliders and player delta are perfectly in sync
+    this.currentStage.update(dt, this.puzzleState);
+
     // Apply moving platform delta if grounded
     if (this.isGrounded && this.standingOnCollider) {
       const deltaY = this.standingOnCollider.max.y - this.standingOnLastMaxY;
@@ -809,9 +812,6 @@ export class GameEngine {
       const dist = Math.round(this.playerPos.distanceTo(targetPos));
       this.callbacks.onPartnerDistance(dist);
     }
-
-    // 7. Stage Update (Puzzles, animated meshes)
-    this.currentStage.update(dt, this.puzzleState);
 
     // 8. Ping Beacon Animation
     if (this.activePingMesh) {

@@ -29,7 +29,7 @@ interface GeminiActivationModalProps {
   onClose: () => void;
 }
 
-const CLOUDFLARE_WORKER_CODE_SNIPPET = `// Aether Duo - Cloudflare Worker + Gemini AI Proxy
+const CLOUDFLARE_WORKER_CODE_SNIPPET = `// Aether Duo - Cloudflare Worker Script (worker.js)
 // در بخش Settings -> Variables یک Secret بنام GEMINI_API_KEY ایجاد کنید.
 
 export default {
@@ -45,39 +45,78 @@ export default {
       return new Response(null, { headers: corsHeaders });
     }
 
-    if (url.pathname === '/api/gemini/guidance' && request.method === 'POST') {
-      const { stageId, query } = await request.json();
-      const apiKey = env.GEMINI_API_KEY;
-      if (!apiKey) {
+    if ((url.pathname.endsWith('/api/gemini/guidance') || url.pathname === '/api/gemini/guidance') && request.method === 'POST') {
+      try {
+        const body = await request.json().catch(() => ({}));
+        const stageId = body.stageId || 1;
+        const query = body.query || 'استاد چه کنیم؟';
+        const apiKey = env.GEMINI_API_KEY ? env.GEMINI_API_KEY.trim() : '';
+
+        if (!apiKey) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              text: 'کلید GEMINI_API_KEY در قسمت Variables & Secrets ورکر کلودفلر تعریف نشده است!',
+              source: 'worker-missing-key'
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const promptText = \`اطلاعات مرحله \${stageId} بازی ایتر دوئو (Aether Duo):
+درخواست: \${query}\`;
+
+        const systemInstruction = 'تو "استاد الیاس" ساعت‌ساز دانای بازی ایتر دوئو هستی. با لحنی صمیمی، پرانرژی و به زبان فارسی در ۲ جمله کوتاه راهنمایی کن که نیوشا و حسن چکار کنند.';
+
+        const geminiRes = await fetch(
+          \`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=\${apiKey}\`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: promptText }] }],
+              systemInstruction: { parts: [{ text: systemInstruction }] },
+              generationConfig: { temperature: 0.7, maxOutputTokens: 200 }
+            })
+          }
+        );
+
+        const data = await geminiRes.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'هماهنگی و همکاری تیمی شما کلید پیروزی است!';
+
         return new Response(
-          JSON.stringify({ success: false, text: 'کلید GEMINI_API_KEY در ورکر کلودفلر یافت نشد!' }),
+          JSON.stringify({
+            success: true,
+            text,
+            source: 'gemini-live',
+            model: 'gemini-3.1-flash-lite'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (err) {
+        return new Response(
+          JSON.stringify({ success: false, text: 'خطا در ورکر کلودفلر', error: err.message }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-
-      const res = await fetch(\`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=\${apiKey}\`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: \`مرحله: \${stageId || 1} | درخواست: \${query || 'راهنمایی کن'}\` }] }],
-          systemInstruction: { parts: [{ text: 'تو "استاد الیاس" ساعت‌ساز دانای بازی هستی. در ۲ جمله کوتاه و صوتی راهنمایی کن.' }] }
-        })
-      });
-
-      const data = await res.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'هماهنگی شما کلید پیروزی است!';
-      return new Response(JSON.stringify({ success: true, text, source: 'cloudflare-worker-gemini' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
     }
 
-    if (url.pathname === '/api/gemini/status') {
-      return new Response(JSON.stringify({ available: true, model: 'gemini-3.1-flash-lite', host: 'cloudflare-worker' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    if (url.pathname.endsWith('/api/gemini/status') || url.pathname === '/api/gemini/status') {
+      const isAvailable = !!(env.GEMINI_API_KEY && env.GEMINI_API_KEY.trim());
+      return new Response(
+        JSON.stringify({
+          available: isAvailable,
+          model: 'gemini-3.1-flash-lite',
+          host: 'cloudflare-worker',
+          message: isAvailable ? 'ورکر کلودفلر با موفقیت فعال است.' : 'کلید GEMINI_API_KEY تعریف نشده است.'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    return new Response('Aether Duo Cloudflare Worker Active', { headers: corsHeaders });
+    return new Response('Aether Duo Cloudflare Worker Active!', {
+      headers: { ...corsHeaders, 'Content-Type': 'text/plain; charset=utf-8' }
+    });
   }
 };`;
 
@@ -467,14 +506,23 @@ export const GeminiActivationModal: React.FC<GeminiActivationModalProps> = ({ is
                     <Terminal className="w-3.5 h-3.5 text-cyan-400" />
                     <span>کد کامل ورکر کلودفلر (Cloudflare Worker Code):</span>
                   </span>
-                  <button
-                    id="btn_copy_gemini_worker_code"
-                    onClick={handleCopyCode}
-                    className="text-xs px-2.5 py-1 rounded-lg bg-amber-950 hover:bg-amber-900 border border-amber-500/40 text-amber-300 font-bold flex items-center gap-1.5 transition-colors"
-                  >
-                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copied ? 'کپی شد!' : 'کپی کد اسکریپت'}</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href="/worker.js"
+                      download="worker.js"
+                      className="text-xs px-2.5 py-1 rounded-lg bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 font-bold flex items-center gap-1.5 transition-colors"
+                    >
+                      <span>دانلود فایل worker.js</span>
+                    </a>
+                    <button
+                      id="btn_copy_gemini_worker_code"
+                      onClick={handleCopyCode}
+                      className="text-xs px-2.5 py-1 rounded-lg bg-amber-950 hover:bg-amber-900 border border-amber-500/40 text-amber-300 font-bold flex items-center gap-1.5 transition-colors"
+                    >
+                      {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copied ? 'کپی شد!' : 'کپی کد اسکریپت'}</span>
+                    </button>
+                  </div>
                 </div>
                 <pre
                   className="p-3 bg-slate-950 rounded-2xl border border-slate-800 text-[10px] font-mono text-cyan-400/90 overflow-x-auto max-h-36 leading-relaxed select-all"

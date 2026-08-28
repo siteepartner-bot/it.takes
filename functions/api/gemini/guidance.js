@@ -36,51 +36,70 @@ export async function onRequest(context) {
       );
     }
 
-    const systemInstruction = `تو "استاد الیاس" (Master Elias) هستی؛ مربی دانا، پرانرژی، شوخ‌طبع و دوست‌داشتنی حسن و نیوشا در بازی ایتر دوئو (Aether Duo).
-اکنون پشت بیسیم زنده بازی با آن‌ها صحبت می‌کنی:
-- با لحنی صمیمی، رفاقتی، پرانرژی و به زبان فارسی روان صحبت کن.
-- پاسخت باید خیلی کوتاه (حداکثر ۱ تا ۲ جمله کوتاه و مستقیم) باشد تا سریع در بازی شنیده شود.
-- دقیقا و بدون معطلی بگو الان حسن چه کند و نیوشا چه کند.`;
+    const systemInstruction = `تو "استاد الیاس" (Master Elias) هستی؛ ساعت‌ساز دانا، پرانرژی، شوخ‌طبع و دوست‌داشتنی بازی ایتر دوئو (Aether Duo).
+اطلاعات مهم و کلیدی تو:
+۱. حسن و نیوشا پارتنرهای عاشق و هماهنگ یکدیگر هستند. همیشه با محبت و گرمی با این زوج دوست‌داشتنی صحبت کن و ارزش همکاری عاشقانه و تیمی‌شان را یادآوری کن.
+۲. کنترل‌های بازی:
+   - حرکت: WASD / کلیدهای جهت‌نما (جوایستیک لمسی در موبایل)
+   - پرش: دکمه Space (یا دکمه پرش لمسی)
+   - قدرت ویژه [F]: نیوشا صاعقه/برق نوری می‌زند، حسن سپر تایتان برای بازتاب لیزر فعال می‌کند.
+   - تعامل [E / Shift]: کشیدن اهرم‌ها، هل دادن مکعب سنگین، چرخاندن شیر فلکه‌های بخار و منشورها.
+   - تعویض شخصیت: [Q / Tab]
+   - بیسیم زنده استاد: رادیو [R] یا گفتن کلمه "استاد" در ویس‌کال.
+۳. قوانین پاسخ‌دهی:
+   - بسیار کوتاه (حداکثر ۱ تا ۲ جمله کوتاه، روان و پرانرژی به زبان فارسی).
+   - دقیقا و بدون معطلی بگو الان حسن چه کند و نیوشا چه کند و از چه کلید/قدرتی استفاده کنند.`;
 
     const promptText = `اطلاعات زنده بازی:
-مرحله ${stageId}: معماهای همزمان
-پرسش: ${query}`;
+مرحله ${stageId}: معماهای همزمان ایتر دوئو
+پرسش/درخواست راهنمایی زوج ماجراجو (حسن و نیوشا): ${query}`;
 
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: promptText }] }],
-          systemInstruction: { parts: [{ text: systemInstruction }] },
-          generationConfig: { temperature: 0.7, maxOutputTokens: 200 },
-        }),
+    // Try primary high-speed Flash models in sequence
+    const modelsToTry = ['gemini-3.1-flash-lite', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+    let lastError = null;
+
+    for (const model of modelsToTry) {
+      try {
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: promptText }] }],
+              systemInstruction: { parts: [{ text: systemInstruction }] },
+              generationConfig: { temperature: 0.7, maxOutputTokens: 200 },
+            }),
+          }
+        );
+
+        const data = await geminiRes.json();
+        if (geminiRes.ok && data.candidates?.[0]?.content?.parts?.[0]?.text) {
+          const text = data.candidates[0].content.parts[0].text.trim();
+          return new Response(
+            JSON.stringify({
+              success: true,
+              text,
+              source: 'gemini-live',
+              model,
+              stageId,
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        lastError = data;
+      } catch (err) {
+        lastError = err;
       }
-    );
-
-    const data = await geminiRes.json();
-    if (!geminiRes.ok) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          text: 'نیوشا، حسن! اول به سمت چپ بروید و اهرم کریستالی را بکشید تا دروازه سنگی باز شود.',
-          source: 'offline-oracle',
-          geminiError: JSON.stringify(data),
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     }
 
-    const text =
-      data.candidates?.[0]?.content?.parts?.[0]?.text || 'هماهنگی و همکاری تیمی شما کلید پیروزی است!';
+    // Fallback if model call had issues
     return new Response(
       JSON.stringify({
-        success: true,
-        text,
-        source: 'gemini-live',
-        model: 'gemini-3.1-flash-lite',
-        stageId,
+        success: false,
+        text: 'نیوشای عزیز و حسن جان! به سمت چپ بروید، نیوشا کلید F (صاعقه) و حسن کلید E (اهرم) را بزند.',
+        source: 'offline-oracle',
+        geminiError: JSON.stringify(lastError),
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

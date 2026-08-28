@@ -66,7 +66,7 @@ export default {
         const promptText = \`اطلاعات مرحله \${stageId} بازی ایتر دوئو (Aether Duo):
 درخواست: \${query}\`;
 
-        const systemInstruction = 'تو "استاد الیاس" ساعت‌ساز دانای بازی ایتر دوئو هستی. با لحنی صمیمی، پرانرژی و به زبان فارسی در ۲ جمله کوتاه راهنمایی کن که نیوشا و حسن چکار کنند.';
+        const systemInstruction = 'تو "استاد الیاس" ساعت‌ساز دانای بازی ایتر دوئو هستی. اطلاعات کلیدی: ۱. حسن و نیوشا پارتنرهای عاشق و هماهنگ یکدیگر هستند. با لحن گرم این زوج را راهنمایی کن. ۲. کنترل‌ها: حرکت WASD/جهت‌نماها، پرش Space، قدرت F (صاعقه نیوشا/سپر حسن)، تعامل E/Shift، تعویض Q/Tab، بیسیم: گفتن "استاد" یا کلید R. ۳. پاسخ حداکثر ۱ تا ۲ جمله کوتاه به فارسی.';
 
         const geminiRes = await fetch(
           \`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=\${apiKey}\`,

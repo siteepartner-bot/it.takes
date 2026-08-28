@@ -1,0 +1,40 @@
+{
+  "entities": {
+    "Room": {
+      "title": "Room",
+      "description": "Multiplayer co-op room document storing synchronization state between players",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Unique 6-character room code",
+          "maxLength": 12
+        },
+        "stageId": {
+          "type": "number",
+          "description": "Current puzzle stage ID"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the room session",
+          "enum": ["waiting", "ready", "playing", "cleared"]
+        },
+        "createdAt": {
+          "type": "number",
+          "description": "Timestamp when room was created"
+        },
+        "updatedAt": {
+          "type": "number",
+          "description": "Timestamp of last room state update"
+        }
+      },
+      "required": ["code", "stageId", "status", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/rooms/{roomId}": {
+      "schema": "Room",
+      "description": "Main room session document for Aether Duo co-op gameplay"
+    }
+  }
+}

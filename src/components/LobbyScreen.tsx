@@ -178,7 +178,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
           </p>
         </div>
 
-        {/* Clean Multiplayer Status Indicator Bar (No Cloudflare/Gemini technical buzzwords) */}
+        {/* Clean Multiplayer Status Indicator Bar with Firebase Cloud */}
         <div className="w-full max-w-xl mb-2.5 flex items-center justify-between px-3 py-1.5 sm:py-2 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-400">
           <div className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
@@ -187,8 +187,8 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
             </span>
             <div className="flex items-center gap-1.5 text-slate-300 text-[11px] sm:text-xs font-medium">
               <Wifi className="w-3.5 h-3.5 text-emerald-400" />
-              <span>شبکه آنلاین چندنفره:</span>
-              <span className="text-emerald-400 font-bold">متصل و آماده بازی</span>
+              <span>شبکه ابری فایربیس:</span>
+              <span className="text-emerald-400 font-bold">متصل و آماده بازی دو نفره</span>
             </div>
           </div>
 
@@ -199,7 +199,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
             title="تنظیمات اتصال سرور"
           >
             <Settings2 className="w-3.5 h-3.5" />
-            <span>تنظیمات سرور</span>
+            <span>تنظیمات شبکه</span>
           </button>
         </div>
 
@@ -572,17 +572,17 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                 <div
                   onClick={() => setNetworkMode('auto')}
                   className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                    networkMode === 'auto'
+                    networkMode === 'auto' || networkMode === 'firebase'
                       ? 'bg-cyan-950/40 border-cyan-500 text-white'
                       : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-xs text-white">اتصال هوشمند و خودکار (پیشنهادی)</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-900/60 text-cyan-300 font-semibold">پیش‌فرض</span>
+                    <span className="font-bold text-xs text-white">اتصال ابری فایربیس (تضمین اتصال گوشی و سیستم)</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-900/60 text-cyan-300 font-semibold">پیش‌فرض پایدار</span>
                   </div>
                   <p className="text-[11px] leading-relaxed text-slate-400">
-                    بهترین پروتکل متناسب با اتصال شما را انتخاب و با کمترین پینگ متصل می‌شود.
+                    اتاق‌ها روی دیتابیس بلادرنگ Google Cloud ذخیره شده و مستقل از فایروال یا محدودیت‌های شبکه موبایل، هر دو دستگاه را به یکدیگر وصل می‌کند.
                   </p>
                 </div>
 
@@ -595,11 +595,11 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-xs text-emerald-300">اتصال مستقیم P2P</span>
+                    <span className="font-bold text-xs text-emerald-300">اتصال مستقیم P2P (WebRTC)</span>
                     <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-900/60 text-emerald-300 font-semibold">مستقیم</span>
                   </div>
                   <p className="text-[11px] leading-relaxed text-slate-400">
-                    ارتباط مستقیم بین دو بازیکن با پینگ حداقلی.
+                    ارتباط مستقیم بین دو مرورگر با پینگ بسیار کم.
                   </p>
                 </div>
               </div>

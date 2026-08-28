@@ -1,4 +1,5 @@
 import { Peer, type DataConnection } from 'peerjs';
+import { FirebaseSync } from './firebaseSync.ts';
 import type {
   ClientMessage,
   ServerMessage,
@@ -13,7 +14,7 @@ import type {
 import { createDefaultPuzzleState } from '../types.ts';
 
 type MessageHandler<T> = (data: T) => void;
-export type NetworkMode = 'auto' | 'p2p' | 'websocket';
+export type NetworkMode = 'auto' | 'firebase' | 'p2p' | 'websocket';
 
 const WORDS = ['AURA', 'NOVA', 'LUNA', 'SOL', 'ECHO', 'ZEST', 'PEAK', 'IRIS', 'VALE', 'FLUX'];
 function generateP2PRoomCode(): string {
@@ -24,9 +25,11 @@ function generateP2PRoomCode(): string {
 
 const PEER_ID_PREFIX = 'aether-duo-v1-';
 
-const DEFAULT_USER_WORKER = 'https://dry-snow-f534.sitee-partner.workers.dev';
-
 export class NetworkClient {
+  // Firebase Cloud State
+  private firebaseSync: FirebaseSync;
+  private currentPuzzleState: PuzzleState = createDefaultPuzzleState(1);
+
   // WebSocket state
   private ws: WebSocket | null = null;
   private wsConnected: boolean = false;
@@ -39,7 +42,7 @@ export class NetworkClient {
   private hostRoomData: RoomData | null = null;
 
   // Common room state
-  private activeTransport: 'ws' | 'p2p' = 'ws';
+  private activeTransport: 'firebase' | 'ws' | 'p2p' = 'firebase';
   private roomCode: string | null = null;
   private myRole: PlayerRole | null = null;
   private myId: string | null = null;
@@ -66,10 +69,60 @@ export class NetworkClient {
   public onConnectionChange: ((connected: boolean, pingMs: number) => void) | null = null;
 
   constructor() {
+    this.firebaseSync = new FirebaseSync({
+      onRoomJoined: (data) => {
+        this.roomCode = data.room.code;
+        this.myRole = data.assignedRole;
+        this.myId = data.yourId;
+        this.isConnected = true;
+        this.onRoomJoined?.(data);
+      },
+      onPlayerJoined: (data) => {
+        this.onPlayerJoined?.(data);
+      },
+      onPlayerDisconnected: (data) => {
+        this.onPlayerDisconnected?.(data);
+      },
+      onPlayerReconnected: (data) => {
+        this.onPlayerReconnected?.(data);
+      },
+      onPartnerUpdate: (state) => {
+        this.onPartnerUpdate?.(state);
+      },
+      onPuzzleSynced: (puzzleState) => {
+        this.currentPuzzleState = puzzleState;
+        this.onPuzzleSynced?.(puzzleState);
+      },
+      onEmote: (data) => {
+        this.onEmote?.(data);
+      },
+      onPing: (data) => {
+        this.onPing?.(data);
+      },
+      onCheckpointUpdated: (data) => {
+        this.onCheckpointUpdated?.(data);
+      },
+      onStageChanged: (stageId) => {
+        this.onStageChanged?.(stageId);
+      },
+      onConnectionChange: (connected, pingMs) => {
+        this.latencyMs = pingMs;
+        this.onConnectionChange?.(connected, pingMs);
+      },
+      onError: (msg) => {
+        this.onError?.(msg);
+      },
+    });
+
     if (typeof localStorage !== 'undefined') {
       const savedMode = localStorage.getItem('aether_network_mode') as NetworkMode;
-      if (savedMode && ['auto', 'p2p', 'websocket'].includes(savedMode)) {
+      if (savedMode && ['auto', 'firebase', 'p2p', 'websocket'].includes(savedMode)) {
         this.networkMode = savedMode;
+      }
+      // Purge any stale broken worker references
+      const storedWorker = localStorage.getItem('aether_cf_worker_url');
+      if (storedWorker && (storedWorker.includes('dry-snow-f534') || storedWorker.includes('workers.dev'))) {
+        localStorage.removeItem('aether_cf_worker_url');
       }
     }
   }
@@ -86,14 +139,14 @@ export class NetworkClient {
     this.disconnect();
   }
 
-  public getActiveTransport(): 'ws' | 'p2p' {
+  public getActiveTransport(): 'firebase' | 'ws' | 'p2p' {
     return this.activeTransport;
   }
 
   public isCloudflareStaticHost(): boolean {
     if (typeof window === 'undefined') return false;
     const h = window.location.hostname;
-    return h.includes('pages.dev') || h.includes('workers.dev') || (!h.includes('run.app') && !h.includes('localhost') && window.location.port !== '3000');
+    return h.includes('pages.dev') || h.includes('github.io');
   }
 
   public getEffectiveWsUrl(): string {
@@ -102,7 +155,7 @@ export class NetworkClient {
     const storedWorker = typeof localStorage !== 'undefined' ? localStorage.getItem('aether_cf_worker_url') : null;
     const envWorker = (import.meta as any).env?.VITE_CF_WORKER_URL;
 
-    let target = (paramWorker || storedWorker || envWorker || DEFAULT_USER_WORKER).trim();
+    let target = (paramWorker || storedWorker || envWorker || '').trim();
 
     if (target) {
       if (target.startsWith('http://')) target = 'ws://' + target.substring(7);
@@ -128,7 +181,7 @@ export class NetworkClient {
     if (stored && stored.trim()) {
       return { url: stored.trim(), isCustom: true };
     }
-    return { url: DEFAULT_USER_WORKER, isCustom: true };
+    return { url: '', isCustom: false };
   }
 
   public setWorkerConfig(url: string | null): void {
@@ -245,8 +298,10 @@ export class NetworkClient {
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun.cloudflare.com:3478' },
             { urls: 'stun:global.stun.twilio.com:3478' },
             { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
           ],
         },
       };
@@ -511,6 +566,38 @@ export class NetworkClient {
     this.myName = playerName;
     const role = preferredRole || 'explorer';
 
+    // 1. Primary: Firebase Firestore (Google Cloud Database)
+    if (this.networkMode === 'auto' || this.networkMode === 'firebase') {
+      try {
+        const code = generateP2PRoomCode();
+        await this.firebaseSync.createRoom(code, playerName, role, 1);
+        this.activeTransport = 'firebase';
+        this.roomCode = code;
+        this.myRole = role;
+        this.isConnected = true;
+
+        // Inform local WebSocket in background if available
+        this.connectWs().then((wsOk) => {
+          if (wsOk && this.ws?.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({
+              type: 'create_room',
+              playerName,
+              preferredRole: role,
+            }));
+          }
+        }).catch(() => {});
+
+        return;
+      } catch (fbErr: any) {
+        console.warn('Firebase room creation failed, falling back to other transports:', fbErr);
+        if (this.networkMode === 'firebase') {
+          const msg = fbErr?.message || 'خطا در ثبت اتاق در سرور ابری فایربیس.';
+          this.onError?.(msg);
+          throw new Error(msg);
+        }
+      }
+    }
+
     if (this.shouldUseP2PFirst()) {
       try {
         await this.createRoomP2P(playerName, role);
@@ -522,12 +609,13 @@ export class NetworkClient {
 
     // Try WebSocket
     const wsSuccess = await this.connectWs();
-    if (wsSuccess) {
-      this.send({
+    if (wsSuccess && this.ws?.readyState === WebSocket.OPEN) {
+      this.activeTransport = 'ws';
+      this.ws.send(JSON.stringify({
         type: 'create_room',
         playerName,
         preferredRole: role,
-      });
+      }));
       return;
     }
 
@@ -550,6 +638,36 @@ export class NetworkClient {
     this.myName = playerName;
     const cleanCode = code.trim().toUpperCase();
 
+    // 1. Primary: Firebase Firestore (Google Cloud Database)
+    if (this.networkMode === 'auto' || this.networkMode === 'firebase') {
+      try {
+        const res = await this.firebaseSync.joinRoom(cleanCode, playerName, preferredRole);
+        this.activeTransport = 'firebase';
+        this.roomCode = cleanCode;
+        this.myRole = res.assignedRole;
+        this.isConnected = true;
+
+        // Inform local WebSocket in background if available
+        this.connectWs().then((wsOk) => {
+          if (wsOk && this.ws?.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({
+              type: 'join_room',
+              code: cleanCode,
+              playerName,
+              preferredRole,
+            }));
+          }
+        }).catch(() => {});
+
+        return;
+      } catch (fbErr: any) {
+        console.warn('Firebase join failed, checking fallback transports:', fbErr);
+        if (this.networkMode === 'firebase') {
+          throw fbErr;
+        }
+      }
+    }
+
     if (this.shouldUseP2PFirst()) {
       try {
         await this.joinRoomP2P(cleanCode, playerName, preferredRole);
@@ -561,13 +679,14 @@ export class NetworkClient {
 
     // Try WebSocket
     const wsSuccess = await this.connectWs();
-    if (wsSuccess) {
-      this.send({
+    if (wsSuccess && this.ws?.readyState === WebSocket.OPEN) {
+      this.activeTransport = 'ws';
+      this.ws.send(JSON.stringify({
         type: 'join_room',
         code: cleanCode,
         playerName,
         preferredRole,
-      });
+      }));
       return;
     }
 
@@ -659,7 +778,27 @@ export class NetworkClient {
   }
 
   public send(msg: ClientMessage) {
-    // 1. Send via WebSocket if active
+    // 1. Send via Firebase Cloud Database if active
+    if (this.activeTransport === 'firebase') {
+      if (msg.type === 'player_update') {
+        this.firebaseSync.sendPlayerUpdate(msg.state);
+      } else if (msg.type === 'puzzle_trigger') {
+        this.firebaseSync.sendPuzzleTrigger(msg.key, msg.value, this.currentPuzzleState);
+      } else if (msg.type === 'emote') {
+        this.firebaseSync.sendEmote(msg.emote);
+      } else if (msg.type === 'ping') {
+        this.firebaseSync.sendPing(msg.x, msg.y, msg.z);
+      } else if (msg.type === 'checkpoint_reach') {
+        this.firebaseSync.sendCheckpoint(msg.checkpointId);
+      } else if (msg.type === 'stage_advance') {
+        this.firebaseSync.sendStageAdvance(msg.nextStageId);
+      } else if (msg.type === 'leave_room') {
+        this.firebaseSync.leaveRoom();
+      }
+      return;
+    }
+
+    // 2. Send via WebSocket if active
     if (this.activeTransport === 'ws' && this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
       return;
@@ -789,6 +928,7 @@ export class NetworkClient {
 
   public disconnect(): void {
     this.stopPingLoop();
+    this.firebaseSync.cleanup();
 
     if (this.ws) {
       try { this.ws.close(); } catch { /* ignore */ }

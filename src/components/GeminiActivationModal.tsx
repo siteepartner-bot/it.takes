@@ -345,36 +345,62 @@ export const GeminiActivationModal: React.FC<GeminiActivationModalProps> = ({ is
             </div>
           )}
 
-          {/* TAB 2: GET API KEY */}
+          {/* TAB 2: GET API KEY & SETUP STEPS */}
           {activeTab === 'apikey' && (
             <div className="space-y-4 text-xs">
               <div className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 space-y-3">
-                <div className="font-bold text-white flex items-center gap-2">
-                  <Key className="w-4 h-4 text-amber-400" />
-                  <span>دریافت کلید رایگان Google Gemini API</span>
+                <div className="font-bold text-white flex items-center gap-2 text-sm">
+                  <Key className="w-4.5 h-4.5 text-amber-400" />
+                  <span>راهنمای قدم به قدم فعال‌سازی (از ۰ تا ۱۰۰):</span>
                 </div>
-                <p className="text-slate-300 leading-relaxed text-[11px]">
-                  گوگل کلیدهای API سرویس Gemini را به صورت ۱۰۰٪ رایگان ارائه می‌دهد. شما با داشتن یک اکانت گوگل می‌توانید کلید اختصاصی خود را در کمتر از ۳۰ ثانیه دریافت کنید.
-                </p>
+
+                <div className="space-y-2.5 text-[11px] text-slate-300">
+                  <div className="flex items-start gap-2 bg-slate-950/70 p-2.5 rounded-xl border border-slate-800">
+                    <span className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center shrink-0 mt-0.5">
+                      ۱
+                    </span>
+                    <div>
+                      <span className="font-bold text-white">ورود به پنل گوگل:</span> روی دکمه طلایی زیر کلیک کنید تا وارد سایت رسمی Google AI Studio شوید (نیاز به اکانت جی‌میل دارد).
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2 bg-slate-950/70 p-2.5 rounded-xl border border-slate-800">
+                    <span className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center shrink-0 mt-0.5">
+                      ۲
+                    </span>
+                    <div>
+                      <span className="font-bold text-white">دریافت کلید API Key:</span> روی دکمه <code className="text-amber-300 bg-slate-900 px-1 py-0.5 rounded font-mono">Create API key</code> کلیک کرده و کلید تولیدشده (که با <code className="text-amber-300 font-mono">AIzaSy...</code> شروع می‌شود) را کپی کنید.
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2 bg-slate-950/70 p-2.5 rounded-xl border border-slate-800">
+                    <span className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center shrink-0 mt-0.5">
+                      ۳
+                    </span>
+                    <div>
+                      <span className="font-bold text-white">تنظیم در سرور / Cloudflare:</span> کلید کپی‌شده را در بخش تنظیمات متغیرهای محیطی بنام <code className="text-amber-300 bg-slate-900 px-1.5 py-0.5 rounded font-mono">GEMINI_API_KEY</code> جای‌گذاری کنید.
+                    </div>
+                  </div>
+                </div>
 
                 <a
                   href="https://aistudio.google.com/app/apikey"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black transition-all shadow-md shadow-amber-500/20"
+                  className="inline-flex items-center justify-center w-full gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black transition-all shadow-md shadow-amber-500/20 text-xs"
                 >
                   <ExternalLink className="w-4 h-4" />
-                  <span>ورود به Google AI Studio و دریافت API Key</span>
+                  <span>ورود به Google AI Studio و دریافت API Key اختصاصی</span>
                 </a>
               </div>
 
               <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2">
                 <div className="font-bold text-slate-200 flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                  <span>امنیت کلیدها در بازی:</span>
+                  <span>تضمین رایگان بودن و امنیت:</span>
                 </div>
                 <p className="text-slate-400 text-[11px] leading-relaxed">
-                  متغیر <code className="text-amber-300 font-mono">GEMINI_API_KEY</code> در سمت سرور ذخیره می‌شود و هرگز در مرورگر بازیکنان دیگر افشا نخواهد شد. تمامی درخواست‌ها از طریق پروکسی ایمن سرور هدایت می‌شوند.
+                  سرویس Gemini شرکت گوگل روزانه هزاران درخواست رایگان در اختیار شما می‌گذارد. متغیر <code className="text-amber-300 font-mono">GEMINI_API_KEY</code> مستقیماً روی سرور نگهداری شده و کاملاً ایمن است.
                 </p>
               </div>
             </div>
@@ -383,15 +409,55 @@ export const GeminiActivationModal: React.FC<GeminiActivationModalProps> = ({ is
           {/* TAB 3: CLOUDFLARE WORKER GUIDE */}
           {activeTab === 'cloudflare' && (
             <div className="space-y-4 text-xs">
-              {/* Cloudflare Guide */}
-              <div className="p-3.5 rounded-2xl bg-slate-800/60 border border-slate-700/60 space-y-2">
-                <div className="font-bold text-white flex items-center gap-2">
-                  <Globe className="w-4 h-4 text-cyan-400" />
-                  <span>پروکسی Cloudflare Workers جهت اجرای بدون سرور</span>
+              {/* Explanation of issue */}
+              <div className="p-3.5 rounded-2xl bg-amber-950/40 border border-amber-500/40 space-y-1.5">
+                <div className="font-bold text-amber-300 flex items-center gap-2 text-[12px]">
+                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>علت خطای ۴۰۵ یا عدم پاسخ‌دهی در دامنه کلودفلر:</span>
                 </div>
                 <p className="text-slate-300 text-[11px] leading-relaxed">
-                  اگر قصد دارید بازی را روی دامنه یا سرور اختصاصی خود در Cloudflare هاست کنید، می‌توانید اسکریپت ورکر زیر را کپی کرده و در Worker پروژه خود مستقر نمایید.
+                  سایت‌های کلودفلر به‌طور پیش‌فرض فقط فایل استاتیک سرو می‌کنند. برای پشتیبانی از درخواست‌های <code className="text-amber-300 font-mono">POST /api/gemini/guidance</code> باید کلید API در متغیرهای کلودفلر ست شده و تابع بک‌اند یا ورکر فعال باشد.
                 </p>
+              </div>
+
+              {/* Step by step fix */}
+              <div className="p-3.5 rounded-2xl bg-slate-800/60 border border-slate-700/60 space-y-3">
+                <div className="font-bold text-white flex items-center gap-2 text-[12px]">
+                  <Globe className="w-4 h-4 text-cyan-400" />
+                  <span>راهنمای دقیق رفع مشکل روی Cloudflare Pages / Workers (قدم به قدم):</span>
+                </div>
+
+                <div className="space-y-2 text-[11px] text-slate-300">
+                  <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800 space-y-1">
+                    <div className="font-bold text-cyan-300 flex items-center gap-1.5">
+                      <span className="w-4 h-4 rounded-full bg-cyan-500 text-slate-950 font-black text-[10px] flex items-center justify-center">۱</span>
+                      <span>تعریف کلید در پنل کلودفلر (الزامی):</span>
+                    </div>
+                    <p className="text-slate-400 pr-5">
+                      وارد پنل Cloudflare شوید ➔ پروژه خود را انتخاب کنید ➔ به مسیر <code className="text-amber-300 font-mono">Settings ➔ Environment Variables</code> بروید ➔ یک متغیر جدید بنام <code className="text-amber-300 font-mono">GEMINI_API_KEY</code> بسازید و کلید گوگل خود را در آن وارد نمایید.
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800 space-y-1">
+                    <div className="font-bold text-cyan-300 flex items-center gap-1.5">
+                      <span className="w-4 h-4 rounded-full bg-cyan-500 text-slate-950 font-black text-[10px] flex items-center justify-center">۲</span>
+                      <span>استفاده از توابع آماده Pages Functions (پیش‌فرض پروژه):</span>
+                    </div>
+                    <p className="text-slate-400 pr-5">
+                      ما فایل‌های بک‌اند را در پوشه <code className="text-cyan-300 font-mono">/functions/api/gemini/</code> داخل سورس کد بازی قرار داده‌ایم. با آپلود سورس، این توابع به‌صورت خودکار روی دامنه شما فعال می‌شوند.
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800 space-y-1">
+                    <div className="font-bold text-cyan-300 flex items-center gap-1.5">
+                      <span className="w-4 h-4 rounded-full bg-cyan-500 text-slate-950 font-black text-[10px] flex items-center justify-center">۳</span>
+                      <span>یا ساخت Cloudflare Worker مجزا (اختیاری):</span>
+                    </div>
+                    <p className="text-slate-400 pr-5">
+                      اگر از Cloudflare Worker مجزا استفاده می‌کنید، یک Worker بسازید، کد زیر را در آن قرار دهید، سپس در بخش Triggers مسیر <code className="text-amber-300 font-mono">/api/gemini/*</code> را به آن متصل کنید.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Code Snippet Box */}
@@ -399,7 +465,7 @@ export const GeminiActivationModal: React.FC<GeminiActivationModalProps> = ({ is
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
                     <Terminal className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>کد کامل ورکر کلودفلر (Gemini API Proxy):</span>
+                    <span>کد کامل ورکر کلودفلر (Cloudflare Worker Code):</span>
                   </span>
                   <button
                     id="btn_copy_gemini_worker_code"
@@ -420,13 +486,16 @@ export const GeminiActivationModal: React.FC<GeminiActivationModalProps> = ({ is
 
               {/* Test custom worker URL */}
               <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2">
-                <div className="font-bold text-slate-300 text-[11px]">تست آدرس ورکر شخصی:</div>
+                <div className="font-bold text-slate-300 text-[11px] flex items-center justify-between">
+                  <span>تست آنلاین آدرس دامنه کلودفلر یا ورکر:</span>
+                  <span className="text-[10px] text-amber-400 font-mono">POST /api/gemini/guidance</span>
+                </div>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
                     value={cfUrl}
                     onChange={(e) => setCfUrl(e.target.value)}
-                    placeholder="https://my-worker.subdomain.workers.dev"
+                    placeholder="https://it-takes.sitee-partner.workers.dev"
                     dir="ltr"
                     className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-cyan-300 font-mono placeholder-slate-600 focus:outline-none focus:border-cyan-400"
                   />
@@ -434,13 +503,15 @@ export const GeminiActivationModal: React.FC<GeminiActivationModalProps> = ({ is
                     id="btn_test_cf_url"
                     onClick={handleTestCfWorker}
                     disabled={cfTesting}
-                    className="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs flex items-center gap-1 shrink-0 disabled:opacity-50"
+                    className="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs flex items-center gap-1 shrink-0 disabled:opacity-50"
                   >
-                    {cfTesting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : 'تست ورکر'}
+                    {cfTesting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : 'تست آدرس'}
                   </button>
                 </div>
                 {cfTestResult && (
-                  <p className="text-[11px] text-slate-300 pt-1 font-mono">{cfTestResult}</p>
+                  <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-[11px] text-slate-200 font-mono">
+                    {cfTestResult}
+                  </div>
                 )}
               </div>
             </div>

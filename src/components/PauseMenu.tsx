@@ -13,6 +13,7 @@ import {
   Radio,
   Settings2,
   Share2,
+  BookOpen,
 } from 'lucide-react';
 import type { GraphicsSettings, AudioSettings } from '../types.ts';
 import { networkClient } from '../multiplayer/networkClient.ts';
@@ -29,6 +30,7 @@ interface PauseMenuProps {
   onChangeAudio: (newAudio: AudioSettings) => void;
   soloMode: boolean;
   onToggleSoloHero: () => void;
+  onOpenStory?: () => void;
 }
 
 export const PauseMenu: React.FC<PauseMenuProps> = ({
@@ -43,6 +45,7 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({
   onChangeAudio,
   soloMode,
   onToggleSoloHero,
+  onOpenStory,
 }) => {
   const [copied, setCopied] = useState(false);
   const [workerConfig, setWorkerConfig] = useState(() => networkClient.getWorkerConfig());
@@ -334,10 +337,25 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({
           </button>
         </div>
 
+        {/* Story Booklet Button */}
+        {onOpenStory && (
+          <button
+            id="btn_pause_open_story"
+            onClick={() => {
+              onClose();
+              onOpenStory();
+            }}
+            className="w-full mt-3 py-2.5 rounded-xl bg-amber-950/50 hover:bg-amber-900/60 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-md shadow-amber-500/10"
+          >
+            <BookOpen className="w-4 h-4 text-amber-400" />
+            <span>کتابچه داستان و تاریخچه آدمک‌های چوبی</span>
+          </button>
+        )}
+
         <button
           id="btn_resume_game"
           onClick={onClose}
-          className="w-full mt-3 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-sm uppercase tracking-wider transition-all shadow-lg shadow-cyan-500/20"
+          className="w-full mt-2.5 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-sm uppercase tracking-wider transition-all shadow-lg shadow-cyan-500/20"
         >
           ادامه ماجراجویی
         </button>

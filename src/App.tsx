@@ -7,6 +7,7 @@ import { GameHUD } from './components/GameHUD.tsx';
 import { TouchControls } from './components/TouchControls.tsx';
 import { PauseMenu } from './components/PauseMenu.tsx';
 import { StageClearModal } from './components/StageClearModal.tsx';
+import { StoryModal } from './components/StoryModal.tsx';
 import type {
   PlayerRole,
   RoomData,
@@ -33,6 +34,7 @@ export default function App() {
   const [checkpointMessage, setCheckpointMessage] = useState<string | null>(null);
   const [isPauseOpen, setIsPauseOpen] = useState(false);
   const [isStageClearOpen, setIsStageClearOpen] = useState(false);
+  const [isStoryOpen, setIsStoryOpen] = useState(false);
   const [soloMode, setSoloMode] = useState(false);
 
   // Settings
@@ -346,8 +348,8 @@ export default function App() {
             partnerName={
               soloMode
                 ? myRole === 'explorer'
-                  ? 'بِرام (نگهبان)'
-                  : 'کایلِن (کاوشگر)'
+                  ? 'برسام (پسر چوبی)'
+                  : 'نورا (دختر چوبی)'
                 : roomData?.players[myRole === 'explorer' ? 'guardian' : 'explorer']?.name || 'هم‌تیمی'
             }
             partnerRole={myRole === 'explorer' ? 'guardian' : 'explorer'}
@@ -365,6 +367,7 @@ export default function App() {
 
           {/* Touch Controls for Mobile & Tablets */}
           <TouchControls
+            myRole={myRole}
             onUpdateInput={handleTouchInput}
             onSendEmote={handleSendEmote}
             onSendPing={handleSendPing}
@@ -388,6 +391,13 @@ export default function App() {
             onChangeAudio={setAudio}
             soloMode={soloMode}
             onToggleSoloHero={handleToggleSoloHero}
+            onOpenStory={() => setIsStoryOpen(true)}
+          />
+
+          {/* In-Game Story & Lore Modal */}
+          <StoryModal
+            isOpen={isStoryOpen}
+            onClose={() => setIsStoryOpen(false)}
           />
 
           {/* Stage Cleared Celebration Modal */}

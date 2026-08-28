@@ -15,9 +15,11 @@ import {
   Settings2,
   RefreshCw,
   Wifi,
+  BookOpen,
 } from 'lucide-react';
 import type { PlayerRole, RoomData } from '../types.ts';
 import { networkClient, type NetworkMode } from '../multiplayer/networkClient.ts';
+import { StoryModal } from './StoryModal.tsx';
 
 interface LobbyScreenProps {
   onCreateRoom: (name: string, role: PlayerRole) => void;
@@ -48,6 +50,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   const [joinCode, setJoinCode] = useState('');
   const [copied, setCopied] = useState(false);
   const [showNetworkModal, setShowNetworkModal] = useState(false);
+  const [showStoryModal, setShowStoryModal] = useState(false);
   const [networkMode, setNetworkMode] = useState<NetworkMode>(() => networkClient.getNetworkMode());
   const [customWorkerUrl, setCustomWorkerUrl] = useState(() => networkClient.getWorkerConfig().url);
   const [isCustomWorker, setIsCustomWorker] = useState(() => networkClient.getWorkerConfig().isCustom);
@@ -134,8 +137,19 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
             <span className="text-xs px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 font-normal self-center">Aether Duo</span>
           </h1>
           <p className="text-slate-400 text-xs sm:text-sm mt-1.5 max-w-lg mx-auto leading-relaxed">
-            سفری هم‌زمان و مشارکتی که دو قهرمان با توانایی‌های مکمل، معماهای باستانی و فیزیکی را حل می‌کنند.
+            سفری هم‌زمان و مشارکتی که دو آدمک چوبی با توانایی‌های مکمل، معماهای باستانی و فیزیکی را حل می‌کنند.
           </p>
+          <div className="mt-2.5 flex items-center justify-center">
+            <button
+              id="btn_open_story_modal_header"
+              onClick={() => setShowStoryModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-2xl bg-amber-950/60 hover:bg-amber-900/70 border border-amber-500/50 text-amber-300 hover:text-amber-200 text-xs font-bold shadow-lg shadow-amber-500/10 transition-all active:scale-95"
+            >
+              <BookOpen className="w-4 h-4 text-amber-400" />
+              <span>کتابچه داستان و تاریخچه آدمک‌های چوبی</span>
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            </button>
+          </div>
         </div>
 
         {/* Network & Cloudflare Status Indicator Bar */}
@@ -257,8 +271,8 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                   <div className="w-9 h-9 rounded-full bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center mb-1.5">
                     <Zap className="w-4 h-4 text-cyan-400" />
                   </div>
-                  <div className="font-bold text-xs sm:text-sm">کایلِن (Kaelen)</div>
-                  <div className="text-[11px] text-cyan-400 font-medium">کاوشگر صاعقه</div>
+                  <div className="font-bold text-xs sm:text-sm">نورا (Nora)</div>
+                  <div className="text-[11px] text-cyan-400 font-medium">دختر چوبی • کاوشگر صاعقه</div>
                   <div className="mt-2 text-xs font-semibold">
                     {roomData.players.explorer?.connected ? (
                       <span className="text-emerald-400 flex items-center gap-1">
@@ -283,8 +297,8 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                   <div className="w-9 h-9 rounded-full bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center mb-1.5">
                     <Shield className="w-4 h-4 text-emerald-400" />
                   </div>
-                  <div className="font-bold text-xs sm:text-sm">بِرام (Bram)</div>
-                  <div className="text-[11px] text-emerald-400 font-medium">نگهبان سنگین</div>
+                  <div className="font-bold text-xs sm:text-sm">برسام (Barsam)</div>
+                  <div className="text-[11px] text-emerald-400 font-medium">پسر چوبی • نگهبان تایتان</div>
                   <div className="mt-2 text-xs font-semibold">
                     {roomData.players.guardian?.connected ? (
                       <span className="text-emerald-400 flex items-center gap-1">
@@ -338,11 +352,21 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
             {/* Character Selection */}
             <div className="mb-5">
-              <label className="block text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1.5">
-                انتخاب قهرمان مورد علاقه
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs uppercase tracking-wider text-slate-400 font-semibold">
+                  انتخاب آدمک چوبی مورد علاقه
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowStoryModal(true)}
+                  className="text-[11px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 transition-colors"
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>مشاهده پیشینه و داستان</span>
+                </button>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Kaelen */}
+                {/* Nora (Girl) */}
                 <div
                   onClick={() => setSelectedRole('explorer')}
                   className={`cursor-pointer p-3 sm:p-3.5 rounded-xl border transition-all ${
@@ -351,21 +375,26 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                       : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 opacity-75'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5 mb-1.5">
-                    <div className="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center">
-                      <Zap className="w-4 h-4 text-cyan-400" />
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center">
+                        <Zap className="w-4 h-4 text-cyan-400" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-white text-xs sm:text-sm">نورا (Nora)</div>
+                        <div className="text-[11px] text-cyan-400 font-medium">دختر چوبی • سپیدار نقره‌ای</div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="font-bold text-white text-xs sm:text-sm">کایلِن (Kaelen)</div>
-                      <div className="text-[11px] text-cyan-400 font-medium">کاوشگر صاعقه</div>
-                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-400/30 text-cyan-300 font-semibold">
+                      دستکش صاعقه [F]
+                    </span>
                   </div>
-                  <p className="text-[11px] text-slate-400 leading-relaxed">
-                    دونده چابک مجهز به دستکش تِتِر الکتریکی برای فعال‌سازی کلیدهای دوردست و شارژ پدستال‌ها [کلید F].
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    چابک، سبک‌وزن و دارای پرش‌های بلند. مجهز به دستکش اِیتِر برای شلیک صاعقه، فعال‌سازی کلیدهای معلق و شارژ مدارهای انرژی.
                   </p>
                 </div>
 
-                {/* Bram */}
+                {/* Barsam (Boy) */}
                 <div
                   onClick={() => setSelectedRole('guardian')}
                   className={`cursor-pointer p-3 sm:p-3.5 rounded-xl border transition-all ${
@@ -374,17 +403,22 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                       : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 opacity-75'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5 mb-1.5">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center">
-                      <Shield className="w-4 h-4 text-emerald-400" />
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center">
+                        <Shield className="w-4 h-4 text-emerald-400" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-white text-xs sm:text-sm">برسام (Barsam)</div>
+                        <div className="text-[11px] text-emerald-400 font-medium">پسر چوبی • بلوط کهنسال</div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="font-bold text-white text-xs sm:text-sm">بِرام (Bram)</div>
-                      <div className="text-[11px] text-emerald-400 font-medium">نگهبان سنگین</div>
-                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-400/30 text-emerald-300 font-semibold">
+                      سپر تایتان [F]
+                    </span>
                   </div>
-                  <p className="text-[11px] text-slate-400 leading-relaxed">
-                    پهلوان مجهز به زره کهن، توانمند در جابجایی مکعب‌های مغناطیسی سنگین و ایجاد پل نوری/سپر [کلید F].
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    استوار و سنگین‌پیکر با قلبی از بلور زمردین. توانمند در جابجایی مکعب‌های سنگین سنگی و برپایی سپر دفاعی در برابر لیزر.
                   </p>
                 </div>
               </div>
@@ -613,6 +647,9 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
           </div>
         )}
       </AnimatePresence>
+
+      {/* Narrative Lore & History Modal */}
+      <StoryModal isOpen={showStoryModal} onClose={() => setShowStoryModal(false)} />
     </div>
   );
 };

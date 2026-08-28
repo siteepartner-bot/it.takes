@@ -244,11 +244,11 @@ export class GameEngine {
     const remoteRole: PlayerRole = this.localRole === 'explorer' ? 'guardian' : 'explorer';
 
     this.localPlayerMesh = createCharacterMesh(this.localRole);
-    this.localPlayerMesh.setNametag(this.localRole === 'explorer' ? 'Kaelen' : 'Bram', true);
+    this.localPlayerMesh.setNametag(this.localRole === 'explorer' ? 'نورا (Nora)' : 'برسام (Barsam)', true);
     this.scene.add(this.localPlayerMesh.group);
 
     this.remotePlayerMesh = createCharacterMesh(remoteRole);
-    this.remotePlayerMesh.setNametag(remoteRole === 'explorer' ? 'Kaelen' : 'Bram', false);
+    this.remotePlayerMesh.setNametag(remoteRole === 'explorer' ? 'نورا (Nora)' : 'برسام (Barsam)', false);
     this.scene.add(this.remotePlayerMesh.group);
 
     // Initial offset for remote
@@ -328,7 +328,7 @@ export class GameEngine {
         e.preventDefault();
         this.soloSwapped = !this.soloSwapped;
         this.setRoles(this.soloSwapped ? 'guardian' : 'explorer');
-        this.callbacks.onCheckpointMessage(`تعویض به: ${this.localRole === 'explorer' ? 'کاوشگر (کایلِن)' : 'نگهبان (بِرام)'}`);
+        this.callbacks.onCheckpointMessage(`تعویض به: ${this.localRole === 'explorer' ? 'نورا (دختر چوبی)' : 'برسام (پسر چوبی)'}`);
       }
     });
 

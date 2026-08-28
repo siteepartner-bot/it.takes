@@ -206,7 +206,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             className="pointer-events-auto px-3 sm:px-4 py-2 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-cyan-500/40 hover:bg-slate-800 text-xs font-bold text-cyan-300 flex items-center gap-2 shadow-lg"
           >
             <Users className="w-3.5 h-3.5" />
-            <span>کنترل: {isExplorer ? '⚡ کایلن (کاوشگر)' : '🛡️ برام (نگهبان)'} (کلید Tab)</span>
+            <span>کنترل: {isExplorer ? '⚡ نورا (دختر چوبی)' : '🛡️ برسام (پسر چوبی)'} (کلید Tab)</span>
           </button>
         ) : (
           /* Role Ability Indicator */
@@ -220,13 +220,13 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             </div>
             <div>
               <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                <span>{isExplorer ? 'جهش صاعقه / تِتِر انرژی' : 'سپر محافظ / پل نوری'}</span>
+                <span>{isExplorer ? 'دستکش صاعقه نورا' : 'سپر تایتان برسام'}</span>
                 <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-cyan-400 font-mono" dir="ltr">
                   [F]
                 </kbd>
               </div>
               <div className="text-[10px] text-slate-400">
-                {isExplorer ? 'شارژ پدستال‌ها و فعال‌سازی کلیدها' : 'افکندن پل نورانی و دفع پرتوها'}
+                {isExplorer ? 'شارژ پیستون‌ها، مدارهای معلق و شلیک صاعقه' : 'مهار و بازتاب پرتوهای لیزر دفاعی'}
               </div>
             </div>
           </div>

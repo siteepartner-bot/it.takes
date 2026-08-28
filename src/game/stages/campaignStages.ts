@@ -51,7 +51,7 @@ export class StatefulDoor {
   public speed: number;
   public mesh: THREE.Object3D;
 
-  constructor(mesh: THREE.Object3D, closedY: number, openY: number, speed = 4.0) {
+  constructor(mesh: THREE.Object3D, closedY: number, openY: number, speed = 6.0) {
     this.mesh = mesh;
     this.closedY = closedY;
     this.openY = openY;
@@ -73,21 +73,15 @@ export class StatefulDoor {
   }
 
   public update(dt: number) {
-    if (this.state === 'Opening') {
-      this.currentY += this.speed * dt;
-      if (this.currentY >= this.openY) {
-        this.currentY = this.openY;
-        this.state = 'Open';
-      }
-      this.mesh.position.y = this.currentY;
-    } else if (this.state === 'Closing') {
-      this.currentY -= this.speed * dt;
-      if (this.currentY <= this.closedY) {
-        this.currentY = this.closedY;
-        this.state = 'Closed';
-      }
-      this.mesh.position.y = this.currentY;
+    const targetY = (this.state === 'Opening' || this.state === 'Open') ? this.openY : this.closedY;
+    const diff = targetY - this.currentY;
+    if (Math.abs(diff) < 0.05) {
+      this.currentY = targetY;
+      this.state = targetY === this.openY ? 'Open' : 'Closed';
+    } else {
+      this.currentY += Math.sign(diff) * Math.min(Math.abs(diff), this.speed * dt);
     }
+    this.mesh.position.y = this.currentY;
   }
 }
 
@@ -268,7 +262,12 @@ export function buildCampaignStage(stageId: number): StageBuildResult {
 
       statefulDoor.setTarget(plateActive || leverActive);
       statefulDoor.update(dt);
-      colliders[doorColliderIndex].setFromObject(doorMesh);
+      
+      if (plateActive || leverActive || statefulDoor.state === 'Open') {
+        colliders[doorColliderIndex].setFromCenterAndSize(new THREE.Vector3(0, -999, 0), new THREE.Vector3(0, 0, 0));
+      } else {
+        colliders[doorColliderIndex].setFromObject(doorMesh);
+      }
 
       // Portal emissive feedback
       const p1Ready = !!(state.customData && state.customData[`stage${stageId}ExitP1Ready`]);

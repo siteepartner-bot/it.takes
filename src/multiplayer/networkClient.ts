@@ -884,6 +884,26 @@ export class NetworkClient {
   }
 
   public send(msg: ClientMessage) {
+    // Solo/Offline mode fallback: immediately handle locally if not connected to a room
+    if (!this.roomCode) {
+      if (msg.type === 'puzzle_trigger') {
+        const updatedState = { ...this.currentPuzzleState };
+        if (msg.key in updatedState) {
+          (updatedState as any)[msg.key] = msg.value;
+        } else {
+          updatedState.customData = { ...updatedState.customData, [msg.key]: msg.value };
+        }
+        this.currentPuzzleState = updatedState;
+        this.onPuzzleSynced?.(updatedState);
+      } else if (msg.type === 'checkpoint_reach') {
+        this.onCheckpointUpdated?.({ checkpointId: msg.checkpointId, respawnPos: [0, 1, 0] });
+      } else if (msg.type === 'stage_advance') {
+        this.currentPuzzleState = createDefaultPuzzleState(msg.nextStageId);
+        this.onStageChanged?.(msg.nextStageId);
+      }
+      return;
+    }
+
     // 1. Send via Firebase Cloud Database if active
     if (this.activeTransport === 'firebase') {
       if (msg.type === 'player_update') {
@@ -995,6 +1015,10 @@ export class NetworkClient {
       key,
       value,
     });
+  }
+
+  public initOfflineState(stageId: number) {
+    this.currentPuzzleState = createDefaultPuzzleState(stageId);
   }
 
   public sendEmote(emote: EmoteType) {

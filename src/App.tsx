@@ -357,6 +357,7 @@ export default function App() {
   };
 
   const handleStartSoloPractice = () => {
+    networkClient.initOfflineState(currentStageId);
     setSoloMode(true);
     setMyRole('explorer');
     setPartnerConnected(true);

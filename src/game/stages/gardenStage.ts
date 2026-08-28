@@ -415,9 +415,15 @@ export function buildGardenStage(): StageBuildResult {
   // Dynamic animation/update loop
   function update(dt: number, state: PuzzleState) {
     // 1. Gate 1 Logic: open if plate is stood on OR lever is activated
-    const targetGateY = state.gate1Open || state.lever1Activated ? -3.5 : 2.25;
-    gateMesh.position.y += (targetGateY - gateMesh.position.y) * Math.min(1, dt * 5);
-    colliders[gateColliderIndex].setFromObject(gateMesh);
+    const gateOpen = state.gate1Open || state.lever1Activated;
+    const targetGateY = gateOpen ? -3.5 : 2.25;
+    gateMesh.position.y += (targetGateY - gateMesh.position.y) * Math.min(1, dt * 6);
+
+    if (gateOpen) {
+      colliders[gateColliderIndex].setFromCenterAndSize(new THREE.Vector3(0, -999, 0), new THREE.Vector3(0, 0, 0));
+    } else {
+      colliders[gateColliderIndex].setFromObject(gateMesh);
+    }
 
     // Pressure plate Y animation & glow
     const targetPlateY = state.gate1Open ? 0.02 : 0.08;

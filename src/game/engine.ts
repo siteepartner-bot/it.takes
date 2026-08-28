@@ -813,36 +813,36 @@ export class GameEngine {
   private checkInteractions() {
     if (!this.currentStage) return;
 
-    // 1. Dynamic bounds update for moving interactive meshes
+    // 1. Dynamic bounds update only for moving blocks
     for (const obj of this.currentStage.interactiveObjects) {
-      if (obj.mesh) {
+      if (obj.mesh && obj.type === 'heavy_block') {
         obj.bounds.setFromCenterAndSize(
           obj.mesh.position,
-          obj.type === 'heavy_block' ? new THREE.Vector3(3.2, 3.2, 3.2) :
-          obj.type === 'pressure_plate' ? new THREE.Vector3(2.8, 2, 2.8) :
-          new THREE.Vector3(2.8, 2.8, 2.8)
+          new THREE.Vector3(3.2, 3.2, 3.2)
         );
       }
     }
 
-    // 2. Strict Occupancy-based Pressure Plate Evaluation (Runs every frame)
+    // 2. Strict Occupancy-based Pressure Plate Evaluation
     const remotePos = this.partnerNetState ? new THREE.Vector3(this.partnerNetState.x, this.partnerNetState.y, this.partnerNetState.z) : null;
+    const isSolo = !networkClient.getRoomCode();
 
     for (const obj of this.currentStage.interactiveObjects) {
       if (obj.type === 'pressure_plate') {
         const localDist = obj.bounds.distanceToPoint(this.playerPos);
-        const localStanding = localDist < 1.6 || obj.bounds.containsPoint(this.playerPos);
-        const remoteStanding = remotePos ? (obj.bounds.distanceToPoint(remotePos) < 1.6 || obj.bounds.containsPoint(remotePos)) : false;
+        const localStanding = localDist < 2.2 || obj.bounds.containsPoint(this.playerPos);
+        const remoteStanding = remotePos ? (obj.bounds.distanceToPoint(remotePos) < 2.2 || obj.bounds.containsPoint(remotePos)) : false;
 
         const isOccupied = localStanding || remoteStanding;
 
         // Stage 1 Gate Pressure Plate
         if (obj.id === 'plate_gate_1') {
-          if (isOccupied !== !!this.puzzleState.gate1Open) {
-            networkClient.triggerPuzzle('gate1Open', isOccupied);
-            soundManager.playPressurePlate(isOccupied);
+          const wantOpen = isOccupied || (isSolo && !!this.puzzleState.gate1Open);
+          if (wantOpen !== !!this.puzzleState.gate1Open) {
+            networkClient.triggerPuzzle('gate1Open', wantOpen);
+            soundManager.playPressurePlate(wantOpen);
             this.callbacks.onCheckpointMessage(
-              isOccupied ? '🟢 دکمه فشاری فعال شد (دروازه باز شد)' : '🔴 دکمه فشاری رها شد (دروازه بسته شد)'
+              wantOpen ? '🟢 دکمه فشاری فعال شد (دروازه باز شد)' : '🔴 دکمه فشاری رها شد (دروازه بسته شد)'
             );
           }
         }
@@ -852,11 +852,12 @@ export class GameEngine {
           const stageNum = this.currentStageId;
           const key = `platePressed_${stageNum}`;
           const currentVal = !!(this.puzzleState.customData && this.puzzleState.customData[key]);
-          if (isOccupied !== currentVal) {
-            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [key]: isOccupied });
-            soundManager.playPressurePlate(isOccupied);
+          const wantOpen = isOccupied || (isSolo && currentVal);
+          if (wantOpen !== currentVal) {
+            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [key]: wantOpen });
+            soundManager.playPressurePlate(wantOpen);
             this.callbacks.onCheckpointMessage(
-              isOccupied ? `🟢 دکمه فشاری مرحله ${stageNum} فعال شد!` : `🔴 دکمه فشاری مرحله ${stageNum} آزاد شد.`
+              wantOpen ? `🟢 دکمه فشاری مرحله ${stageNum} فعال شد!` : `🔴 دکمه فشاری مرحله ${stageNum} آزاد شد.`
             );
           }
         }

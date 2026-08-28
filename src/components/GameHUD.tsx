@@ -298,32 +298,8 @@ export const GameHUD: React.FC<GameHUDProps> = ({
         </div>
       </div>
 
-      {/* --- CENTER NOTIFICATIONS & MOUSE LOCK HINT --- */}
+      {/* --- CENTER NOTIFICATIONS --- */}
       <div className="flex flex-col items-center gap-2 my-auto pointer-events-none">
-        {/* Windows Mouse Pointer Lock Status Hint */}
-        {controlMode === 'windows' && !isPointerLocked && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="pointer-events-auto px-3 sm:px-4 py-1.5 rounded-full bg-slate-900/90 border border-cyan-500/40 text-cyan-300 text-[11px] sm:text-xs font-semibold shadow-2xl backdrop-blur-md flex items-center gap-1.5"
-          >
-            <MousePointer className="w-3.5 h-3.5 text-cyan-400 animate-bounce" />
-            <span>برای چرخش آزاد ۳۶۰ درجه دوربین کلیک کنید (آزادسازی: Alt یا Esc)</span>
-          </motion.div>
-        )}
-
-        {controlMode === 'windows' && isPointerLocked && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="pointer-events-none px-3 py-1 rounded-full bg-black/50 backdrop-blur-sm text-[10px] text-slate-400 border border-slate-800 flex items-center gap-1.5"
-          >
-            <Unlock className="w-3 h-3 text-amber-400" />
-            <span>ماوس در حال چرخش • برای آزادسازی ماوس کلید [Alt] یا [Esc] را بزنید</span>
-          </motion.div>
-        )}
-
         {/* Checkpoint / Achievement Message Banner */}
         <AnimatePresence>
           {checkpointMessage && (
@@ -365,110 +341,66 @@ export const GameHUD: React.FC<GameHUDProps> = ({
         )}
       </div>
 
-      {/* --- BOTTOM BAR (Responsive) --- */}
-      <div className="flex items-end justify-between w-full gap-2">
-        {/* Solo Duo Quick Switcher */}
-        {soloMode ? (
-          <button
-            id="btn_solo_swap_hero"
-            onClick={onToggleSoloHero}
-            className="pointer-events-auto px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-cyan-500/40 hover:bg-slate-800 text-[11px] sm:text-xs font-bold text-cyan-300 flex items-center gap-1.5 shadow-lg"
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>کنترل: {isExplorer ? '⚡ نیوشا (دختر چوبی)' : '🛡️ حسن (پسر چوبی)'} [Tab]</span>
-          </button>
-        ) : (
-          /* Role Ability Indicator */
-          <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl p-1.5 sm:p-2.5 px-2.5 sm:px-3.5 shadow-xl flex items-center gap-2 sm:gap-3">
-            <div
-              className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center ${
-                isExplorer ? 'bg-cyan-500/20 text-cyan-400' : 'bg-emerald-500/20 text-emerald-400'
-              }`}
+      {/* --- BOTTOM BAR (Hidden on Mobile to ensure zero screen clutter) --- */}
+      {controlMode !== 'mobile' && (
+        <div className="flex items-end justify-between w-full gap-2">
+          {/* Solo Duo Quick Switcher */}
+          {soloMode ? (
+            <button
+              id="btn_solo_swap_hero"
+              onClick={onToggleSoloHero}
+              className="pointer-events-auto px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-cyan-500/40 hover:bg-slate-800 text-[11px] sm:text-xs font-bold text-cyan-300 flex items-center gap-1.5 shadow-lg"
             >
-              {isExplorer ? (
-                <Zap className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
-              ) : (
-                <Shield className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
-              )}
-            </div>
-            <div>
-              <div className="text-[11px] sm:text-xs font-bold text-white flex items-center gap-1.5">
-                <span>{isExplorer ? 'دستکش صاعقه نیوشا' : 'سپر تایتان حسن'}</span>
-                <kbd
-                  className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-cyan-400 font-mono"
-                  dir="ltr"
-                >
-                  [F]
-                </kbd>
+              <Users className="w-3.5 h-3.5" />
+              <span>کنترل: {isExplorer ? '⚡ نیوشا (دختر چوبی)' : '🛡️ حسن (پسر چوبی)'} [Tab]</span>
+            </button>
+          ) : (
+            /* Role Ability Indicator */
+            <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl p-1.5 sm:p-2.5 px-2.5 sm:px-3.5 shadow-xl flex items-center gap-2 sm:gap-3">
+              <div
+                className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center ${
+                  isExplorer ? 'bg-cyan-500/20 text-cyan-400' : 'bg-emerald-500/20 text-emerald-400'
+                }`}
+              >
+                {isExplorer ? (
+                  <Zap className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                ) : (
+                  <Shield className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                )}
               </div>
-              <div className="hidden sm:block text-[10px] text-slate-400">
-                {isExplorer
-                  ? 'شارژ پیستون‌ها، مدارهای معلق و شلیک صاعقه'
-                  : 'مهار و بازتاب پرتوهای لیزر دفاعی'}
+              <div>
+                <div className="text-[11px] sm:text-xs font-bold text-white flex items-center gap-1.5">
+                  <span>{isExplorer ? 'دستکش صاعقه نیوشا' : 'سپر تایتان حسن'}</span>
+                  <kbd
+                    className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-cyan-400 font-mono"
+                    dir="ltr"
+                  >
+                    [F]
+                  </kbd>
+                </div>
+                <div className="hidden sm:block text-[10px] text-slate-400">
+                  {isExplorer
+                    ? 'شارژ پیستون‌ها، مدارهای معلق و شلیک صاعقه'
+                    : 'مهار و بازتاب پرتوهای لیزر دفاعی'}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Quick Communication: Emotes & Ping (Visible on desktop/tablet) */}
-        <div className="pointer-events-auto hidden sm:flex items-center gap-1 sm:gap-2 bg-slate-900/90 backdrop-blur-md border border-slate-800 p-1.5 sm:p-2 rounded-2xl shadow-xl">
-          <button
-            id="btn_hud_ping"
-            onClick={onSendPing}
-            className="p-1.5 sm:p-2 rounded-xl bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/30 text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1 text-xs font-bold"
-            title="علامت‌گذاری ۳بعدی در بازی (کلید T)"
-          >
-            <MapPin className="w-3.5 h-3.5" />
-            <span className="text-[10px]">پینگ [T]</span>
-          </button>
-
-          <div className="w-px h-4 bg-slate-700" />
-
-          {/* Quick Emotes */}
-          <div className="flex items-center gap-0.5 sm:gap-1">
+          {/* Quick Communication: Ping */}
+          <div className="pointer-events-auto hidden sm:flex items-center gap-1 sm:gap-2 bg-slate-900/90 backdrop-blur-md border border-slate-800 p-1.5 sm:p-2 rounded-2xl shadow-xl">
             <button
-              id="btn_emote_wave"
-              onClick={() => onSendEmote('wave')}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl hover:bg-slate-800 flex items-center justify-center text-sm sm:text-base transition-transform active:scale-90"
-              title="سلام [1]"
+              id="btn_hud_ping"
+              onClick={onSendPing}
+              className="p-1.5 sm:p-2 rounded-xl bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/30 text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1 text-xs font-bold"
+              title="علامت‌گذاری ۳بعدی در بازی (کلید T)"
             >
-              👋
-            </button>
-            <button
-              id="btn_emote_cheer"
-              onClick={() => onSendEmote('cheer')}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl hover:bg-slate-800 flex items-center justify-center text-sm sm:text-base transition-transform active:scale-90"
-              title="هورا [2]"
-            >
-              🎉
-            </button>
-            <button
-              id="btn_emote_point"
-              onClick={() => onSendEmote('point')}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl hover:bg-slate-800 flex items-center justify-center text-sm sm:text-base transition-transform active:scale-90"
-              title="اشاره [3]"
-            >
-              👉
-            </button>
-            <button
-              id="btn_emote_heart"
-              onClick={() => onSendEmote('heart')}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl hover:bg-slate-800 flex items-center justify-center text-sm sm:text-base transition-transform active:scale-90"
-              title="قلب [4]"
-            >
-              💖
-            </button>
-            <button
-              id="btn_emote_think"
-              onClick={() => onSendEmote('think')}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl hover:bg-slate-800 flex items-center justify-center text-sm sm:text-base transition-transform active:scale-90"
-              title="فکر کردن [5]"
-            >
-              🤔
+              <MapPin className="w-3.5 h-3.5" />
+              <span className="text-[10px]">پینگ [T]</span>
             </button>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

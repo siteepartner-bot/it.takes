@@ -9,7 +9,6 @@ import { PauseMenu } from './components/PauseMenu.tsx';
 import { StageClearModal } from './components/StageClearModal.tsx';
 import { StoryModal } from './components/StoryModal.tsx';
 import { GeminiVoiceCallModal } from './components/GeminiVoiceCallModal.tsx';
-import { InGameMasterVoice } from './components/InGameMasterVoice.tsx';
 import { createDefaultPuzzleState } from './types.ts';
 import { proximityVoiceManager } from './audio/proximityVoice.ts';
 import type {
@@ -470,23 +469,6 @@ export default function App() {
             onSendEmote={handleSendEmote}
             onSendPing={handleSendPing}
             onOpenGeminiCall={handleTriggerGeminiCall}
-          />
-
-          {/* Ambient In-Game Master Voice (Auto-detects when saying "استاد", or on V key/button) */}
-          <InGameMasterVoice
-            enabled={ambientWakeWordEnabled}
-            stageId={currentStageId}
-            myRole={myRole}
-            myName={myName}
-            partnerName={partnerDisplayName}
-            puzzleState={
-              engineRef.current
-                ? engineRef.current.getPuzzleState()
-                : createDefaultPuzzleState(currentStageId)
-            }
-            partnerDistance={partnerDistance}
-            onOpenClassicModal={() => setIsGeminiCallOpen(true)}
-            triggerGuidanceKey={triggerGuidanceKey}
           />
 
           {/* Pause Menu Modal */}

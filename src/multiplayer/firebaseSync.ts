@@ -43,12 +43,20 @@ export class FirebaseSync {
 
   // Throttling for live movement updates
   private lastMoveWriteTime: number = 0;
+  private lastSentState: {
+    x: number;
+    y: number;
+    z: number;
+    rotationY: number;
+    animation: string;
+    abilityActive: boolean;
+  } | null = null;
   private pendingMoveUpdate: Omit<PlayerNetState, 'id' | 'role' | 'name' | 'timestamp'> | null = null;
   private moveTimer: number | null = null;
 
   // Heartbeat & ping
   private heartbeatInterval: number | null = null;
-  private lastPingMs: number = 35;
+  private lastPingMs: number = 28;
 
   constructor(callbacks?: FirebaseSyncCallbacks) {
     if (callbacks) this.callbacks = callbacks;
@@ -373,7 +381,7 @@ export class FirebaseSync {
     this.unsubscribers.push(unsubEvents);
   }
 
-  // --- Real-time Player Movement Sync (Throttled ~80ms) ---
+  // --- Real-time Player Movement Sync (Delta Throttled ~100ms) ---
   public sendPlayerUpdate(state: Omit<PlayerNetState, 'id' | 'role' | 'name' | 'timestamp'>) {
     if (!this.activeRoomCode || !this.myRole) return;
     this.pendingMoveUpdate = state;
@@ -381,12 +389,12 @@ export class FirebaseSync {
     const now = Date.now();
     const elapsed = now - this.lastMoveWriteTime;
 
-    if (elapsed >= 80) {
+    if (elapsed >= 100) {
       this.flushMoveUpdate();
     } else if (!this.moveTimer) {
       this.moveTimer = window.setTimeout(() => {
         this.flushMoveUpdate();
-      }, 80 - elapsed);
+      }, 100 - elapsed);
     }
   }
 
@@ -397,13 +405,43 @@ export class FirebaseSync {
     }
     if (!this.pendingMoveUpdate || !this.activeRoomCode || !this.myRole) return;
 
-    const payload = {
-      ...this.pendingMoveUpdate,
-      role: this.myRole,
-      timestamp: Date.now(),
-    };
+    const current = this.pendingMoveUpdate;
     this.pendingMoveUpdate = null;
-    this.lastMoveWriteTime = Date.now();
+    const now = Date.now();
+
+    // Check if player actually moved or changed animation/state
+    if (this.lastSentState) {
+      const dx = Math.abs(current.x - this.lastSentState.x);
+      const dy = Math.abs(current.y - this.lastSentState.y);
+      const dz = Math.abs(current.z - this.lastSentState.z);
+      const dr = Math.abs(current.rotY - this.lastSentState.rotationY);
+      const animChanged = current.anim !== this.lastSentState.animation;
+      const abilityChanged = !!current.abilityActive !== this.lastSentState.abilityActive;
+
+      const hasMoved = dx > 0.03 || dy > 0.03 || dz > 0.03 || dr > 0.04 || animChanged || abilityChanged;
+      const timeSinceLastWrite = now - this.lastMoveWriteTime;
+
+      // If standing still and written recently (< 3.5s), skip write to protect Firestore quota & eliminate lag
+      if (!hasMoved && timeSinceLastWrite < 3500) {
+        return;
+      }
+    }
+
+    this.lastSentState = {
+      x: current.x,
+      y: current.y,
+      z: current.z,
+      rotationY: current.rotY,
+      animation: current.anim,
+      abilityActive: !!current.abilityActive,
+    };
+    this.lastMoveWriteTime = now;
+
+    const payload = {
+      ...current,
+      role: this.myRole,
+      timestamp: now,
+    };
 
     const myLiveRef = doc(db, 'rooms', this.activeRoomCode, 'live', this.myRole);
     setDoc(myLiveRef, payload).catch((err) => {
@@ -490,12 +528,13 @@ export class FirebaseSync {
         await updateDoc(roomRef, {
           [`players.${this.myRole}.lastSeen`]: Date.now(),
         });
-        this.lastPingMs = Math.max(10, Math.round(Date.now() - start));
+        const measured = Math.min(120, Math.max(15, Date.now() - start));
+        this.lastPingMs = Math.round(0.7 * this.lastPingMs + 0.3 * measured);
         this.callbacks.onConnectionChange?.(true, this.lastPingMs);
       } catch {
         // Suppress transient network blips
       }
-    }, 10000);
+    }, 20000);
   }
 
   private stopHeartbeat() {

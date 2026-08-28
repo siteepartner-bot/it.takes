@@ -243,6 +243,9 @@ class ProximityVoiceManager {
   }
 
   private startVoiceLoop(): void {
+    let lastLocalSpeaking = this.isLocalSpeaking;
+    let lastPartnerSpeaking = this.isPartnerSpeaking;
+
     const checkAudioLevels = () => {
       if (!this.isMicActive) return;
 
@@ -251,7 +254,7 @@ class ProximityVoiceManager {
         const data = new Uint8Array(this.localAnalyser.frequencyBinCount);
         this.localAnalyser.getByteFrequencyData(data);
         const avg = data.reduce((a, b) => a + b, 0) / data.length;
-        this.isLocalSpeaking = avg > 18;
+        this.isLocalSpeaking = avg > 22;
       }
 
       // Analyze remote speaking volume
@@ -259,10 +262,16 @@ class ProximityVoiceManager {
         const data = new Uint8Array(this.remoteAnalyser.frequencyBinCount);
         this.remoteAnalyser.getByteFrequencyData(data);
         const avg = data.reduce((a, b) => a + b, 0) / data.length;
-        this.isPartnerSpeaking = avg > 18;
+        this.isPartnerSpeaking = avg > 22;
       }
 
-      this.notify();
+      // Only notify if speaking state actually toggled
+      if (this.isLocalSpeaking !== lastLocalSpeaking || this.isPartnerSpeaking !== lastPartnerSpeaking) {
+        lastLocalSpeaking = this.isLocalSpeaking;
+        lastPartnerSpeaking = this.isPartnerSpeaking;
+        this.notify();
+      }
+
       this.animFrameId = requestAnimationFrame(checkAudioLevels);
     };
 

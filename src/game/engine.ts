@@ -60,6 +60,10 @@ export class GameEngine {
   public playerVel = new THREE.Vector3(0, 0, 0);
   public playerRotY = 0;
   private isGrounded = true;
+  private standingOnCollider: THREE.Box3 | null = null;
+  private standingOnLastMaxY = 0;
+  private standingOnLastCenterX = 0;
+  private standingOnLastCenterZ = 0;
   private currentAnim: AnimState = 'idle';
   private abilityActive = false;
   private abilityCooldown = 0;
@@ -569,6 +573,26 @@ export class GameEngine {
   private update(dt: number) {
     if (!this.currentStage) return;
 
+    // Apply moving platform delta if grounded
+    if (this.isGrounded && this.standingOnCollider) {
+      const deltaY = this.standingOnCollider.max.y - this.standingOnLastMaxY;
+      const centerX = (this.standingOnCollider.min.x + this.standingOnCollider.max.x) / 2;
+      const deltaX = centerX - this.standingOnLastCenterX;
+      const centerZ = (this.standingOnCollider.min.z + this.standingOnCollider.max.z) / 2;
+      const deltaZ = centerZ - this.standingOnLastCenterZ;
+
+      if (Math.abs(deltaY) > 0.0001) {
+        this.playerPos.y += deltaY;
+        this.playerVel.y = 0;
+      }
+      if (Math.abs(deltaX) > 0.0001) {
+        this.playerPos.x += deltaX;
+      }
+      if (Math.abs(deltaZ) > 0.0001) {
+        this.playerPos.z += deltaZ;
+      }
+    }
+
     // 1. Process Movement Inputs
     let moveX = 0;
     let moveZ = 0;
@@ -638,6 +662,7 @@ export class GameEngine {
     const playerRadius = 0.45;
     const playerHeight = 1.8;
     let groundedThisFrame = false;
+    let standingBox: THREE.Box3 | null = null;
 
     for (const box of this.currentStage.colliders) {
       // Check if intersecting bounding box
@@ -659,6 +684,7 @@ export class GameEngine {
           nextPos.y = maxY;
           this.playerVel.y = 0;
           groundedThisFrame = true;
+          standingBox = box;
         } else if (nextPos.y < maxY && nextPos.y + playerHeight > minY) {
           // Horizontal wall pushback
           const overlapX1 = nextPos.x - minX;
@@ -680,6 +706,16 @@ export class GameEngine {
       soundManager.playLand();
     }
     this.isGrounded = groundedThisFrame;
+    this.standingOnCollider = standingBox;
+    if (standingBox) {
+      this.standingOnLastMaxY = standingBox.max.y;
+      this.standingOnLastCenterX = (standingBox.min.x + standingBox.max.x) / 2;
+      this.standingOnLastCenterZ = (standingBox.min.z + standingBox.max.z) / 2;
+    } else {
+      this.standingOnLastMaxY = 0;
+      this.standingOnLastCenterX = 0;
+      this.standingOnLastCenterZ = 0;
+    }
     this.playerPos.copy(nextPos);
 
     // Abyss Fall Hazard Respawn
@@ -837,7 +873,7 @@ export class GameEngine {
 
         // Stage 1 Gate Pressure Plate
         if (obj.id === 'plate_gate_1') {
-          const wantOpen = isOccupied || (isSolo && !!this.puzzleState.gate1Open);
+          const wantOpen = isOccupied;
           if (wantOpen !== !!this.puzzleState.gate1Open) {
             networkClient.triggerPuzzle('gate1Open', wantOpen);
             soundManager.playPressurePlate(wantOpen);
@@ -852,7 +888,7 @@ export class GameEngine {
           const stageNum = this.currentStageId;
           const key = `platePressed_${stageNum}`;
           const currentVal = !!(this.puzzleState.customData && this.puzzleState.customData[key]);
-          const wantOpen = isOccupied || (isSolo && currentVal);
+          const wantOpen = isOccupied;
           if (wantOpen !== currentVal) {
             networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [key]: wantOpen });
             soundManager.playPressurePlate(wantOpen);

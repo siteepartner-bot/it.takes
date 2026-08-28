@@ -33,6 +33,17 @@ export interface FirebaseSyncCallbacks {
   onError?: (msg: string) => void;
 }
 
+function withTimeout<T>(promise: Promise<T>, ms = 2000, errorMsg = 'Firestore request timed out'): Promise<T> {
+  let timer: any;
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(errorMsg)), ms);
+  });
+  return Promise.race([
+    promise.finally(() => clearTimeout(timer)),
+    timeoutPromise,
+  ]);
+}
+
 export class FirebaseSync {
   public static isQuotaExhausted: boolean = false;
 
@@ -79,9 +90,7 @@ export class FirebaseSync {
   }
 
   private handleQuotaExceeded(err?: any) {
-    FirebaseSync.isQuotaExhausted = true;
-    console.warn('Firestore write quota reached; gracefully switching to WebSocket / P2P transport.');
-    this.cleanup();
+    console.warn('Firestore write warning:', err?.message || err);
   }
 
   public setCallbacks(callbacks: FirebaseSyncCallbacks) {
@@ -108,10 +117,6 @@ export class FirebaseSync {
     stageId: number = 1
   ): Promise<RoomData> {
     this.cleanup();
-
-    if (FirebaseSync.isQuotaExhausted) {
-      throw new Error('Firestore quota limit reached. Using WebSocket / P2P.');
-    }
 
     const cleanCode = code.toUpperCase().trim();
     this.activeRoomCode = cleanCode;
@@ -140,25 +145,29 @@ export class FirebaseSync {
     };
 
     try {
-      await setDoc(roomRef, {
-        code: cleanCode,
-        stageId,
-        checkpointId: 0,
-        status: 'waiting',
-        hostRole: preferredRole,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        players: {
-          [preferredRole]: {
-            id: this.myId,
-            name: playerName,
-            ready: true,
-            connected: true,
-            lastSeen: Date.now(),
+      await withTimeout(
+        setDoc(roomRef, {
+          code: cleanCode,
+          stageId,
+          checkpointId: 0,
+          status: 'waiting',
+          hostRole: preferredRole,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          players: {
+            [preferredRole]: {
+              id: this.myId,
+              name: playerName,
+              ready: true,
+              connected: true,
+              lastSeen: Date.now(),
+            },
           },
-        },
-        puzzleState: initialPuzzleState,
-      });
+          puzzleState: initialPuzzleState,
+        }),
+        2500,
+        'ثبت اتاق در سرور فایربیس بیش از حد طول کشید.'
+      );
 
       this.subscribeToRoom(cleanCode, preferredRole);
       this.startHeartbeat();
@@ -175,10 +184,9 @@ export class FirebaseSync {
       if (FirebaseSync.isQuotaError(err)) {
         this.handleQuotaExceeded(err);
       } else {
-        console.error('Failed to create room in Firebase:', err);
+        console.warn('Firebase createRoom note:', err?.message || err);
       }
       const msg = err?.message || 'خطا در ثبت اتاق در سرور ابری فایربیس.';
-      this.callbacks.onError?.(msg);
       throw new Error(msg);
     }
   }
@@ -191,18 +199,13 @@ export class FirebaseSync {
   ): Promise<{ room: RoomData; assignedRole: PlayerRole; yourId: string }> {
     this.cleanup();
 
-    if (FirebaseSync.isQuotaExhausted) {
-      throw new Error('Firestore quota limit reached. Using WebSocket / P2P.');
-    }
-
     const cleanCode = code.toUpperCase().trim();
     const roomRef = doc(db, 'rooms', cleanCode);
 
     try {
-      const snap = await getDoc(roomRef);
+      const snap = await withTimeout(getDoc(roomRef), 2500, 'جستجوی اتاق در فایربیس بیش از حد طول کشید.');
       if (!snap.exists()) {
         const errorMsg = `اتاقی با کد «${cleanCode}» در سرورهای ابری پیدا نشد. لطفاً کد را با دقت بررسی کنید یا اتاق جدیدی بسازید.`;
-        this.callbacks.onError?.(errorMsg);
         throw new Error(errorMsg);
       }
 
@@ -222,7 +225,6 @@ export class FirebaseSync {
         assignedRole = 'guardian';
       } else {
         const fullMsg = `اتاق «${cleanCode}» در حال حاضر پر است (هر ۲ بازیکن حضور دارند).`;
-        this.callbacks.onError?.(fullMsg);
         throw new Error(fullMsg);
       }
 
@@ -232,17 +234,21 @@ export class FirebaseSync {
       this.myId = `p_fb_${Math.random().toString(36).substring(2, 9)}`;
 
       // Update room in Firestore
-      await updateDoc(roomRef, {
-        [`players.${assignedRole}`]: {
-          id: this.myId,
-          name: playerName,
-          ready: true,
-          connected: true,
-          lastSeen: Date.now(),
-        },
-        status: 'ready',
-        updatedAt: Date.now(),
-      });
+      await withTimeout(
+        updateDoc(roomRef, {
+          [`players.${assignedRole}`]: {
+            id: this.myId,
+            name: playerName,
+            ready: true,
+            connected: true,
+            lastSeen: Date.now(),
+          },
+          status: 'ready',
+          updatedAt: Date.now(),
+        }),
+        2500,
+        'پیوستن به اتاق در فایربیس زمان‌بر شد.'
+      );
 
       const updatedPlayers = {
         ...currentPlayers,
@@ -283,10 +289,9 @@ export class FirebaseSync {
       if (FirebaseSync.isQuotaError(err)) {
         this.handleQuotaExceeded(err);
       } else {
-        console.error('Failed to join room in Firebase:', err);
+        console.warn('Firebase joinRoom note:', err?.message || err);
       }
       const msg = err?.message || 'خطا در پیوستن به اتاق در سرور ابری.';
-      this.callbacks.onError?.(msg);
       throw new Error(msg);
     }
   }

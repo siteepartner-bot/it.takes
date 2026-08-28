@@ -6,10 +6,7 @@ service cloud.firestore {
     }
 
     match /rooms/{roomId} {
-      allow read: if true;
-      allow create: if request.resource.data.code is string && request.resource.data.code.size() <= 16;
-      allow update: if true;
-      allow delete: if false;
+      allow read, write: if true;
 
       match /{subcollection=**} {
         allow read, write: if true;

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { networkClient } from '../multiplayer/networkClient.ts';
 import { soundManager } from '../audio/soundManager.ts';
 import { createCharacterMesh, type CharacterControllerMesh } from './characterModel.ts';
+import { buildCampaignStage } from './stages/campaignStages.ts';
 import { buildGardenStage, type StageBuildResult, type InteractiveObject } from './stages/gardenStage.ts';
 import { buildFloatingIslandsStage } from './stages/floatingIslandsStage.ts';
 import { buildClockworkStage } from './stages/clockworkStage.ts';
@@ -176,38 +177,50 @@ export class GameEngine {
       this.currentStage.dispose();
     }
 
+    this.currentStage = buildCampaignStage(stageId);
+
+    // Set stage atmosphere lighting based on stageId
     if (stageId === 1) {
-      this.currentStage = buildGardenStage();
       this.scene.background = new THREE.Color(0x13271a);
       this.scene.fog = new THREE.FogExp2(0x13271a, 0.018);
       this.sunLight.color.setHex(0xfef08a);
       this.ambientLight.color.setHex(0xdcfce7);
-    } else if (stageId === 2) {
-      this.currentStage = buildFloatingIslandsStage();
+    } else if (stageId === 2 || stageId === 8) {
       this.scene.background = new THREE.Color(0x0284c7);
       this.scene.fog = new THREE.FogExp2(0x38bdf8, 0.012);
       this.sunLight.color.setHex(0xffffff);
       this.ambientLight.color.setHex(0xe0f2fe);
-    } else if (stageId === 3) {
-      this.currentStage = buildClockworkStage();
+    } else if (stageId === 3 || stageId === 10 || stageId === 11) {
       this.scene.background = new THREE.Color(0x1c1917);
       this.scene.fog = new THREE.FogExp2(0x292524, 0.022);
       this.sunLight.color.setHex(0xfbbf24);
       this.ambientLight.color.setHex(0xfef3c7);
-    } else if (stageId === 4) {
-      this.currentStage = buildPrismTempleStage();
+    } else if (stageId === 4 || stageId === 9 || stageId === 17) {
       this.scene.background = new THREE.Color(0x1e1b4b);
       this.scene.fog = new THREE.FogExp2(0x312e81, 0.015);
       this.sunLight.color.setHex(0xfde047);
       this.ambientLight.color.setHex(0xfae8ff);
-    } else if (stageId === 5) {
-      this.currentStage = buildGravityLabyrinthStage();
+    } else if (stageId === 5 || stageId === 15) {
       this.scene.background = new THREE.Color(0x030712);
       this.scene.fog = new THREE.FogExp2(0x1e1b4b, 0.012);
       this.sunLight.color.setHex(0x38bdf8);
       this.ambientLight.color.setHex(0xd8b4fe);
+    } else if (stageId === 7) {
+      this.scene.background = new THREE.Color(0x0c4a6e);
+      this.scene.fog = new THREE.FogExp2(0x075985, 0.015);
+      this.sunLight.color.setHex(0x38bdf8);
+      this.ambientLight.color.setHex(0xbae6fd);
+    } else if (stageId === 14) {
+      this.scene.background = new THREE.Color(0x030712);
+      this.scene.fog = new THREE.FogExp2(0x0b1329, 0.016);
+      this.sunLight.color.setHex(0x06b6d4);
+      this.ambientLight.color.setHex(0xcffaff);
+    } else if (stageId === 20) {
+      this.scene.background = new THREE.Color(0x022c22);
+      this.scene.fog = new THREE.FogExp2(0x042f2e, 0.012);
+      this.sunLight.color.setHex(0xfacc15);
+      this.ambientLight.color.setHex(0xfef08a);
     } else {
-      this.currentStage = buildCitadelStage();
       this.scene.background = new THREE.Color(0x09090b);
       this.scene.fog = new THREE.FogExp2(0x18181b, 0.016);
       this.sunLight.color.setHex(0xf59e0b);
@@ -925,19 +938,28 @@ export class GameEngine {
             this.interactCooldown = 0.35;
           }
 
-          // Stage 6 Monoliths Toggle
-          if (obj.id.startsWith('monolith_')) {
-            const key = obj.id;
+          // Generic Campaign Stage Levers
+          if (obj.id.startsWith('lever_stage')) {
+            const stageNum = this.currentStageId;
+            const key = `leverActivated_${stageNum}`;
             const curr = !!(this.puzzleState.customData && this.puzzleState.customData[key]);
             networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [key]: !curr });
             soundManager.playInteract();
-            this.callbacks.onCheckpointMessage(!curr ? 'ستون باستانی عنصری فعال شد!' : 'ستون عنصری غیرفعال شد.');
+            this.callbacks.onCheckpointMessage(!curr ? `اهرم مرحله ${stageNum} فعال گردید!` : `اهرم مرحله ${stageNum} غیرفعال شد.`);
             this.interactCooldown = 0.35;
           }
         }
 
-        // Continuous pressure plate detection for Stage 5
+        // Continuous pressure plate detection for Stage 5 & Campaign Stages
         if (obj.type === 'pressure_plate') {
+          if (obj.id.startsWith('pressure_plate_stage')) {
+            const stageNum = this.currentStageId;
+            const key = `platePressed_${stageNum}`;
+            if (!this.puzzleState.customData || !this.puzzleState.customData[key]) {
+              networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [key]: true });
+              soundManager.playPressurePlate(true);
+            }
+          }
           if (obj.id === 'gravity_switch_1') {
             networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, switch1: true });
             soundManager.playPressurePlate(true);
@@ -952,19 +974,22 @@ export class GameEngine {
         if (obj.type === 'portal_pad') {
           const isP1Pad = obj.id.includes('p1');
           const isP2Pad = obj.id.includes('p2');
+          const isSolo = !networkClient.getRoomCode();
 
-          if (isP1Pad && this.localRole === 'explorer') {
+          if (isP1Pad && (this.localRole === 'explorer' || isSolo)) {
             const key = `stage${this.currentStageId}ExitP1Ready`;
-            if (!(this.puzzleState as any)[key]) {
+            if (!(this.puzzleState as any)[key] && !(this.puzzleState.customData && this.puzzleState.customData[key])) {
               networkClient.triggerPuzzle(key, true);
+              networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [key]: true });
               soundManager.playPressurePlate(true);
               this.checkPortalWarp();
             }
           }
-          if (isP2Pad && this.localRole === 'guardian') {
+          if (isP2Pad && (this.localRole === 'guardian' || isSolo)) {
             const key = `stage${this.currentStageId}ExitP2Ready`;
-            if (!(this.puzzleState as any)[key]) {
+            if (!(this.puzzleState as any)[key] && !(this.puzzleState.customData && this.puzzleState.customData[key])) {
               networkClient.triggerPuzzle(key, true);
+              networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [key]: true });
               soundManager.playPressurePlate(true);
               this.checkPortalWarp();
             }
@@ -1000,8 +1025,16 @@ export class GameEngine {
     const key1 = `stage${this.currentStageId}ExitP1Ready`;
     const key2 = `stage${this.currentStageId}ExitP2Ready`;
 
-    // If both ready (or in solo mode if player steps on pad)
-    if ((this.puzzleState as any)[key1] && (this.puzzleState as any)[key2]) {
+    const customP1 = !!(this.puzzleState.customData && this.puzzleState.customData[key1]);
+    const customP2 = !!(this.puzzleState.customData && this.puzzleState.customData[key2]);
+
+    const p1Ready = !!(this.puzzleState as any)[key1] || customP1;
+    const p2Ready = !!(this.puzzleState as any)[key2] || customP2;
+
+    // In solo practice mode, stepping on either pad or both triggers progress safely
+    const isSolo = !networkClient.getRoomCode();
+
+    if ((p1Ready && p2Ready) || (isSolo && (p1Ready || p2Ready))) {
       soundManager.playStageClear();
       this.callbacks.onStageClear(this.currentStageId);
     }

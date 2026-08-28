@@ -2,27 +2,25 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Trophy, ArrowLeft, CheckCircle2 } from 'lucide-react';
 
+import { CAMPAIGN_STAGES_INFO } from '../data/loreStory.ts';
+
 interface StageClearModalProps {
   stageId: number;
   onNextStage: () => void;
   onReturnLobby: () => void;
 }
 
-const STAGE_NAMES: Record<number, string> = {
-  1: 'باغ فراموش‌شده',
-  2: 'جزایر معلق آسمانی',
-  3: 'کارخانه مکانیکی و کوره آتش',
-  4: 'معبد آینه‌ها و منشورهای نورانی',
-  5: 'هزارتوی گرانش و تالار ستارگان',
-  6: 'دژ باستانی ابدیت',
-};
+const STAGE_NAMES: Record<number, string> = CAMPAIGN_STAGES_INFO.reduce((acc, curr) => {
+  acc[curr.id] = curr.name.replace(/^مرحله \d+: /, '');
+  return acc;
+}, {} as Record<number, string>);
 
 export const StageClearModal: React.FC<StageClearModalProps> = ({
   stageId,
   onNextStage,
   onReturnLobby,
 }) => {
-  const isFinalStage = stageId >= 6;
+  const isFinalStage = stageId >= 20;
   const currentStageName = STAGE_NAMES[stageId] || `مرحله ${stageId}`;
   const nextStageName = STAGE_NAMES[stageId + 1] || 'پایان بازی';
 

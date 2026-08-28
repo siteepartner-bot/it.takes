@@ -496,6 +496,12 @@ export default function App() {
                 }
               }
             }}
+            isInVoice={voice.isInVoice}
+            isMuted={voice.isMuted}
+            isSpeaking={voice.isSpeaking}
+            audioLevel={voice.audioLevel}
+            onToggleVoiceMute={voice.toggleMute}
+            onJoinVoice={voice.joinVoice}
           />
 
           {/* Touch Controls for Mobile & Tablets (rendered when mobile mode is active) */}
@@ -562,28 +568,6 @@ export default function App() {
             />
           )}
         </>
-      )}
-
-      {/* Floating WebRTC Voice Call Bar / Panel */}
-      {roomData && !soloMode && (
-        <div className="fixed top-3 sm:top-4 left-3 sm:left-4 z-40 pointer-events-auto">
-          <VoiceCallPanel
-            myId={networkClient.myId || (myRole === 'explorer' ? 'explorer' : 'guardian')}
-            myName={myName}
-            myRole={myRole}
-            participants={roomParticipants}
-            isInVoice={voice.isInVoice}
-            isMuted={voice.isMuted}
-            isSpeaking={voice.isSpeaking}
-            audioLevel={voice.audioLevel}
-            voiceMembers={voice.voiceMembers}
-            permissionError={voice.permissionError}
-            onJoinVoice={voice.joinVoice}
-            onLeaveVoice={voice.leaveVoice}
-            onToggleMute={voice.toggleMute}
-            compact={true}
-          />
-        </div>
       )}
     </main>
   );

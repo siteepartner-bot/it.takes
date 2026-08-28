@@ -11,7 +11,10 @@ interface StageClearModalProps {
 const STAGE_NAMES: Record<number, string> = {
   1: 'باغ فراموش‌شده',
   2: 'جزایر معلق آسمانی',
-  3: 'کارخانه مکانیکی',
+  3: 'کارخانه مکانیکی و کوره آتش',
+  4: 'معبد آینه‌ها و منشورهای نورانی',
+  5: 'هزارتوی گرانش و تالار ستارگان',
+  6: 'دژ باستانی ابدیت',
 };
 
 export const StageClearModal: React.FC<StageClearModalProps> = ({
@@ -19,7 +22,7 @@ export const StageClearModal: React.FC<StageClearModalProps> = ({
   onNextStage,
   onReturnLobby,
 }) => {
-  const isFinalStage = stageId >= 3;
+  const isFinalStage = stageId >= 6;
   const currentStageName = STAGE_NAMES[stageId] || `مرحله ${stageId}`;
   const nextStageName = STAGE_NAMES[stageId + 1] || 'پایان بازی';
 

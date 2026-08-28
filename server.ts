@@ -83,6 +83,22 @@ function createDefaultPuzzleState(stageId = 1): PuzzleState {
     stage3ExitP1Ready: false,
     stage3ExitP2Ready: false,
 
+    prism1Aligned: false,
+    prism2Aligned: false,
+    stage4ExitP1Ready: false,
+    stage4ExitP2Ready: false,
+
+    gravityBridgeActive: false,
+    stage5ExitP1Ready: false,
+    stage5ExitP2Ready: false,
+
+    monolithFireActive: false,
+    monolithWaterActive: false,
+    monolithAirActive: false,
+    monolithEarthActive: false,
+    stage6ExitP1Ready: false,
+    stage6ExitP2Ready: false,
+
     customData: {},
   };
 }

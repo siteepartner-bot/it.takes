@@ -69,6 +69,25 @@ export interface PuzzleState {
   stage3ExitP1Ready: boolean;
   stage3ExitP2Ready: boolean;
 
+  // Stage 4 puzzles
+  prism1Aligned: boolean;
+  prism2Aligned: boolean;
+  stage4ExitP1Ready: boolean;
+  stage4ExitP2Ready: boolean;
+
+  // Stage 5 puzzles
+  gravityBridgeActive: boolean;
+  stage5ExitP1Ready: boolean;
+  stage5ExitP2Ready: boolean;
+
+  // Stage 6 puzzles
+  monolithFireActive: boolean;
+  monolithWaterActive: boolean;
+  monolithAirActive: boolean;
+  monolithEarthActive: boolean;
+  stage6ExitP1Ready: boolean;
+  stage6ExitP2Ready: boolean;
+
   // Custom key-value store for extensible mechanics
   customData: Record<string, any>;
 }
@@ -101,6 +120,22 @@ export function createDefaultPuzzleState(stageId = 1): PuzzleState {
     grandClockworkEngaged: false,
     stage3ExitP1Ready: false,
     stage3ExitP2Ready: false,
+
+    prism1Aligned: false,
+    prism2Aligned: false,
+    stage4ExitP1Ready: false,
+    stage4ExitP2Ready: false,
+
+    gravityBridgeActive: false,
+    stage5ExitP1Ready: false,
+    stage5ExitP2Ready: false,
+
+    monolithFireActive: false,
+    monolithWaterActive: false,
+    monolithAirActive: false,
+    monolithEarthActive: false,
+    stage6ExitP1Ready: false,
+    stage6ExitP2Ready: false,
 
     customData: {},
   };

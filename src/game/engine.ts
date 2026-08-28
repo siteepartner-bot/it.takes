@@ -5,6 +5,9 @@ import { createCharacterMesh, type CharacterControllerMesh } from './characterMo
 import { buildGardenStage, type StageBuildResult, type InteractiveObject } from './stages/gardenStage.ts';
 import { buildFloatingIslandsStage } from './stages/floatingIslandsStage.ts';
 import { buildClockworkStage } from './stages/clockworkStage.ts';
+import { buildPrismTempleStage } from './stages/prismTempleStage.ts';
+import { buildGravityLabyrinthStage } from './stages/gravityLabyrinthStage.ts';
+import { buildCitadelStage } from './stages/citadelStage.ts';
 import type {
   PlayerRole,
   AnimState,
@@ -182,11 +185,29 @@ export class GameEngine {
       this.scene.fog = new THREE.FogExp2(0x38bdf8, 0.012);
       this.sunLight.color.setHex(0xffffff);
       this.ambientLight.color.setHex(0xe0f2fe);
-    } else {
+    } else if (stageId === 3) {
       this.currentStage = buildClockworkStage();
       this.scene.background = new THREE.Color(0x1c1917);
       this.scene.fog = new THREE.FogExp2(0x292524, 0.022);
       this.sunLight.color.setHex(0xfbbf24);
+      this.ambientLight.color.setHex(0xfef3c7);
+    } else if (stageId === 4) {
+      this.currentStage = buildPrismTempleStage();
+      this.scene.background = new THREE.Color(0x1e1b4b);
+      this.scene.fog = new THREE.FogExp2(0x312e81, 0.015);
+      this.sunLight.color.setHex(0xfde047);
+      this.ambientLight.color.setHex(0xfae8ff);
+    } else if (stageId === 5) {
+      this.currentStage = buildGravityLabyrinthStage();
+      this.scene.background = new THREE.Color(0x030712);
+      this.scene.fog = new THREE.FogExp2(0x1e1b4b, 0.012);
+      this.sunLight.color.setHex(0x38bdf8);
+      this.ambientLight.color.setHex(0xd8b4fe);
+    } else {
+      this.currentStage = buildCitadelStage();
+      this.scene.background = new THREE.Color(0x09090b);
+      this.scene.fog = new THREE.FogExp2(0x18181b, 0.016);
+      this.sunLight.color.setHex(0xf59e0b);
       this.ambientLight.color.setHex(0xfef3c7);
     }
 
@@ -224,6 +245,19 @@ export class GameEngine {
       grandClockworkEngaged: false,
       stage3ExitP1Ready: false,
       stage3ExitP2Ready: false,
+      prism1Aligned: false,
+      prism2Aligned: false,
+      stage4ExitP1Ready: false,
+      stage4ExitP2Ready: false,
+      gravityBridgeActive: false,
+      stage5ExitP1Ready: false,
+      stage5ExitP2Ready: false,
+      monolithFireActive: false,
+      monolithWaterActive: false,
+      monolithAirActive: false,
+      monolithEarthActive: false,
+      stage6ExitP1Ready: false,
+      stage6ExitP2Ready: false,
       customData: {},
     };
 
@@ -833,6 +867,38 @@ export class GameEngine {
             networkClient.triggerPuzzle('boilerValve2', true);
             soundManager.playInteract();
             this.checkSynchronizedValves();
+          }
+
+          // Stage 4 Prisms
+          if (obj.id === 'prism_pedestal_1') {
+            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, prism1Aligned: true });
+            soundManager.playInteract();
+            this.callbacks.onCheckpointMessage('منشور نوری ۱ با کانون خورشیدی تنظیم شد!');
+          }
+          if (obj.id === 'prism_pedestal_2') {
+            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, prism2Aligned: true });
+            soundManager.playInteract();
+            this.callbacks.onCheckpointMessage('منشور نوری ۲ تنظیم شد! دروازه خورشیدی باز شد.');
+          }
+
+          // Stage 6 Monoliths
+          if (obj.id.startsWith('monolith_')) {
+            const key = obj.id;
+            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [key]: true });
+            soundManager.playInteract();
+            this.callbacks.onCheckpointMessage('ستون باستانی عنصری فعال شد و انرژی به هسته کیهان پیوست!');
+          }
+        }
+
+        // Continuous pressure plate detection for Stage 5
+        if (obj.type === 'pressure_plate') {
+          if (obj.id === 'gravity_switch_1') {
+            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, switch1: true });
+            soundManager.playPressurePlate(true);
+          }
+          if (obj.id === 'gravity_switch_2') {
+            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, switch2: true });
+            soundManager.playPressurePlate(true);
           }
         }
 

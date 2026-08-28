@@ -8,11 +8,15 @@ import type { PlayerRole, PuzzleState } from '../types.ts';
 
 export interface GeminiGuidanceRequest {
   stageId: number;
-  role: PlayerRole;
+  role?: PlayerRole;
+  playerRole?: PlayerRole;
   puzzleState: PuzzleState;
   query?: string;
+  customQuestion?: string;
   playerName?: string;
+  partnerName?: string;
   distance?: number;
+  partnerDistance?: number;
 }
 
 export interface GeminiGuidanceResponse {
@@ -93,13 +97,23 @@ export async function requestGeminiGuidance(
   const endpoint = `${baseUrl}/api/gemini/guidance`;
 
   try {
+    const payload = {
+      stageId: params.stageId,
+      role: params.role || params.playerRole || 'explorer',
+      puzzleState: params.puzzleState,
+      query: params.query || params.customQuestion || '',
+      playerName: params.playerName,
+      partnerName: params.partnerName,
+      distance: params.distance ?? params.partnerDistance ?? 0,
+    };
+
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },
-      body: JSON.stringify(params),
+      body: JSON.stringify(payload),
     });
 
     if (res.ok) {
@@ -121,23 +135,23 @@ function getOfflineFallbackGuidance(stageId: number, pState: PuzzleState): Gemin
   let text = '';
   if (stageId === 1) {
     if (!pState.gate1Open) {
-      text = 'نورا، برسام! ابتدا به گوشه سمت چپ باغ بروید و اهرم سنگی را بکشید تا دروازه رونیک باز شود. برسام، آماده باش سنگ‌های سنگین را جابجا کنی!';
+      text = 'نیوشا، حسن! ابتدا به گوشه سمت چپ باغ بروید و اهرم سنگی را بکشید تا دروازه باز شود. حسن، آماده باش مکعب سنگین را جابجا کنی!';
     } else if (!pState.heavyBlockPlaced) {
-      text = 'برسام، قدرت بازوان بلوطین تو اینجاست! آن مکعب مغناطیسی بزرگ را به روی کلید فشاری قنات هل بده تا جریان آب آسانسور را بالا بیاورد!';
+      text = 'حسن، نوبت قدرت بازوان بلوطیه! آن مکعب مغناطیسی بزرگ را به روی کلید فشاری قنات هل بده تا آب بالا بیاید و آسانسور نیوشا راه بیفتد!';
     } else if (!pState.lightBridgeActive) {
-      text = 'نورا، حالا نوبت توست! با آسانسور بالا برو و با دستکش اِیتِر [کلید F] به پدستال آینه‌ای شلیک کن تا پل نوری سراسر پرتگاه را روشن کند!';
+      text = 'نیوشا، حالا با آسانسور بالا برو و با دستکش صاعقه [کلید F] به پدستال آینه‌ای شلیک کن تا پل نوری متصل شود!';
     } else {
-      text = 'عالی بود بچه‌ها! هر دو با هم از روی پل نورانی رد شوید و همزمان روی پدهای خروجی انتهای باغ بایستید تا دروازه آسمان باز شود!';
+      text = 'عالی بود بچه‌ها! هر دو باهم از روی پل نورانی رد شوید و همزمان روی پدهای خروجی انتهای باغ بایستید!';
     }
   } else if (stageId === 2) {
     if (!pState.laserTurretDisabled) {
-      text = 'مواظب باشید! برجک نگهبان لیزری فعال است! برسام، فورا کلید [F] را بزن و سپر تایتان را بالا بیاور تا پرتو مرگبار به خود برجک بازتاب کند و خاموش شود!';
+      text = 'حواستون باشه! برجک نگهبان لیزری شلیک می‌کند! حسن، فورا کلید [F] را بزن و سپر تایتان را بالا بیاور تا پرتو مرگبار به خود برجک بازتاب کند و خاموش شود!';
     } else {
-      text = 'برجک خاموش شد! حالا نورا، با شلیک صاعقه [F] به توربین باد، جریان بالابرنده ابرها را فعال کن تا به سکوی خروج برسید!';
+      text = 'برجک خاموش شد! حالا نیوشا، با شلیک صاعقه [F] به توربین باد، جریان بالابرنده ابرها را فعال کن تا به سکوی خروج برسید!';
     }
   } else {
     if (!pState.grandClockworkEngaged) {
-      text = 'اینجا قلب ساعت اعظم است! باید هر دو نفر همزمان شیرهای بخار ۱ و ۲ را بچرخانید، سپس نورا به ژنراتور اصلی صاعقه بزند تا چرخ‌دنده‌ها به کار بیفتند!';
+      text = 'اینجا قلب ساعت اعظم است! باید حسن و نیوشا همزمان شیرهای بخار ۱ و ۲ را بچرخانید، سپس نیوشا به ژنراتور اصلی صاعقه بزند تا چرخ‌دنده‌ها به کار بیفتند!';
     } else {
       text = 'چرخ‌دنده‌ها به کار افتادند! مسیر آزادی هموار شد، به سمت پورتال مرکزی بشتابید!';
     }
@@ -148,6 +162,5 @@ function getOfflineFallbackGuidance(stageId: number, pState: PuzzleState): Gemin
     text,
     source: 'offline-mentor-oracle',
     stageId,
-    note: 'در حال اجرای راهنمای هوشمند آفلاین. برای اتصال مستقیم به Gemini، کلید API را فعال کنید.',
   };
 }

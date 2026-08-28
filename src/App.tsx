@@ -9,7 +9,7 @@ import { PauseMenu } from './components/PauseMenu.tsx';
 import { StageClearModal } from './components/StageClearModal.tsx';
 import { StoryModal } from './components/StoryModal.tsx';
 import { GeminiVoiceCallModal } from './components/GeminiVoiceCallModal.tsx';
-import { CloudflareGuideModal } from './components/CloudflareGuideModal.tsx';
+import { InGameMasterVoice } from './components/InGameMasterVoice.tsx';
 import { createDefaultPuzzleState } from './types.ts';
 import { proximityVoiceManager } from './audio/proximityVoice.ts';
 import type {
@@ -25,7 +25,9 @@ export default function App() {
   const [gameState, setGameState] = useState<'lobby' | 'playing'>('lobby');
   const [roomData, setRoomData] = useState<RoomData | null>(null);
   const [myRole, setMyRole] = useState<PlayerRole>('explorer');
-  const [myName, setMyName] = useState(() => localStorage.getItem('aether_player_name') || 'ماجراجو ۱');
+  const [myName, setMyName] = useState(
+    () => (typeof localStorage !== 'undefined' && localStorage.getItem('aether_player_name')) || 'قهرمان ۱'
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -40,8 +42,25 @@ export default function App() {
   const [isStageClearOpen, setIsStageClearOpen] = useState(false);
   const [isStoryOpen, setIsStoryOpen] = useState(false);
   const [isGeminiCallOpen, setIsGeminiCallOpen] = useState(false);
-  const [isCloudflareGuideOpen, setIsCloudflareGuideOpen] = useState(false);
   const [soloMode, setSoloMode] = useState(false);
+
+  // Control Mode: 'windows' (mouse-look + WASD) vs 'mobile' (touch joystick + buttons)
+  const [controlMode, setControlMode] = useState<'windows' | 'mobile'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('aether_control_mode') as 'windows' | 'mobile';
+      if (saved === 'windows' || saved === 'mobile') return saved;
+      const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth < 768;
+      return isTouch ? 'mobile' : 'windows';
+    }
+    return 'windows';
+  });
+
+  const [isPointerLocked, setIsPointerLocked] = useState(false);
+
+  // Smart Wake-Word Test Mode: automatic response when saying "استاد" without opening a modal
+  // User can revert to classic modal view anytime in 1 click!
+  const [ambientWakeWordEnabled, setAmbientWakeWordEnabled] = useState(true);
+  const [triggerGuidanceKey, setTriggerGuidanceKey] = useState(0);
 
   // Settings
   const [graphics, setGraphics] = useState<GraphicsSettings>({
@@ -61,6 +80,16 @@ export default function App() {
 
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
+
+  const handleSetControlMode = (mode: 'windows' | 'mobile') => {
+    setControlMode(mode);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('aether_control_mode', mode);
+    }
+    if (engineRef.current) {
+      engineRef.current.setControlMode(mode);
+    }
+  };
 
   // Initialize Network Client Handlers
   useEffect(() => {
@@ -156,12 +185,12 @@ export default function App() {
     networkClient.onConnectionChange = (connected, ping) => {
       setLatencyMs(ping);
       if (!connected && gameState === 'playing' && !soloMode) {
-        setErrorMessage('ارتباط با سرور / ورکر قطع شد. در حال تلاش برای اتصال مجدد...');
+        setErrorMessage('ارتباط موقتاً قطع شد. در حال تلاش برای اتصال مجدد...');
       }
     };
   }, [myRole, gameState, soloMode]);
 
-  // Global Hotkeys for In-Game Modals (V for Gemini Voice Call, Escape for Pause Menu)
+  // Global Hotkeys for In-Game Modals (V for Master Radio, Escape for Pause Menu)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
@@ -172,17 +201,15 @@ export default function App() {
           setIsGeminiCallOpen(false);
         } else if (isStoryOpen) {
           setIsStoryOpen(false);
-        } else if (isCloudflareGuideOpen) {
-          setIsCloudflareGuideOpen(false);
         } else if (gameState === 'playing') {
           setIsPauseOpen((prev) => !prev);
         }
       }
 
-      // V or G toggles Gemini AI Voice Call
+      // V or G triggers Master Radio Guidance
       if ((e.key === 'v' || e.key === 'V' || e.key === 'g' || e.key === 'G') && gameState === 'playing') {
         e.preventDefault();
-        setIsGeminiCallOpen((prev) => !prev);
+        handleTriggerGeminiCall();
       }
 
       // M toggles Proximity Voice Chat Microphone
@@ -194,7 +221,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameState, isGeminiCallOpen, isStoryOpen, isCloudflareGuideOpen]);
+  }, [gameState, isGeminiCallOpen, isStoryOpen, ambientWakeWordEnabled]);
 
   // Audio settings sync
   useEffect(() => {
@@ -220,11 +247,13 @@ export default function App() {
         onInteractionPrompt: (prompt) => setInteractionPrompt(prompt),
         onPartnerDistance: (dist) => setPartnerDistance(dist),
         onCheckpointMessage: (text) => showCheckpointToast(text),
-        onStageClear: (stageId) => {
+        onStageClear: () => {
           setIsStageClearOpen(true);
         },
+        onPointerLockChange: (isLocked) => setIsPointerLocked(isLocked),
       });
 
+      engine.setControlMode(controlMode);
       engine.soloDuoMode = soloMode;
       engine.setGraphics(graphics);
       engine.loadStage(currentStageId, myRole, roomData?.puzzleState);
@@ -239,7 +268,7 @@ export default function App() {
         engineRef.current = null;
       }
     };
-  }, [gameState, currentStageId, myRole, soloMode, graphics, roomData?.puzzleState]);
+  }, [gameState, currentStageId, myRole, soloMode, graphics, roomData?.puzzleState, controlMode]);
 
   // Lobby actions
   const handleCreateRoom = async (name: string, role: PlayerRole) => {
@@ -292,6 +321,7 @@ export default function App() {
     setRoomData(null);
     setIsPauseOpen(false);
     setIsStageClearOpen(false);
+    setIsPointerLocked(false);
   };
 
   const handleNextStage = () => {
@@ -336,7 +366,9 @@ export default function App() {
       const nextRole: PlayerRole = myRole === 'explorer' ? 'guardian' : 'explorer';
       setMyRole(nextRole);
       engineRef.current.setRoles(nextRole);
-      showCheckpointToast(`Swapped control to: ${nextRole.toUpperCase()}`);
+      showCheckpointToast(
+        `تعویض کنترل به: ${nextRole === 'explorer' ? 'نیوشا (دختر چوبی)' : 'حسن (پسر چوبی)'}`
+      );
     }
   };
 
@@ -354,6 +386,21 @@ export default function App() {
     },
     []
   );
+
+  // Trigger Master Elias Radio (In-game ambient or classic modal)
+  const handleTriggerGeminiCall = () => {
+    if (ambientWakeWordEnabled) {
+      setTriggerGuidanceKey((prev) => prev + 1);
+    } else {
+      setIsGeminiCallOpen(true);
+    }
+  };
+
+  const partnerDisplayName = soloMode
+    ? myRole === 'explorer'
+      ? 'حسن (پسر چوبی)'
+      : 'نیوشا (دختر چوبی)'
+    : roomData?.players[myRole === 'explorer' ? 'guardian' : 'explorer']?.name || 'هم‌تیمی';
 
   return (
     <main className="w-full h-full min-h-[100dvh] max-h-[100dvh] overflow-hidden bg-slate-950 text-slate-100 relative select-none">
@@ -386,13 +433,7 @@ export default function App() {
             stageId={currentStageId}
             myRole={myRole}
             myName={myName}
-            partnerName={
-              soloMode
-                ? myRole === 'explorer'
-                  ? 'برسام (پسر چوبی)'
-                  : 'نورا (دختر چوبی)'
-                : roomData?.players[myRole === 'explorer' ? 'guardian' : 'explorer']?.name || 'هم‌تیمی'
-            }
+            partnerName={partnerDisplayName}
             partnerRole={myRole === 'explorer' ? 'guardian' : 'explorer'}
             partnerConnected={partnerConnected}
             partnerDistance={partnerDistance}
@@ -402,18 +443,41 @@ export default function App() {
             onSendEmote={handleSendEmote}
             onSendPing={handleSendPing}
             onOpenPause={() => setIsPauseOpen(true)}
-            onOpenGeminiCall={() => setIsGeminiCallOpen(true)}
+            onOpenGeminiCall={handleTriggerGeminiCall}
             soloMode={soloMode}
             onToggleSoloHero={handleToggleSoloHero}
+            controlMode={controlMode}
+            onToggleControlMode={() =>
+              handleSetControlMode(controlMode === 'windows' ? 'mobile' : 'windows')
+            }
+            isPointerLocked={isPointerLocked}
           />
 
-          {/* Touch Controls for Mobile & Tablets */}
+          {/* Touch Controls for Mobile & Tablets (rendered when mobile mode is active) */}
           <TouchControls
+            visible={controlMode === 'mobile'}
             myRole={myRole}
             onUpdateInput={handleTouchInput}
             onSendEmote={handleSendEmote}
             onSendPing={handleSendPing}
-            onOpenGeminiCall={() => setIsGeminiCallOpen(true)}
+            onOpenGeminiCall={handleTriggerGeminiCall}
+          />
+
+          {/* Ambient In-Game Master Voice (Auto-detects when saying "استاد", or on V key/button) */}
+          <InGameMasterVoice
+            enabled={ambientWakeWordEnabled}
+            stageId={currentStageId}
+            myRole={myRole}
+            myName={myName}
+            partnerName={partnerDisplayName}
+            puzzleState={
+              engineRef.current
+                ? engineRef.current.getPuzzleState()
+                : createDefaultPuzzleState(currentStageId)
+            }
+            partnerDistance={partnerDistance}
+            onOpenClassicModal={() => setIsGeminiCallOpen(true)}
+            triggerGuidanceKey={triggerGuidanceKey}
           />
 
           {/* Pause Menu Modal */}
@@ -436,41 +500,29 @@ export default function App() {
             onToggleSoloHero={handleToggleSoloHero}
             onOpenStory={() => setIsStoryOpen(true)}
             onOpenGeminiCall={() => setIsGeminiCallOpen(true)}
-            onOpenCloudflareGuide={() => setIsCloudflareGuideOpen(true)}
+            controlMode={controlMode}
+            onChangeControlMode={handleSetControlMode}
+            ambientWakeWordEnabled={ambientWakeWordEnabled}
+            onToggleAmbientWakeWord={setAmbientWakeWordEnabled}
           />
 
           {/* In-Game Story & Lore Modal */}
-          <StoryModal
-            isOpen={isStoryOpen}
-            onClose={() => setIsStoryOpen(false)}
-          />
+          <StoryModal isOpen={isStoryOpen} onClose={() => setIsStoryOpen(false)} />
 
-          {/* Gemini AI Voice Call Guidance Modal */}
+          {/* Classic Dedicated Voice Guidance Modal (accessible anytime via button/toggle) */}
           <GeminiVoiceCallModal
             isOpen={isGeminiCallOpen}
             onClose={() => setIsGeminiCallOpen(false)}
             stageId={currentStageId}
             myRole={myRole}
             myName={myName}
-            partnerName={
-              soloMode
-                ? myRole === 'explorer'
-                  ? 'برسام (پسر چوبی)'
-                  : 'نورا (دختر چوبی)'
-                : roomData?.players[myRole === 'explorer' ? 'guardian' : 'explorer']?.name || 'هم‌تیمی'
-            }
+            partnerName={partnerDisplayName}
             puzzleState={
               engineRef.current
                 ? engineRef.current.getPuzzleState()
                 : createDefaultPuzzleState(currentStageId)
             }
             partnerDistance={partnerDistance}
-          />
-
-          {/* Cloudflare & Gemini Deployment Guide Modal */}
-          <CloudflareGuideModal
-            isOpen={isCloudflareGuideOpen}
-            onClose={() => setIsCloudflareGuideOpen(false)}
           />
 
           {/* Stage Cleared Celebration Modal */}

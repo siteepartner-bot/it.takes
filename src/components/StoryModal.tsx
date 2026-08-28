@@ -20,13 +20,13 @@ interface StoryModalProps {
 }
 
 export const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose }) => {
-  const [activeTab, setActiveTab] = useState<'chronicle' | 'nora' | 'barsam' | 'synergy'>('chronicle');
+  const [activeTab, setActiveTab] = useState<'chronicle' | 'niusha' | 'hassan' | 'synergy'>('chronicle');
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
 
   if (!isOpen) return null;
 
   const currentChapter = LORE_CHAPTERS[currentChapterIndex];
-  const { nora, barsam } = LORE_CHARACTERS;
+  const { niusha, hassan } = LORE_CHARACTERS;
 
   return (
     <AnimatePresence>
@@ -53,7 +53,7 @@ export const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose }) => {
                   <Sparkles className="w-4 h-4 text-amber-400" />
                 </h2>
                 <p className="text-xs text-amber-300/70">
-                  روایت بیداری نورا و برسام در کارگاه ساعت‌ساز پیر
+                  روایت بیداری نیوشا و حسن در کارگاه ساعت‌ساز پیر
                 </p>
               </div>
             </div>
@@ -83,29 +83,29 @@ export const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose }) => {
             </button>
 
             <button
-              id="tab_story_nora"
-              onClick={() => setActiveTab('nora')}
+              id="tab_story_niusha"
+              onClick={() => setActiveTab('niusha')}
               className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all whitespace-nowrap ${
-                activeTab === 'nora'
+                activeTab === 'niusha'
                   ? 'bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 shadow-md'
                   : 'text-slate-400 hover:bg-slate-800/60'
               }`}
             >
               <Zap className="w-3.5 h-3.5 text-cyan-400" />
-              <span>نورا (دختر چوبی)</span>
+              <span>نیوشا (دختر چوبی)</span>
             </button>
 
             <button
-              id="tab_story_barsam"
-              onClick={() => setActiveTab('barsam')}
+              id="tab_story_hassan"
+              onClick={() => setActiveTab('hassan')}
               className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all whitespace-nowrap ${
-                activeTab === 'barsam'
+                activeTab === 'hassan'
                   ? 'bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 shadow-md'
                   : 'text-slate-400 hover:bg-slate-800/60'
               }`}
             >
               <Shield className="w-3.5 h-3.5 text-emerald-400" />
-              <span>برسام (پسر چوبی)</span>
+              <span>حسن (پسر چوبی)</span>
             </button>
 
             <button
@@ -203,8 +203,8 @@ export const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose }) => {
               </div>
             )}
 
-            {/* TAB 2: NORA (GIRL MANNEQUIN) */}
-            {activeTab === 'nora' && (
+            {/* TAB 2: NIUSHA (GIRL MANNEQUIN) */}
+            {activeTab === 'niusha' && (
               <div className="space-y-4">
                 <div className="p-4 sm:p-5 rounded-2xl bg-cyan-950/20 border border-cyan-500/30 space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-cyan-500/20 pb-3">
@@ -214,8 +214,8 @@ export const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose }) => {
                       </div>
                       <div>
                         <div className="text-[11px] font-bold text-cyan-400">آدمک چوبی دختر • کاوشگر صاعقه</div>
-                        <h3 className="text-lg font-black text-white">{nora.persianName}</h3>
-                        <div className="text-xs text-slate-300">{nora.woodType}</div>
+                        <h3 className="text-lg font-black text-white">{niusha.persianName}</h3>
+                        <div className="text-xs text-slate-300">{niusha.woodType}</div>
                       </div>
                     </div>
 
@@ -225,7 +225,7 @@ export const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose }) => {
                   </div>
 
                   <p className="text-xs sm:text-sm text-slate-200 leading-relaxed indent-2">
-                    نورا شاهکار تراشیده شده از سپیدار نقره‌ای است؛ چوبی فوق‌العاده سبک، خوش‌تراش و منعطف که به او امکان انجام مانورهای هوایی و پرش‌های بلند را می‌دهد. مفاصل کروی او با پین‌های صیقلی برنجی به هم متصل گشته و موهای چوبی‌اش به صورت بافته از چوب سدر طلایی به عقب شانه شده است.
+                    نیوشا شاهکار تراشیده شده از سپیدار نقره‌ای است؛ چوبی فوق‌العاده سبک، خوش‌تراش و منعطف که به او امکان انجام مانورهای هوایی و پرش‌های بلند را می‌دهد. مفاصل کروی او با پین‌های صیقلی برنجی به هم متصل گشته و موهای چوبی‌اش به صورت بافته از چوب سدر طلایی به عقب شانه شده است.
                   </p>
 
                   {/* Character Attributes Grid */}
@@ -235,15 +235,15 @@ export const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose }) => {
                         <TreeDeciduous className="w-3.5 h-3.5" />
                         <span>جنس چوب و ساختار:</span>
                       </div>
-                      <p className="text-slate-300">{nora.material}</p>
+                      <p className="text-slate-300">{niusha.material}</p>
                     </div>
 
                     <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
                       <div className="text-cyan-400 font-bold mb-1 flex items-center gap-1.5">
                         <Sparkles className="w-3.5 h-3.5" />
-                        <span>خلق‌وخو و روان‌شناسی:</span>
+                        <span>خلق‌وخو و ویژگی‌ها:</span>
                       </div>
-                      <p className="text-slate-300">{nora.personality}</p>
+                      <p className="text-slate-300">{niusha.personality}</p>
                     </div>
                   </div>
 
@@ -251,13 +251,13 @@ export const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose }) => {
                   <div className="p-3.5 rounded-xl bg-cyan-950/40 border border-cyan-400/40 space-y-2">
                     <div className="text-xs sm:text-sm font-black text-cyan-300 flex items-center gap-2">
                       <Zap className="w-4 h-4 text-cyan-400" />
-                      <span>قابلیت انحصاری: {nora.uniqueAbility.title}</span>
+                      <span>قابلیت انحصاری: {niusha.uniqueAbility.title}</span>
                     </div>
                     <p className="text-xs text-slate-300 leading-relaxed">
-                      {nora.uniqueAbility.description}
+                      {niusha.uniqueAbility.description}
                     </p>
                     <ul className="space-y-1 text-xs text-slate-300 pr-2">
-                      {nora.uniqueAbility.details.map((d, i) => (
+                      {niusha.uniqueAbility.details.map((d, i) => (
                         <li key={i} className="flex items-start gap-1.5">
                           <span className="text-cyan-400 font-bold">✦</span>
                           <span>{d}</span>
@@ -268,14 +268,14 @@ export const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose }) => {
 
                   {/* Quote */}
                   <div className="p-3 rounded-xl bg-slate-950/80 border-r-4 border-cyan-400 text-xs italic text-cyan-200">
-                    {nora.quote}
+                    {niusha.quote}
                   </div>
                 </div>
               </div>
             )}
 
-            {/* TAB 3: BARSAM (BOY MANNEQUIN) */}
-            {activeTab === 'barsam' && (
+            {/* TAB 3: HASSAN (BOY MANNEQUIN) */}
+            {activeTab === 'hassan' && (
               <div className="space-y-4">
                 <div className="p-4 sm:p-5 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-500/20 pb-3">
@@ -285,8 +285,8 @@ export const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose }) => {
                       </div>
                       <div>
                         <div className="text-[11px] font-bold text-emerald-400">آدمک چوبی پسر • نگهبان تایتان</div>
-                        <h3 className="text-lg font-black text-white">{barsam.persianName}</h3>
-                        <div className="text-xs text-slate-300">{barsam.woodType}</div>
+                        <h3 className="text-lg font-black text-white">{hassan.persianName}</h3>
+                        <div className="text-xs text-slate-300">{hassan.woodType}</div>
                       </div>
                     </div>
 
@@ -296,7 +296,7 @@ export const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose }) => {
                   </div>
 
                   <p className="text-xs sm:text-sm text-slate-200 leading-relaxed indent-2">
-                    برسام تجسم جاودانگی و پایداری است؛ پیکرتراشی شده از چوب متراکم بلوط کوهستان با رگه‌های تیره گردو. وزن بالا و چرخ‌دنده‌های درونی‌اش به او استحکامی پولادین می‌بخشد. در میان قفسه سینه چوبی مشبک او، تکه بلور زمردین اِیتِر همانند قلبی تپنده می‌درخشد و به او نیروی فراطبیعی جابجایی سنگ‌های کهن را می‌دهد.
+                    حسن تجسم جاودانگی و پایداری است؛ پیکرتراشی شده از چوب متراکم بلوط کوهستان با رگه‌های تیره گردو. وزن بالا و چرخ‌دنده‌های درونی‌اش به او استحکامی پولادین می‌بخشد. در میان قفسه سینه چوبی مشبک او، تکه بلور زمردین اِیتِر همانند قلبی تپنده می‌درخشد و به او نیروی فراطبیعی جابجایی سنگ‌های کهن را می‌دهد.
                   </p>
 
                   {/* Character Attributes Grid */}
@@ -306,15 +306,15 @@ export const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose }) => {
                         <TreeDeciduous className="w-3.5 h-3.5" />
                         <span>جنس چوب و ساختار:</span>
                       </div>
-                      <p className="text-slate-300">{barsam.material}</p>
+                      <p className="text-slate-300">{hassan.material}</p>
                     </div>
 
                     <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
                       <div className="text-emerald-400 font-bold mb-1 flex items-center gap-1.5">
                         <Flame className="w-3.5 h-3.5" />
-                        <span>خلق‌وخو و روان‌شناسی:</span>
+                        <span>خلق‌وخو و ویژگی‌ها:</span>
                       </div>
-                      <p className="text-slate-300">{barsam.personality}</p>
+                      <p className="text-slate-300">{hassan.personality}</p>
                     </div>
                   </div>
 
@@ -322,13 +322,13 @@ export const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose }) => {
                   <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-400/40 space-y-2">
                     <div className="text-xs sm:text-sm font-black text-emerald-300 flex items-center gap-2">
                       <Shield className="w-4 h-4 text-emerald-400" />
-                      <span>قابلیت انحصاری: {barsam.uniqueAbility.title}</span>
+                      <span>قابلیت انحصاری: {hassan.uniqueAbility.title}</span>
                     </div>
                     <p className="text-xs text-slate-300 leading-relaxed">
-                      {barsam.uniqueAbility.description}
+                      {hassan.uniqueAbility.description}
                     </p>
                     <ul className="space-y-1 text-xs text-slate-300 pr-2">
-                      {barsam.uniqueAbility.details.map((d, i) => (
+                      {hassan.uniqueAbility.details.map((d, i) => (
                         <li key={i} className="flex items-start gap-1.5">
                           <span className="text-emerald-400 font-bold">✦</span>
                           <span>{d}</span>
@@ -339,7 +339,7 @@ export const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose }) => {
 
                   {/* Quote */}
                   <div className="p-3 rounded-xl bg-slate-950/80 border-r-4 border-emerald-400 text-xs italic text-emerald-200">
-                    {barsam.quote}
+                    {hassan.quote}
                   </div>
                 </div>
               </div>
@@ -355,7 +355,7 @@ export const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose }) => {
                       <Sparkles className="w-4 h-4 text-purple-400" />
                     </h3>
                     <p className="text-xs text-slate-400">
-                      هیچ پازلی در بازی با تکروی حل نمی‌شود. در ادامه نمونه‌هایی از هماهنگی نورا و برسام را می‌بینید:
+                      هیچ پازلی در بازی با تکروی حل نمی‌شود. در ادامه نمونه‌هایی از هماهنگی نیوشا و حسن را می‌بینید:
                     </p>
                   </div>
 
@@ -366,7 +366,7 @@ export const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose }) => {
                         <span>پازل آسانسور قنات (باغ فراموش‌شده)</span>
                       </div>
                       <p className="text-slate-300 text-[11px] leading-relaxed">
-                        برسام باید مکعب سنگین سنگی را بلند کند و روی سکوی فشاری قرار دهد تا دروازه باز شود؛ سپس نورا به بلندی می‌رود و با پرتو صاعقه [F] آسانسور آبی را به سمت بالا شارژ می‌کند.
+                        حسن باید مکعب سنگین سنگی را بلند کند و روی سکوی فشاری قرار دهد تا دروازه باز شود؛ سپس نیوشا به بلندی می‌رود و با پرتو صاعقه [F] آسانسور آبی را به سمت بالا شارژ می‌کند.
                       </p>
                     </div>
 
@@ -376,7 +376,7 @@ export const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose }) => {
                         <span>پازل پرتگاه مه و لیزر (جزایر معلق)</span>
                       </div>
                       <p className="text-slate-300 text-[11px] leading-relaxed">
-                        برسام سپر چوبی-زمردین خود [F] را فعال می‌کند تا پرتو مرگبار لیزر دفاعی را منحرف کند و پلی از نور روی پرتگاه بگستراند؛ همزمان نورا از روی پل عبور کرده و دکمه قطع دائم لیزر را می‌زند.
+                        حسن سپر چوبی-زمردین خود [F] را فعال می‌کند تا پرتو مرگبار لیزر دفاعی را منحرف کند و پلی از نور روی پرتگاه بگستراند؛ همزمان نیوشا از روی پل عبور کرده و دکمه قطع دائم لیزر را می‌زند.
                       </p>
                     </div>
 
@@ -386,7 +386,7 @@ export const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose }) => {
                         <span>تنظیم همزمان دیگ‌های بخار (کارخانه ساعت)</span>
                       </div>
                       <p className="text-slate-300 text-[11px] leading-relaxed">
-                        فشار بخار پیستون‌ها به گونه‌ای تنظیم شده که تنها با کشیدن همزمان هر دو شیر توسط نورا و برسام خنثی می‌شود. بازیکنان با استفاده از شمارش معکوس یا پینگ درون بازی، همزمان عمل را انجام می‌دهند.
+                        فشار بخار پیستون‌ها به گونه‌ای تنظیم شده که تنها با کشیدن همزمان هر دو شیر توسط نیوشا و حسن خنثی می‌شود. بازیکنان با استفاده از شمارش معکوس یا پینگ درون بازی، همزمان عمل را انجام می‌دهند.
                       </p>
                     </div>
                   </div>
@@ -398,7 +398,7 @@ export const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose }) => {
           {/* Footer Action */}
           <div className="p-3 sm:p-4 bg-slate-950/90 border-t border-slate-800 flex items-center justify-between">
             <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
-              <span>طراحی شده با الهام از ماجراجویی‌های دونفره</span>
+              <span>روایت همبستگی نیوشا و حسن در کارگاه ساعت کهن</span>
               <span className="text-amber-400">★</span>
             </div>
 

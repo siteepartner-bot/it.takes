@@ -164,3 +164,5 @@ export interface AudioSettings {
   musicVolume: number;
   muted: boolean;
 }
+
+export type ControlMode = 'windows' | 'mobile';

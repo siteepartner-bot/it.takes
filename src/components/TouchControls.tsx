@@ -14,6 +14,7 @@ interface TouchControlsProps {
   onSendEmote: (emote: EmoteType) => void;
   onSendPing: () => void;
   onOpenGeminiCall?: () => void;
+  visible?: boolean;
 }
 
 export const TouchControls: React.FC<TouchControlsProps> = ({
@@ -22,18 +23,17 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
   onSendEmote,
   onSendPing,
   onOpenGeminiCall,
+  visible = true,
 }) => {
   const [sprintActive, setSprintActive] = useState(false);
   const [showEmotes, setShowEmotes] = useState(false);
   const [isStickActive, setIsStickActive] = useState(false);
 
-  // References for zero-latency direct input tracking
   const joystickZoneRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef<HTMLDivElement>(null);
   const activePointerIdRef = useRef<number | null>(null);
   const centerPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // Input state refs to avoid React batching latency
   const inputRef = useRef({
     moveVector: { x: 0, y: 0 },
     jump: false,
@@ -42,7 +42,6 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
     sprint: false,
   });
 
-  // Helper to dispatch input directly to engine callback
   const dispatchInput = useCallback(() => {
     onUpdateInput({
       moveVector: { ...inputRef.current.moveVector },
@@ -53,14 +52,15 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
     });
   }, [onUpdateInput]);
 
-  // Sync sprint toggle
   useEffect(() => {
     inputRef.current.sprint = sprintActive;
     dispatchInput();
   }, [sprintActive, dispatchInput]);
 
+  if (!visible) return null;
+
   // -------------------------------------------------------------
-  // SOLID VIRTUAL JOYSTICK (Pointer Events: Touch + Mouse support)
+  // SOLID VIRTUAL JOYSTICK
   // -------------------------------------------------------------
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -94,19 +94,17 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
         e.currentTarget.releasePointerCapture(e.pointerId);
       }
     } catch {
-      // Ignore if capture already lost
+      // Ignore
     }
 
     activePointerIdRef.current = null;
     setIsStickActive(false);
 
-    // Reset visual stick
     if (stickRef.current) {
       stickRef.current.style.transform = 'translate(0px, 0px)';
       stickRef.current.style.transition = 'transform 0.15s cubic-bezier(0.2, 0.9, 0.3, 1)';
     }
 
-    // Reset input vector
     inputRef.current.moveVector = { x: 0, y: 0 };
     dispatchInput();
   };
@@ -115,7 +113,7 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
     const dx = clientX - centerPosRef.current.x;
     const dy = clientY - centerPosRef.current.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    const maxRadius = 48; // Effective joystick travel radius in px
+    const maxRadius = window.innerWidth < 640 ? 40 : 48;
 
     let clampedX = dx;
     let clampedY = dy;
@@ -126,13 +124,10 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
     }
 
     if (stickRef.current) {
-      stickRef.current.style.transition = 'none'; // Instant tracking while dragged
+      stickRef.current.style.transition = 'none';
       stickRef.current.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
     }
 
-    // Normalized vector:
-    // x: -1 to 1 (left to right)
-    // y: -1 to 1 (down to up, so up is positive)
     const normX = clampedX / maxRadius;
     const normY = -(clampedY / maxRadius);
 
@@ -143,9 +138,6 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
     dispatchInput();
   };
 
-  // -------------------------------------------------------------
-  // BUTTON ACTIONS (Pointer Events for instant response on mouse & touch)
-  // -------------------------------------------------------------
   const handleButtonPress = (key: 'jump' | 'interact' | 'ability', pressed: boolean) => {
     inputRef.current[key] = pressed;
     dispatchInput();
@@ -156,7 +148,7 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
   return (
     <div
       dir="ltr"
-      className="fixed inset-0 pointer-events-none z-40 flex flex-col justify-end p-3 sm:p-5 pb-6 pb-safe select-none touch-none"
+      className="fixed inset-0 pointer-events-none z-40 flex flex-col justify-end p-2 sm:p-4 pb-3 sm:pb-5 pb-safe select-none touch-none"
     >
       {/* Container: Left Joystick & Right Actions */}
       <div className="flex items-end justify-between w-full">
@@ -172,7 +164,7 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
             onPointerUp={handlePointerUpOrCancel}
             onPointerCancel={handlePointerUpOrCancel}
             onContextMenu={(e) => e.preventDefault()}
-            className={`w-32 h-32 sm:w-36 sm:h-36 rounded-full relative flex items-center justify-center cursor-grab active:cursor-grabbing backdrop-blur-md shadow-2xl transition-colors select-none ${
+            className={`w-28 h-28 sm:w-36 sm:h-36 rounded-full relative flex items-center justify-center cursor-grab active:cursor-grabbing backdrop-blur-md shadow-2xl transition-colors select-none ${
               isStickActive
                 ? 'bg-slate-900/80 border-2 border-cyan-400 shadow-cyan-500/20'
                 : 'bg-slate-900/60 border-2 border-slate-700/80'
@@ -187,14 +179,14 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
             <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-slate-500/60 pointer-events-none" />
 
             {/* Inner Center Target */}
-            <div className="w-10 h-10 rounded-full border border-slate-700/50 flex items-center justify-center pointer-events-none">
-              <Compass className="w-4 h-4 text-slate-500/40" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border border-slate-700/50 flex items-center justify-center pointer-events-none">
+              <Compass className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500/40" />
             </div>
 
             {/* Draggable Stick Head */}
             <div
               ref={stickRef}
-              className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-white shadow-xl pointer-events-none flex items-center justify-center select-none ${
+              className={`absolute w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-white shadow-xl pointer-events-none flex items-center justify-center select-none ${
                 isExplorer
                   ? isStickActive
                     ? 'bg-cyan-500 shadow-cyan-400/50 scale-105'
@@ -204,11 +196,11 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
                   : 'bg-emerald-600/90 shadow-emerald-600/30'
               }`}
             >
-              <div className="w-4 h-4 rounded-full bg-white/80 shadow-sm" />
+              <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-white/80 shadow-sm" />
             </div>
           </div>
 
-          <div className="text-[10px] font-bold text-slate-400 mt-1.5 tracking-wider uppercase flex items-center gap-1">
+          <div className="text-[9px] sm:text-[10px] font-bold text-slate-400 mt-1 tracking-wider uppercase flex items-center gap-1">
             <span>حرکت / جوی‌استیک</span>
           </div>
         </div>
@@ -216,7 +208,7 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
         {/* =========================================
             ACTION BUTTONS ZONE (RIGHT ZONE)
             ========================================= */}
-        <div className="pointer-events-auto flex flex-col items-end gap-2" dir="rtl">
+        <div className="pointer-events-auto flex flex-col items-end gap-1.5 sm:gap-2" dir="rtl">
           {/* Quick Emote Drawer */}
           {showEmotes && (
             <div className="flex items-center gap-1 bg-slate-900/95 border border-slate-700 p-1.5 rounded-2xl shadow-2xl backdrop-blur-md mb-1 animate-in fade-in zoom-in-95">
@@ -229,7 +221,7 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
                       onSendEmote(em);
                       setShowEmotes(false);
                     }}
-                    className="w-8 h-8 rounded-xl hover:bg-slate-800 text-base flex items-center justify-center active:scale-90 transition-transform"
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl hover:bg-slate-800 text-sm sm:text-base flex items-center justify-center active:scale-90 transition-transform"
                   >
                     {emojis[em]}
                   </button>
@@ -239,17 +231,17 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
           )}
 
           {/* Secondary Utility Controls */}
-          <div className="flex items-center gap-2">
-            {/* Gemini Voice Call Button */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Master Radio Button */}
             {onOpenGeminiCall && (
               <button
                 id="touch_btn_gemini_call"
                 onClick={onOpenGeminiCall}
-                className="w-10 h-10 rounded-2xl bg-cyan-950/90 border border-cyan-400/50 text-cyan-300 flex items-center justify-center shadow-lg active:scale-90 transition-transform relative"
-                title="بیسیم جمینای (استاد الیاس)"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-amber-950/90 border border-amber-400/50 text-amber-300 flex items-center justify-center shadow-lg active:scale-90 transition-transform relative"
+                title="بیسیم استاد الیاس"
               >
-                <Radio className="w-4 h-4" />
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping absolute -top-1 -right-1" />
+                <Radio className="w-4 h-4 text-amber-400" />
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping absolute -top-1 -right-1" />
               </button>
             )}
 
@@ -257,7 +249,7 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
             <button
               id="touch_btn_ping"
               onClick={onSendPing}
-              className="w-10 h-10 rounded-2xl bg-slate-900/90 border border-cyan-500/40 text-cyan-400 flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-slate-900/90 border border-cyan-500/40 text-cyan-400 flex items-center justify-center shadow-lg active:scale-90 transition-transform"
               title="علامت‌گذاری پینگ"
             >
               <MapPin className="w-4 h-4" />
@@ -267,7 +259,7 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
             <button
               id="touch_btn_emotes"
               onClick={() => setShowEmotes(!showEmotes)}
-              className="w-10 h-10 rounded-2xl bg-slate-900/90 border border-slate-700 text-amber-400 flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-slate-900/90 border border-slate-700 text-amber-400 flex items-center justify-center shadow-lg active:scale-90 transition-transform"
               title="ارسال ایموت"
             >
               <Smile className="w-4 h-4" />
@@ -277,18 +269,18 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
             <button
               id="touch_btn_sprint"
               onClick={() => setSprintActive(!sprintActive)}
-              className={`px-3.5 h-10 rounded-2xl border text-xs font-black flex items-center justify-center shadow-lg transition-all active:scale-90 ${
+              className={`px-2.5 sm:px-3.5 h-9 sm:h-10 rounded-2xl border text-[11px] sm:text-xs font-black flex items-center justify-center shadow-lg transition-all active:scale-90 ${
                 sprintActive
                   ? 'bg-amber-500 border-amber-300 text-slate-950 shadow-amber-500/30'
                   : 'bg-slate-900/90 border-slate-700 text-slate-300'
               }`}
             >
-              {sprintActive ? '⚡ دویدن روشن' : 'دویدن'}
+              {sprintActive ? '⚡ دویدن' : 'دویدن'}
             </button>
           </div>
 
           {/* Primary Action Hex-cluster */}
-          <div className="grid grid-cols-2 gap-2 mt-1">
+          <div className="grid grid-cols-2 gap-1.5 sm:gap-2 mt-0.5">
             {/* Unique Ability Button [F] */}
             <button
               id="touch_btn_ability"
@@ -305,14 +297,18 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
                 handleButtonPress('ability', false);
               }}
               onContextMenu={(e) => e.preventDefault()}
-              className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl border-2 text-slate-950 flex flex-col items-center justify-center shadow-xl active:scale-90 transition-transform ${
+              className={`w-13 h-13 sm:w-16 sm:h-16 rounded-2xl border-2 text-slate-950 flex flex-col items-center justify-center shadow-xl active:scale-90 transition-transform ${
                 isExplorer
                   ? 'bg-cyan-400 border-cyan-200 shadow-cyan-500/30'
                   : 'bg-emerald-400 border-emerald-200 shadow-emerald-500/30'
               }`}
             >
-              {isExplorer ? <Zap className="w-5 h-5 fill-slate-950" /> : <Shield className="w-5 h-5 fill-slate-950" />}
-              <span className="text-[9px] font-black mt-0.5">
+              {isExplorer ? (
+                <Zap className="w-4 h-4 sm:w-5 sm:h-5 fill-slate-950" />
+              ) : (
+                <Shield className="w-4 h-4 sm:w-5 sm:h-5 fill-slate-950" />
+              )}
+              <span className="text-[9px] sm:text-[10px] font-black mt-0.5">
                 {isExplorer ? 'صاعقه [F]' : 'سپر [F]'}
               </span>
             </button>
@@ -333,10 +329,10 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
                 handleButtonPress('interact', false);
               }}
               onContextMenu={(e) => e.preventDefault()}
-              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-amber-500 border-2 border-amber-200 text-slate-950 flex flex-col items-center justify-center shadow-xl active:scale-90 transition-transform shadow-amber-500/20"
+              className="w-13 h-13 sm:w-16 sm:h-16 rounded-2xl bg-amber-500 border-2 border-amber-200 text-slate-950 flex flex-col items-center justify-center shadow-xl active:scale-90 transition-transform shadow-amber-500/20"
             >
-              <Hand className="w-5 h-5 fill-slate-950" />
-              <span className="text-[9px] font-black mt-0.5">عمل [E]</span>
+              <Hand className="w-4 h-4 sm:w-5 sm:h-5 fill-slate-950" />
+              <span className="text-[9px] sm:text-[10px] font-black mt-0.5">عمل [E]</span>
             </button>
 
             {/* Jump Button [Space] */}
@@ -355,9 +351,9 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
                 handleButtonPress('jump', false);
               }}
               onContextMenu={(e) => e.preventDefault()}
-              className="col-span-2 h-13 sm:h-14 rounded-2xl bg-slate-100 border-2 border-white text-slate-950 font-black text-sm uppercase flex items-center justify-center gap-1.5 shadow-2xl active:scale-95 transition-transform"
+              className="col-span-2 h-11 sm:h-13 rounded-2xl bg-slate-100 border-2 border-white text-slate-950 font-black text-xs sm:text-sm uppercase flex items-center justify-center gap-1.5 shadow-2xl active:scale-95 transition-transform"
             >
-              <ArrowUp className="w-5 h-5 stroke-[3]" />
+              <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5 stroke-[3]" />
               <span>پرش (Space)</span>
             </button>
           </div>

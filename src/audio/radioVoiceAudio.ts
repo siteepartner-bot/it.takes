@@ -251,3 +251,116 @@ export function createSpeechRecognizer(
     isSupported: true,
   };
 }
+
+/**
+ * Continuous Ambient Wake Word Listener for "استاد" (Master Elias)
+ * Automatically detects when user says "استاد" without needing to open any modal!
+ */
+export function createWakeWordRecognizer(
+  onWakeWordDetected: (fullPhrase: string) => void,
+  onListeningChange?: (listening: boolean) => void,
+  onError?: (err: string) => void
+): { start: () => void; stop: () => void; isSupported: boolean } {
+  if (typeof window === 'undefined') {
+    return { start: () => {}, stop: () => {}, isSupported: false };
+  }
+
+  const SpeechRecognitionClass =
+    (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+  if (!SpeechRecognitionClass) {
+    return { start: () => {}, stop: () => {}, isSupported: false };
+  }
+
+  let recognition: any = null;
+  let shouldRun = false;
+  let debounceTimeout: any = null;
+  let lastTriggerTime = 0;
+
+  const startRecognition = () => {
+    if (!shouldRun) return;
+    try {
+      recognition = new SpeechRecognitionClass();
+      recognition.lang = 'fa-IR';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        onListeningChange?.(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        const now = Date.now();
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const res = event.results[i];
+          const transcript = res[0]?.transcript?.trim() || '';
+
+          const lower = transcript.toLowerCase();
+          if (
+            lower.includes('استاد') ||
+            lower.includes('ostad') ||
+            lower.includes('اوستاد')
+          ) {
+            if (now - lastTriggerTime > 4000) {
+              lastTriggerTime = now;
+              clearTimeout(debounceTimeout);
+              debounceTimeout = setTimeout(() => {
+                onWakeWordDetected(transcript);
+              }, 300);
+            }
+          }
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        if (event.error === 'not-allowed') {
+          shouldRun = false;
+          onListeningChange?.(false);
+          onError?.('دسترسی به میکروفون تأیید نشد');
+          return;
+        }
+      };
+
+      recognition.onend = () => {
+        if (shouldRun) {
+          setTimeout(() => {
+            if (shouldRun) {
+              try {
+                recognition.start();
+              } catch {
+                // Busy or already started
+              }
+            }
+          }, 300);
+        } else {
+          onListeningChange?.(false);
+        }
+      };
+
+      recognition.start();
+    } catch (e) {
+      console.warn('Wake word recognizer exception:', e);
+    }
+  };
+
+  return {
+    start: () => {
+      shouldRun = true;
+      startRecognition();
+    },
+    stop: () => {
+      shouldRun = false;
+      clearTimeout(debounceTimeout);
+      if (recognition) {
+        try {
+          recognition.stop();
+        } catch {
+          // ignore
+        }
+      }
+      onListeningChange?.(false);
+    },
+    isSupported: true,
+  };
+}

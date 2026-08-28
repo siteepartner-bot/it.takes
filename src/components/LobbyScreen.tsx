@@ -16,12 +16,13 @@ import {
   RefreshCw,
   Wifi,
   BookOpen,
-  Cloud,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import type { PlayerRole, RoomData } from '../types.ts';
 import { networkClient, type NetworkMode } from '../multiplayer/networkClient.ts';
 import { StoryModal } from './StoryModal.tsx';
-import { CloudflareGuideModal } from './CloudflareGuideModal.tsx';
+import { isFullscreen, toggleFullscreen } from '../utils/fullscreen.ts';
 
 interface LobbyScreenProps {
   onCreateRoom: (name: string, role: PlayerRole) => void;
@@ -53,12 +54,20 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   const [copied, setCopied] = useState(false);
   const [showNetworkModal, setShowNetworkModal] = useState(false);
   const [showStoryModal, setShowStoryModal] = useState(false);
-  const [showCfGuide, setShowCfGuide] = useState(false);
+  const [inFullscreen, setInFullscreen] = useState(false);
   const [networkMode, setNetworkMode] = useState<NetworkMode>(() => networkClient.getNetworkMode());
-  const [customWorkerUrl, setCustomWorkerUrl] = useState(() => networkClient.getWorkerConfig().url);
-  const [isCustomWorker, setIsCustomWorker] = useState(() => networkClient.getWorkerConfig().isCustom);
 
-  const isCloudflare = networkClient.isCloudflareStaticHost();
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setInFullscreen(isFullscreen());
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
 
   // Save player name
   const handleNameChange = (name: string) => {
@@ -102,13 +111,6 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
   const handleSaveNetworkConfig = () => {
     networkClient.setNetworkMode(networkMode);
-    if (isCustomWorker && customWorkerUrl.trim()) {
-      networkClient.setWorkerConfig(customWorkerUrl.trim());
-    } else {
-      networkClient.setWorkerConfig(null);
-      setCustomWorkerUrl(networkClient.getWorkerConfig().url);
-      setIsCustomWorker(false);
-    }
     setShowNetworkModal(false);
   };
 
@@ -120,72 +122,84 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   return (
     <div
       dir="rtl"
-      className="relative w-full h-full min-h-[100dvh] max-h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-start sm:justify-center p-3 sm:p-5 md:p-6 pb-20 sm:pb-14 overflow-y-auto overflow-x-hidden select-none font-sans"
+      className="relative w-full h-full min-h-[100dvh] max-h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-start sm:justify-center p-2.5 sm:p-5 md:p-6 pb-16 sm:pb-12 overflow-y-auto overflow-x-hidden select-none font-sans"
     >
       {/* Background Ambience */}
       <div className="fixed inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-cyan-950/40 via-slate-950 to-slate-950 pointer-events-none" />
       <div className="fixed top-1/4 -right-20 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none" />
       <div className="fixed bottom-1/4 -left-20 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none" />
 
+      {/* Top action bar: Fullscreen & Story */}
+      <div className="w-full max-w-2xl flex items-center justify-between z-20 mb-2 sm:mb-4 px-1">
+        <button
+          onClick={() => setShowStoryModal(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-950/60 hover:bg-amber-900/70 border border-amber-500/40 text-amber-300 text-xs font-bold transition-all active:scale-95"
+        >
+          <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+          <span className="hidden sm:inline">داستان بازی</span>
+          <span>نیوشا و حسن</span>
+        </button>
+
+        <button
+          onClick={() => toggleFullscreen()}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-850 border border-slate-800 text-slate-300 hover:text-white text-xs font-semibold transition-all active:scale-95"
+          title="حالت تمام صفحه"
+        >
+          {inFullscreen ? (
+            <>
+              <Minimize2 className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden sm:inline">خروج از تمام‌صفحه</span>
+            </>
+          ) : (
+            <>
+              <Maximize2 className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden sm:inline">تمام‌صفحه</span>
+            </>
+          )}
+        </button>
+      </div>
+
       <div className="relative z-10 w-full max-w-2xl mx-auto flex flex-col items-center my-auto">
         {/* Main Header */}
-        <div className="text-center mb-3 sm:mb-4">
-          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-cyan-950/70 border border-cyan-500/30 text-cyan-400 text-xs font-semibold tracking-wide mb-2">
+        <div className="text-center mb-2.5 sm:mb-4">
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-cyan-950/70 border border-cyan-500/30 text-cyan-400 text-xs font-semibold tracking-wide mb-1.5">
             <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
             <span>ماجراجویی دونفره آنلاین ۳بعدی</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white drop-shadow-sm flex items-center justify-center gap-2">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-white drop-shadow-sm flex items-center justify-center gap-2">
             <span>اِیتِـر</span>
             <span className="text-cyan-400">دوئـو</span>
-            <span className="text-xs px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 font-normal self-center">Aether Duo</span>
+            <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 font-normal self-center">
+              Aether Duo
+            </span>
           </h1>
-          <p className="text-slate-400 text-xs sm:text-sm mt-1.5 max-w-lg mx-auto leading-relaxed">
-            سفری هم‌زمان و مشارکتی که دو آدمک چوبی با توانایی‌های مکمل، معماهای باستانی و فیزیکی را حل می‌کنند.
+          <p className="text-slate-400 text-xs sm:text-sm mt-1 max-w-lg mx-auto leading-relaxed">
+            سفر مشارکتی و فیزیکی نیوشا و حسن برای احیای ساعت باستانی با راهنمایی‌های استاد الیاس.
           </p>
-          <div className="mt-2.5 flex items-center justify-center">
-            <button
-              id="btn_open_story_modal_header"
-              onClick={() => setShowStoryModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-2xl bg-amber-950/60 hover:bg-amber-900/70 border border-amber-500/50 text-amber-300 hover:text-amber-200 text-xs font-bold shadow-lg shadow-amber-500/10 transition-all active:scale-95"
-            >
-              <BookOpen className="w-4 h-4 text-amber-400" />
-              <span>کتابچه داستان و تاریخچه آدمک‌های چوبی</span>
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            </button>
-          </div>
         </div>
 
-        {/* Network & Cloudflare Status Indicator Bar */}
-        <div className="w-full max-w-xl mb-3 flex items-center justify-between px-3.5 py-2 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-400">
+        {/* Clean Multiplayer Status Indicator Bar (No Cloudflare/Gemini technical buzzwords) */}
+        <div className="w-full max-w-xl mb-2.5 flex items-center justify-between px-3 py-1.5 sm:py-2 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-400">
           <div className="flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
+            <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
-            <div className="flex items-center gap-1.5 text-slate-300 font-medium">
-              {networkMode === 'p2p' || (networkMode === 'auto' && isCloudflare) ? (
-                <>
-                  <Wifi className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-400 font-semibold">اتصال مستقیم P2P (ویژه کلودفلر - بدون نیاز به سرور)</span>
-                </>
-              ) : (
-                <>
-                  <Radio className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>سرور وب‌سوکت:</span>
-                  <span className="text-emerald-400 font-bold">{isCustomWorker ? 'ورکر اختصاصی' : 'متصل و فعال'}</span>
-                </>
-              )}
+            <div className="flex items-center gap-1.5 text-slate-300 text-[11px] sm:text-xs font-medium">
+              <Wifi className="w-3.5 h-3.5 text-emerald-400" />
+              <span>شبکه آنلاین چندنفره:</span>
+              <span className="text-emerald-400 font-bold">متصل و آماده بازی</span>
             </div>
           </div>
 
           <button
             id="btn_open_worker_config"
             onClick={() => setShowNetworkModal(true)}
-            className="flex items-center gap-1 text-[11px] text-cyan-400 hover:text-cyan-300 transition-colors py-1 px-2.5 rounded-lg bg-slate-800/80 hover:bg-slate-800"
-            title="تنظیمات نوع اتصال و سرور"
+            className="flex items-center gap-1 text-[11px] text-cyan-400 hover:text-cyan-300 transition-colors py-0.5 px-2 rounded-lg bg-slate-800/80 hover:bg-slate-800"
+            title="تنظیمات اتصال سرور"
           >
             <Settings2 className="w-3.5 h-3.5" />
-            <span>تنظیمات شبکه</span>
+            <span>تنظیمات سرور</span>
           </button>
         </div>
 
@@ -194,23 +208,10 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="w-full mb-3 px-4 py-2.5 rounded-xl bg-rose-950/90 border border-rose-500/50 text-rose-200 text-xs font-medium flex items-center justify-between gap-2"
+            className="w-full mb-2.5 px-3.5 py-2 rounded-xl bg-rose-950/90 border border-rose-500/50 text-rose-200 text-xs font-medium flex items-center gap-2"
           >
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-              <span>{errorMessage}</span>
-            </div>
-            {isCloudflare && networkMode !== 'p2p' && (
-              <button
-                onClick={() => {
-                  networkClient.setNetworkMode('p2p');
-                  setNetworkMode('p2p');
-                }}
-                className="text-[11px] text-amber-300 underline font-bold px-2 py-0.5 rounded bg-amber-950/60"
-              >
-                تغییر به حالت P2P
-              </button>
-            )}
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse flex-shrink-0" />
+            <span>{errorMessage}</span>
           </motion.div>
         )}
 
@@ -219,28 +220,35 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
           <motion.div
             initial={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-6 backdrop-blur-xl shadow-2xl"
+            className="w-full bg-slate-900/90 border border-slate-800 rounded-2xl p-3 sm:p-5 backdrop-blur-xl shadow-2xl"
           >
             <div className="flex flex-col items-center text-center">
-              <div className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1">
+              <div className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1">
                 کد اتاق ماجراجویی شما
               </div>
-              <div className="flex items-center gap-3 bg-slate-950/90 border-2 border-cyan-500/40 px-5 py-2.5 rounded-2xl my-1.5 shadow-inner">
-                <span className="text-3xl sm:text-4xl font-mono font-black text-cyan-400 tracking-widest" dir="ltr">
+              <div className="flex items-center gap-2.5 bg-slate-950/90 border-2 border-cyan-500/40 px-4 sm:px-5 py-2 rounded-2xl my-1 shadow-inner">
+                <span
+                  className="text-2xl sm:text-4xl font-mono font-black text-cyan-400 tracking-widest"
+                  dir="ltr"
+                >
                   {roomData.code}
                 </span>
                 <button
                   id="btn_copy_room_code"
                   onClick={handleCopyCode}
-                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                  className="p-1.5 sm:p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
                   title="کپی کد اتاق"
                 >
-                  {copied ? <Check className="w-5 h-5 text-emerald-400" /> : <Copy className="w-5 h-5" />}
+                  {copied ? (
+                    <Check className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
+                  ) : (
+                    <Copy className="w-4 h-4 sm:w-5 sm:h-5" />
+                  )}
                 </button>
               </div>
 
               {/* Fast Invite Link */}
-              <div className="flex flex-wrap items-center justify-center gap-2 mt-1 mb-4">
+              <div className="flex flex-wrap items-center justify-center gap-2 mt-1 mb-3">
                 <button
                   id="btn_copy_invite_link"
                   onClick={handleCopyLink}
@@ -262,21 +270,23 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
               </div>
 
               {/* Player Slots */}
-              <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 my-3">
-                {/* Explorer Slot */}
+              <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-2.5 my-2">
+                {/* Explorer Slot: Niusha */}
                 <div
-                  className={`p-3.5 rounded-xl border flex flex-col items-center justify-center transition-all ${
+                  className={`p-3 rounded-xl border flex flex-col items-center justify-center transition-all ${
                     roomData.players.explorer?.connected
                       ? 'bg-cyan-950/30 border-cyan-500/40 text-cyan-200'
                       : 'bg-slate-950/40 border-slate-800 text-slate-500 border-dashed'
                   }`}
                 >
-                  <div className="w-9 h-9 rounded-full bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center mb-1.5">
+                  <div className="w-8 h-8 rounded-full bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center mb-1">
                     <Zap className="w-4 h-4 text-cyan-400" />
                   </div>
-                  <div className="font-bold text-xs sm:text-sm">نورا (Nora)</div>
-                  <div className="text-[11px] text-cyan-400 font-medium">دختر چوبی • کاوشگر صاعقه</div>
-                  <div className="mt-2 text-xs font-semibold">
+                  <div className="font-bold text-xs sm:text-sm">نیوشا (Niusha)</div>
+                  <div className="text-[10px] sm:text-[11px] text-cyan-400 font-medium">
+                    دختر چوبی • کاوشگر صاعقه
+                  </div>
+                  <div className="mt-1.5 text-xs font-semibold">
                     {roomData.players.explorer?.connected ? (
                       <span className="text-emerald-400 flex items-center gap-1">
                         <Check className="w-3 h-3" />
@@ -284,25 +294,27 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                         {assignedRole === 'explorer' && ' (شما)'}
                       </span>
                     ) : (
-                      <span className="text-slate-500 animate-pulse">در انتظار ورود بازیکن...</span>
+                      <span className="text-slate-500 animate-pulse">در انتظار ورود...</span>
                     )}
                   </div>
                 </div>
 
-                {/* Guardian Slot */}
+                {/* Guardian Slot: Hassan */}
                 <div
-                  className={`p-3.5 rounded-xl border flex flex-col items-center justify-center transition-all ${
+                  className={`p-3 rounded-xl border flex flex-col items-center justify-center transition-all ${
                     roomData.players.guardian?.connected
                       ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200'
                       : 'bg-slate-950/40 border-slate-800 text-slate-500 border-dashed'
                   }`}
                 >
-                  <div className="w-9 h-9 rounded-full bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center mb-1.5">
+                  <div className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center mb-1">
                     <Shield className="w-4 h-4 text-emerald-400" />
                   </div>
-                  <div className="font-bold text-xs sm:text-sm">برسام (Barsam)</div>
-                  <div className="text-[11px] text-emerald-400 font-medium">پسر چوبی • نگهبان تایتان</div>
-                  <div className="mt-2 text-xs font-semibold">
+                  <div className="font-bold text-xs sm:text-sm">حسن (Hassan)</div>
+                  <div className="text-[10px] sm:text-[11px] text-emerald-400 font-medium">
+                    پسر چوبی • نگهبان تایتان
+                  </div>
+                  <div className="mt-1.5 text-xs font-semibold">
                     {roomData.players.guardian?.connected ? (
                       <span className="text-emerald-400 flex items-center gap-1">
                         <Check className="w-3 h-3" />
@@ -310,25 +322,25 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                         {assignedRole === 'guardian' && ' (شما)'}
                       </span>
                     ) : (
-                      <span className="text-slate-500 animate-pulse">در انتظار ورود بازیکن...</span>
+                      <span className="text-slate-500 animate-pulse">در انتظار ورود...</span>
                     )}
                   </div>
                 </div>
               </div>
 
               {/* Start Button */}
-              <div className="w-full mt-3">
+              <div className="w-full mt-2.5">
                 <button
                   id="btn_start_game_session"
                   disabled={!bothPlayersReady}
                   onClick={onStartGame}
-                  className={`w-full py-3.5 rounded-xl font-black text-sm sm:text-base tracking-wider transition-all flex items-center justify-center gap-2 ${
+                  className={`w-full py-3 rounded-xl font-black text-sm sm:text-base tracking-wider transition-all flex items-center justify-center gap-2 ${
                     bothPlayersReady
                       ? 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/30 cursor-pointer active:scale-98 animate-pulse'
                       : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-70'
                   }`}
                 >
-                  <Play className="w-5 h-5 fill-current" />
+                  <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
                   <span>{bothPlayersReady ? 'شروع ماجراجویی دو‌نفره' : 'در انتظار ورود هر دو قهرمان...'}</span>
                 </button>
               </div>
@@ -336,10 +348,10 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
           </motion.div>
         ) : (
           /* --- Screen 2: Initial Setup & Matchmaking Form --- */
-          <div className="w-full bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-6 backdrop-blur-xl shadow-2xl">
+          <div className="w-full bg-slate-900/90 border border-slate-800 rounded-2xl p-3 sm:p-5 backdrop-blur-xl shadow-2xl">
             {/* Player Name Input */}
-            <div className="mb-4">
-              <label className="block text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1.5">
+            <div className="mb-3">
+              <label className="block text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1">
                 نام ماجراجوی شما
               </label>
               <input
@@ -349,79 +361,83 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                 onChange={(e) => handleNameChange(e.target.value)}
                 maxLength={20}
                 placeholder="نام خود را بنویسید..."
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-cyan-500 transition-colors"
+                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs sm:text-sm focus:outline-none focus:border-cyan-500 transition-colors"
               />
             </div>
 
-            {/* Character Selection */}
-            <div className="mb-5">
-              <div className="flex items-center justify-between mb-2">
+            {/* Character Selection (Niusha & Hassan) */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs uppercase tracking-wider text-slate-400 font-semibold">
-                  انتخاب آدمک چوبی مورد علاقه
+                  انتخاب شخصیت چوبی شما
                 </label>
                 <button
                   type="button"
                   onClick={() => setShowStoryModal(true)}
                   className="text-[11px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 transition-colors"
                 >
-                  <BookOpen className="w-3.5 h-3.5" />
-                  <span>مشاهده پیشینه و داستان</span>
+                  <BookOpen className="w-3 h-3" />
+                  <span>داستان کامل</span>
                 </button>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Nora (Girl) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* Niusha (Girl) */}
                 <div
                   onClick={() => setSelectedRole('explorer')}
-                  className={`cursor-pointer p-3 sm:p-3.5 rounded-xl border transition-all ${
+                  className={`cursor-pointer p-2.5 sm:p-3 rounded-xl border transition-all ${
                     selectedRole === 'explorer'
                       ? 'bg-cyan-950/40 border-cyan-500 shadow-md shadow-cyan-950/40'
                       : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 opacity-75'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center">
                         <Zap className="w-4 h-4 text-cyan-400" />
                       </div>
                       <div>
-                        <div className="font-bold text-white text-xs sm:text-sm">نورا (Nora)</div>
-                        <div className="text-[11px] text-cyan-400 font-medium">دختر چوبی • سپیدار نقره‌ای</div>
+                        <div className="font-bold text-white text-xs sm:text-sm">نیوشا (Niusha)</div>
+                        <div className="text-[10px] sm:text-[11px] text-cyan-400 font-medium">
+                          دختر چوبی • سپیدار نقره‌ای
+                        </div>
                       </div>
                     </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-400/30 text-cyan-300 font-semibold">
+                    <span className="text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-400/30 text-cyan-300 font-semibold">
                       دستکش صاعقه [F]
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-300 leading-relaxed">
-                    چابک، سبک‌وزن و دارای پرش‌های بلند. مجهز به دستکش اِیتِر برای شلیک صاعقه، فعال‌سازی کلیدهای معلق و شارژ مدارهای انرژی.
+                  <p className="text-[10px] sm:text-[11px] text-slate-300 leading-relaxed">
+                    چابک، سبک‌وزن و سریع. مجهز به دستکش اِیتِر برای شلیک صاعقه و شارژ مدارهای شناور معماها.
                   </p>
                 </div>
 
-                {/* Barsam (Boy) */}
+                {/* Hassan (Boy) */}
                 <div
                   onClick={() => setSelectedRole('guardian')}
-                  className={`cursor-pointer p-3 sm:p-3.5 rounded-xl border transition-all ${
+                  className={`cursor-pointer p-2.5 sm:p-3 rounded-xl border transition-all ${
                     selectedRole === 'guardian'
                       ? 'bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-950/40'
                       : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 opacity-75'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center">
                         <Shield className="w-4 h-4 text-emerald-400" />
                       </div>
                       <div>
-                        <div className="font-bold text-white text-xs sm:text-sm">برسام (Barsam)</div>
-                        <div className="text-[11px] text-emerald-400 font-medium">پسر چوبی • بلوط کهنسال</div>
+                        <div className="font-bold text-white text-xs sm:text-sm">حسن (Hassan)</div>
+                        <div className="text-[10px] sm:text-[11px] text-emerald-400 font-medium">
+                          پسر چوبی • بلوط کهنسال
+                        </div>
                       </div>
                     </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-400/30 text-emerald-300 font-semibold">
+                    <span className="text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-400/30 text-emerald-300 font-semibold">
                       سپر تایتان [F]
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-300 leading-relaxed">
-                    استوار و سنگین‌پیکر با قلبی از بلور زمردین. توانمند در جابجایی مکعب‌های سنگین سنگی و برپایی سپر دفاعی در برابر لیزر.
+                  <p className="text-[10px] sm:text-[11px] text-slate-300 leading-relaxed">
+                    استوار، سنگین‌پیکر با قلبی از گوهر کهن. توانمند در جابجایی مکعب‌های سنگین و مهار لیزر با سپر محافظ.
                   </p>
                 </div>
               </div>
@@ -429,13 +445,13 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
             {/* Menu Actions */}
             {view === 'home' && (
-              <div className="flex flex-col gap-2.5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
                     id="btn_create_game_flow"
                     disabled={isConnecting}
                     onClick={() => onCreateRoom(playerName, selectedRole)}
-                    className="py-3.5 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs sm:text-sm tracking-wide transition-all shadow-lg shadow-cyan-500/20 active:scale-98 flex items-center justify-center gap-2 disabled:opacity-60"
+                    className="py-3 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs sm:text-sm tracking-wide transition-all shadow-lg shadow-cyan-500/20 active:scale-98 flex items-center justify-center gap-2 disabled:opacity-60"
                   >
                     {isConnecting ? (
                       <>
@@ -454,7 +470,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                     id="btn_join_game_flow"
                     disabled={isConnecting}
                     onClick={() => setView('join')}
-                    className="py-3.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs sm:text-sm tracking-wide transition-all active:scale-98 flex items-center justify-center gap-2 disabled:opacity-60"
+                    className="py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs sm:text-sm tracking-wide transition-all active:scale-98 flex items-center justify-center gap-2 disabled:opacity-60"
                   >
                     <Users className="w-4 h-4" />
                     <span>ورود با کد اتاق</span>
@@ -463,7 +479,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
                 <div className="relative flex py-1 items-center">
                   <div className="flex-grow border-t border-slate-800" />
-                  <span className="flex-shrink mx-3 text-[11px] text-slate-500 tracking-wider">
+                  <span className="flex-shrink mx-3 text-[10px] text-slate-500 tracking-wider">
                     یا تمرین مستقل
                   </span>
                   <div className="flex-grow border-t border-slate-800" />
@@ -475,7 +491,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                   className="py-2.5 rounded-xl bg-slate-950 hover:bg-slate-900 border border-slate-800 text-slate-300 text-xs font-semibold transition-colors flex items-center justify-center gap-2"
                 >
                   <Gamepad2 className="w-4 h-4 text-cyan-400" />
-                  <span>حالت تمرینی تک‌نفره (سوییچ قهرمان با کلید Tab)</span>
+                  <span>حالت تمرینی تک‌نفره (سوییچ نیوشا و حسن با کلید Tab)</span>
                 </button>
               </div>
             )}
@@ -485,10 +501,10 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col gap-2.5"
+                className="flex flex-col gap-2"
               >
                 <div>
-                  <label className="block text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1.5">
+                  <label className="block text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1">
                     کد اتاق دوستتان را وارد کنید
                   </label>
                   <input
@@ -498,12 +514,12 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                     onChange={(e) => setJoinCode(e.target.value.toUpperCase().trim())}
                     maxLength={10}
                     placeholder="مثال: NOVA42"
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-cyan-500/50 text-cyan-400 font-mono text-center text-xl font-bold tracking-widest focus:outline-none focus:border-cyan-400 transition-colors"
+                    className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-cyan-500/50 text-cyan-400 font-mono text-center text-lg sm:text-xl font-bold tracking-widest focus:outline-none focus:border-cyan-400 transition-colors"
                     dir="ltr"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-2.5 mt-1">
+                <div className="grid grid-cols-2 gap-2 mt-1">
                   <button
                     id="btn_cancel_join"
                     onClick={() => setView('home')}
@@ -533,7 +549,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
         )}
       </div>
 
-      {/* Network & Cloudflare Configuration Modal */}
+      {/* Network Configuration Modal */}
       <AnimatePresence>
         {showNetworkModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
@@ -546,15 +562,13 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
             >
               <h3 className="text-base font-bold text-white flex items-center gap-2 mb-2">
                 <Radio className="w-4 h-4 text-cyan-400" />
-                <span>تنظیمات شبکه و اتصال دو‌نفره</span>
+                <span>تنظیمات سرور چندنفره بازی</span>
               </h3>
               <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                نوع اتصال چندنفره متناسب با بستر هاستینگ خود را انتخاب کنید:
+                روش ارتباط برای بازی هم‌زمان را انتخاب کنید:
               </p>
 
-              {/* Mode Selection */}
               <div className="space-y-2 mb-4">
-                {/* Auto Mode */}
                 <div
                   onClick={() => setNetworkMode('auto')}
                   className={`p-3 rounded-xl border cursor-pointer transition-all ${
@@ -564,15 +578,14 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-xs text-white">حالت هوشمند و خودکار (Auto)</span>
+                    <span className="font-bold text-xs text-white">اتصال هوشمند و خودکار (پیشنهادی)</span>
                     <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-900/60 text-cyan-300 font-semibold">پیش‌فرض</span>
                   </div>
                   <p className="text-[11px] leading-relaxed text-slate-400">
-                    در هاست کلودفلر خودکار اتصال مستقیم P2P و در محیط پیش‌نمایش از سرور استفاده می‌کند.
+                    بهترین پروتکل متناسب با اتصال شما را انتخاب و با کمترین پینگ متصل می‌شود.
                   </p>
                 </div>
 
-                {/* P2P Mode */}
                 <div
                   onClick={() => setNetworkMode('p2p')}
                   className={`p-3 rounded-xl border cursor-pointer transition-all ${
@@ -582,81 +595,28 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-xs text-emerald-300">اتصال مستقیم P2P (WebRTC)</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-900/60 text-emerald-300 font-semibold">مخصوص کلودفلر</span>
+                    <span className="font-bold text-xs text-emerald-300">اتصال مستقیم P2P</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-900/60 text-emerald-300 font-semibold">مستقیم</span>
                   </div>
                   <p className="text-[11px] leading-relaxed text-slate-400">
-                    بدون نیاز به سرور خارجی! اتاق مستقیماً بین مرورگر شما و دوستتان با سرعت بالا و پینگ عالی برقرار می‌شود.
-                  </p>
-                </div>
-
-                {/* WebSocket Mode */}
-                <div
-                  onClick={() => setNetworkMode('websocket')}
-                  className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                    networkMode === 'websocket'
-                      ? 'bg-cyan-950/40 border-cyan-500 text-white'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-xs text-cyan-300">سرور وب‌سوکت / Cloudflare Worker</span>
-                  </div>
-                  <p className="text-[11px] leading-relaxed text-slate-400">
-                    در صورتی که سرور Node.js یا Cloudflare Worker با قابلیت وب‌سوکت مجزا دارید.
+                    ارتباط مستقیم بین دو بازیکن با پینگ حداقلی.
                   </p>
                 </div>
               </div>
 
-              {networkMode === 'websocket' && (
-                <div className="mb-4 space-y-2">
-                  <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={isCustomWorker}
-                      onChange={(e) => setIsCustomWorker(e.target.checked)}
-                      className="rounded accent-cyan-500 w-4 h-4"
-                    />
-                    <span>استفاده از آدرس سفارشی Worker یا سرور</span>
-                  </label>
-                  {isCustomWorker && (
-                    <input
-                      type="text"
-                      dir="ltr"
-                      value={customWorkerUrl}
-                      onChange={(e) => setCustomWorkerUrl(e.target.value)}
-                      placeholder="wss://your-worker.workers.dev/ws"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-cyan-400 font-mono text-xs focus:outline-none focus:border-cyan-400"
-                    />
-                  )}
-                </div>
-              )}
-
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
                 <button
-                  id="btn_lobby_cf_guide"
-                  type="button"
-                  onClick={() => setShowCfGuide(true)}
-                  className="text-xs text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1.5 transition-colors self-start sm:self-auto"
+                  onClick={() => setShowNetworkModal(false)}
+                  className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
                 >
-                  <Cloud className="w-3.5 h-3.5" />
-                  <span>راهنمای فعال‌سازی جمینای در Cloudflare</span>
+                  انصراف
                 </button>
-
-                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                  <button
-                    onClick={() => setShowNetworkModal(false)}
-                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
-                  >
-                    انصراف
-                  </button>
-                  <button
-                    onClick={handleSaveNetworkConfig}
-                    className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold"
-                  >
-                    ذخیره تنظیمات
-                  </button>
-                </div>
+                <button
+                  onClick={handleSaveNetworkConfig}
+                  className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold"
+                >
+                  ذخیره تنظیمات
+                </button>
               </div>
             </motion.div>
           </div>
@@ -665,9 +625,6 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
       {/* Narrative Lore & History Modal */}
       <StoryModal isOpen={showStoryModal} onClose={() => setShowStoryModal(false)} />
-
-      {/* Cloudflare & Gemini Deployment Guide Modal */}
-      <CloudflareGuideModal isOpen={showCfGuide} onClose={() => setShowCfGuide(false)} />
     </div>
   );
 };

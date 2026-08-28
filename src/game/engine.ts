@@ -20,6 +20,7 @@ export interface GameEngineCallbacks {
   onPartnerDistance: (dist: number) => void;
   onCheckpointMessage: (text: string) => void;
   onStageClear: (stageId: number) => void;
+  onPointerLockChange?: (isLocked: boolean) => void;
 }
 
 export class GameEngine {
@@ -33,6 +34,11 @@ export class GameEngine {
   private sunLight!: THREE.DirectionalLight;
   private ambientLight!: THREE.HemisphereLight;
   private resizeObserver!: ResizeObserver;
+
+  // Control Mode & Pointer Lock (Windows / Mobile)
+  private controlMode: 'windows' | 'mobile' = 'windows';
+  private isPointerLocked = false;
+  private boundPointerLockHandler: (() => void) | null = null;
 
   // Stage & Environment
   private currentStageId: number = 1;
@@ -244,11 +250,11 @@ export class GameEngine {
     const remoteRole: PlayerRole = this.localRole === 'explorer' ? 'guardian' : 'explorer';
 
     this.localPlayerMesh = createCharacterMesh(this.localRole);
-    this.localPlayerMesh.setNametag(this.localRole === 'explorer' ? 'نورا (Nora)' : 'برسام (Barsam)', true);
+    this.localPlayerMesh.setNametag(this.localRole === 'explorer' ? 'نیوشا (دختر چوبی)' : 'حسن (پسر چوبی)', true);
     this.scene.add(this.localPlayerMesh.group);
 
     this.remotePlayerMesh = createCharacterMesh(remoteRole);
-    this.remotePlayerMesh.setNametag(remoteRole === 'explorer' ? 'نورا (Nora)' : 'برسام (Barsam)', false);
+    this.remotePlayerMesh.setNametag(remoteRole === 'explorer' ? 'نیوشا (دختر چوبی)' : 'حسن (پسر چوبی)', false);
     this.scene.add(this.remotePlayerMesh.group);
 
     // Initial offset for remote
@@ -328,7 +334,7 @@ export class GameEngine {
         e.preventDefault();
         this.soloSwapped = !this.soloSwapped;
         this.setRoles(this.soloSwapped ? 'guardian' : 'explorer');
-        this.callbacks.onCheckpointMessage(`تعویض به: ${this.localRole === 'explorer' ? 'نورا (دختر چوبی)' : 'برسام (پسر چوبی)'}`);
+        this.callbacks.onCheckpointMessage(`تعویض به: ${this.localRole === 'explorer' ? 'نیوشا (دختر چوبی)' : 'حسن (پسر چوبی)'}`);
       }
     });
 
@@ -336,8 +342,29 @@ export class GameEngine {
       this.keys[e.code] = false;
     });
 
-    // Mouse camera orbit
+    // Pointer Lock state listener
+    const handlePointerLockChange = () => {
+      const isLocked = document.pointerLockElement === this.renderer.domElement;
+      this.isPointerLocked = isLocked;
+      this.callbacks.onPointerLockChange?.(isLocked);
+    };
+    document.addEventListener('pointerlockchange', handlePointerLockChange);
+    this.boundPointerLockHandler = handlePointerLockChange;
+
+    // Mouse click & lock
     const dom = this.renderer.domElement;
+    dom.addEventListener('click', () => {
+      soundManager.userInteracted();
+      if (this.controlMode === 'windows' && !this.isPointerLocked) {
+        try {
+          dom.requestPointerLock();
+        } catch {
+          // pointer lock failed or blocked by browser
+        }
+      }
+    });
+
+    // Mouse camera orbit (with Pointer Lock support for Windows)
     dom.addEventListener('mousedown', (e) => {
       soundManager.userInteracted();
       this.isMouseDown = true;
@@ -346,6 +373,16 @@ export class GameEngine {
     });
 
     window.addEventListener('mousemove', (e) => {
+      // Windows mode with pointer lock: mouse movement directly rotates camera 360°!
+      if (this.isPointerLocked) {
+        const movementX = e.movementX ?? (e as any).mozMovementX ?? 0;
+        const movementY = e.movementY ?? (e as any).mozMovementY ?? 0;
+        this.cameraYaw -= movementX * 0.0032;
+        this.cameraPitch = Math.max(-0.25, Math.min(1.1, this.cameraPitch + movementY * 0.0032));
+        return;
+      }
+
+      // Drag mode (unlocked or touch)
       if (!this.isMouseDown) return;
       const dx = e.clientX - this.lastMouseX;
       const dy = e.clientY - this.lastMouseY;
@@ -391,6 +428,42 @@ export class GameEngine {
         }
       }
     });
+  }
+
+  // Control Mode & Pointer Lock Controls
+  public setControlMode(mode: 'windows' | 'mobile') {
+    this.controlMode = mode;
+    if (mode === 'mobile' && this.isPointerLocked) {
+      this.exitPointerLock();
+    }
+  }
+
+  public getControlMode(): 'windows' | 'mobile' {
+    return this.controlMode;
+  }
+
+  public requestPointerLock(): void {
+    if (this.renderer?.domElement) {
+      try {
+        this.renderer.domElement.requestPointerLock();
+      } catch (err) {
+        console.warn('Pointer lock request error:', err);
+      }
+    }
+  }
+
+  public exitPointerLock(): void {
+    if (typeof document !== 'undefined' && document.pointerLockElement === this.renderer.domElement) {
+      try {
+        document.exitPointerLock();
+      } catch (err) {
+        console.warn('Exit pointer lock error:', err);
+      }
+    }
+  }
+
+  public isPointerLockedActive(): boolean {
+    return this.isPointerLocked;
   }
 
   public setTouchControls(input: {
@@ -853,6 +926,11 @@ export class GameEngine {
 
   public destroy() {
     this.stop();
+    this.exitPointerLock();
+    if (this.boundPointerLockHandler) {
+      document.removeEventListener('pointerlockchange', this.boundPointerLockHandler);
+      this.boundPointerLockHandler = null;
+    }
     this.resizeObserver.disconnect();
     if (this.currentStage) this.currentStage.dispose();
     if (this.localPlayerMesh) this.localPlayerMesh.dispose();

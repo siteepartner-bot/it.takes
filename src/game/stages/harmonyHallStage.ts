@@ -475,12 +475,12 @@ export function buildHarmonyHallStage(): StageBuildResult {
   const platformBCollider = new THREE.Box3().setFromObject(platformB.baseMesh);
   colliders.push(platformBCollider);
 
-  // Far Side Destination Floor (z: 78 to 90)
-  helperAddBox([22, 1, 12], [0, -0.5, 84], woodenPlankMat);
+  // Far Side Destination Floor (z: 78 to 104) - EXTENDED 26m SPACIOUS PLAZA!
+  helperAddBox([22, 1, 26], [0, -0.5, 91], woodenPlankMat);
 
-  // Side Walls over Chasm & Far Side
-  helperAddBox([1.2, 8, 42], [-11.0, 4, 69], carvedWallMat);
-  helperAddBox([1.2, 8, 42], [11.0, 4, 69], carvedWallMat);
+  // Side Walls over Chasm & Far Side Plaza
+  helperAddBox([1.2, 8, 56], [-11.0, 4, 76], carvedWallMat);
+  helperAddBox([1.2, 8, 56], [11.0, 4, 76], carvedWallMat);
 
   // Main Puzzle Control Levers
   // Lever 3A at Entrance (at x: -5.875, z: 53.5) -> Activates Platform B
@@ -495,9 +495,9 @@ export function buildHarmonyHallStage(): StageBuildResult {
     prompt: 'حرکت دادن سکوی هم‌تیمی (کلید E)',
   });
 
-  // Lever 3B on Far Side (at x: 5.875, z: 80) -> Activates Platform A
+  // Lever 3B on Far Side (at x: 5.875, z: 82) -> Activates Platform A
   const lever3BMesh = new THREE.Mesh(leverBaseGeo, runeMatB);
-  lever3BMesh.position.set(5.875, 0.6, 80);
+  lever3BMesh.position.set(5.875, 0.6, 82);
   rootGroup.add(lever3BMesh);
   interactiveObjects.push({
     id: 'lever_main_b',
@@ -507,36 +507,90 @@ export function buildHarmonyHallStage(): StageBuildResult {
     prompt: 'حرکت دادن سکوی هم‌تیمی (کلید E)',
   });
 
-  // Final Harmony Sync Buttons on Far Side (at z: 86)
+  // --- CENTRAL SOLAR RESONATOR CORE (محراب رزوناتور خورشیدی) ---
+  const solarResonatorGroup = new THREE.Group();
+  solarResonatorGroup.position.set(0, 0, 92);
+
+  // Pedestal Base (Golden Carved Sun Altar)
+  const altarBase = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.8, 0.8, 24), goldTrimMat);
+  altarBase.position.y = 0.4;
+  altarBase.castShadow = true;
+  altarBase.receiveShadow = true;
+  solarResonatorGroup.add(altarBase);
+
+  const altarMiddle = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.8, 1.2, 16), doorFrameMat);
+  altarMiddle.position.y = 1.4;
+  solarResonatorGroup.add(altarMiddle);
+
+  // Rotating Solar Ring 1 (Horizontal)
+  const solarRing1 = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.15, 12, 32), brassGearMat);
+  solarRing1.position.y = 2.4;
+  solarRing1.rotation.x = Math.PI / 2;
+  solarResonatorGroup.add(solarRing1);
+
+  // Rotating Solar Ring 2 (Vertical/Diagonal)
+  const solarRing2 = new THREE.Mesh(new THREE.TorusGeometry(1.4, 0.12, 12, 32), goldTrimMat);
+  solarRing2.position.y = 2.4;
+  solarRing2.rotation.y = Math.PI / 4;
+  solarResonatorGroup.add(solarRing2);
+
+  // Central Radiant Solar Resonator Crystal Orb (گوی رزوناتور خورشیدی)
+  const solarCrystalMat = new THREE.MeshStandardMaterial({
+    color: 0xfbbf24,
+    emissive: 0xd97706,
+    emissiveIntensity: 0.9,
+    roughness: 0.1,
+    metalness: 0.2,
+  });
+  const solarCrystalOrb = new THREE.Mesh(new THREE.OctahedronGeometry(0.8, 2), solarCrystalMat);
+  solarCrystalOrb.position.y = 2.4;
+  solarResonatorGroup.add(solarCrystalOrb);
+
+  // Glowing Energy Lines / Conduits linking Solar Resonator to Sync Buttons & Exit Door
+  const conduitA = new THREE.Mesh(new THREE.BoxGeometry(5.0, 0.08, 0.4), runeMatA);
+  conduitA.position.set(-3.0, 0.04, 92);
+  rootGroup.add(conduitA);
+
+  const conduitB = new THREE.Mesh(new THREE.BoxGeometry(5.0, 0.08, 0.4), runeMatB);
+  conduitB.position.set(3.0, 0.04, 92);
+  rootGroup.add(conduitB);
+
+  const conduitDoor = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.08, 12.0), goldTrimMat);
+  conduitDoor.position.set(0, 0.04, 98);
+  rootGroup.add(conduitDoor);
+
+  rootGroup.add(solarResonatorGroup);
+
+  // Final Harmony Sync Buttons flanking the Solar Resonator (at x: +-5.875, z: 92)
   const finalBtnAMesh = new THREE.Mesh(syncBtnGeo, runeMatA);
-  finalBtnAMesh.position.set(-5.875, 0.125, 86);
+  finalBtnAMesh.position.set(-5.875, 0.125, 92);
   rootGroup.add(finalBtnAMesh);
   interactiveObjects.push({
     id: 'button_final_a',
     type: 'pressure_plate',
     mesh: finalBtnAMesh,
     bounds: new THREE.Box3().setFromCenterAndSize(finalBtnAMesh.position, new THREE.Vector3(2.5, 1.5, 2.5)),
-    prompt: 'ایستادن روی قفل نوری نیوشا (همزمان با هم‌تیمی)',
+    prompt: 'فعال‌سازی رزوناتور خورشیدی نیوشا (همزمان با هم‌تیمی)',
   });
 
   const finalBtnBMesh = new THREE.Mesh(syncBtnGeo, runeMatB);
-  finalBtnBMesh.position.set(5.875, 0.125, 86);
+  finalBtnBMesh.position.set(5.875, 0.125, 92);
   rootGroup.add(finalBtnBMesh);
   interactiveObjects.push({
     id: 'button_final_b',
     type: 'pressure_plate',
     mesh: finalBtnBMesh,
     bounds: new THREE.Box3().setFromCenterAndSize(finalBtnBMesh.position, new THREE.Vector3(2.5, 1.5, 2.5)),
-    prompt: 'ایستادن روی قفل نوری حسن (همزمان با هم‌تیمی)',
+    prompt: 'فعال‌سازی رزوناتور خورشیدی حسن (همزمان با هم‌تیمی)',
   });
 
-  // --- Partition Wall at z: 90 with Central Exit Door 3 ---
-  // FULL-HEIGHT WALL (y: 0 to 8.2) WITH FULL COVERAGE EXIT GATE!
-  const arch3 = createFullWallArchway(0, 90, 4.8, 5.0, 22.0);
+  // --- Partition Wall at z: 104 with Central Exit Door 3 ---
+  // FULL-HEIGHT WALL (y: 0 to 8.2) MOVED FURTHER BACK AT Z: 104!
+  const arch3 = createFullWallArchway(0, 104, 4.8, 5.0, 22.0);
 
   // Door 3 Mesh (5.2m wide x 5.4m tall x 1.0m thick -> COMPLETELY SEALS EXIT ROOM AT START)
   const door3Mesh = new THREE.Mesh(new THREE.BoxGeometry(5.2, 5.4, 1.0), doorMat);
-  door3Mesh.position.set(0, 2.7, 90);
+  door3Mesh.position.set(0, 2.7, 104);
   door3Mesh.castShadow = true;
   rootGroup.add(door3Mesh);
 
@@ -557,26 +611,26 @@ export function buildHarmonyHallStage(): StageBuildResult {
   const statefulDoor3 = new StatefulDoor(door3Mesh, 2.7, 8.2, 5.0);
 
   // =========================================================================
-  // 4. PART 4: SHARED EXIT SANCTUARY & PORTAL PAD (z: 90 to 105)
+  // 4. PART 4: SHARED EXIT SANCTUARY & PORTAL PAD (z: 104 to 122)
   // =========================================================================
-  helperAddBox([22, 1, 15], [0, -0.5, 97.5], woodenPlankMat);
-  helperAddBox([22, 1, 15], [0, 8.2, 97.5], ceilingMat);
-  helperAddBox([1.2, 8, 15], [-11.0, 4, 97.5], carvedWallMat);
-  helperAddBox([1.2, 8, 15], [11.0, 4, 97.5], carvedWallMat);
-  helperAddBox([22, 8, 1.2], [0, 4, 105], carvedWallMat); // Far Back Wall
+  helperAddBox([22, 1, 18], [0, -0.5, 113], woodenPlankMat);
+  helperAddBox([22, 1, 18], [0, 8.2, 113], ceilingMat);
+  helperAddBox([1.2, 8, 18], [-11.0, 4, 113], carvedWallMat);
+  helperAddBox([1.2, 8, 18], [11.0, 4, 113], carvedWallMat);
+  helperAddBox([22, 8, 1.2], [0, 4, 122], carvedWallMat); // Far Back Wall
 
   // Exit Portal Pad
   const portalGeo = new THREE.CylinderGeometry(2.5, 2.8, 0.3, 24);
   const portalMesh = new THREE.Mesh(portalGeo, goldTrimMat);
-  portalMesh.position.set(0, 0.15, 100);
+  portalMesh.position.set(0, 0.15, 114);
   rootGroup.add(portalMesh);
 
   const portalP1Mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.9, 0.2, 16), runeMatA);
-  portalP1Mesh.position.set(-1.8, 0.25, 100);
+  portalP1Mesh.position.set(-1.8, 0.25, 114);
   rootGroup.add(portalP1Mesh);
 
   const portalP2Mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.9, 0.2, 16), runeMatB);
-  portalP2Mesh.position.set(1.8, 0.25, 100);
+  portalP2Mesh.position.set(1.8, 0.25, 114);
   rootGroup.add(portalP2Mesh);
 
   interactiveObjects.push({
@@ -613,10 +667,14 @@ export function buildHarmonyHallStage(): StageBuildResult {
     spawnPoint: [0, 1.2, 3],
     checkpoints,
     update: (dt: number, state: PuzzleState) => {
-      // 1. Rotate decorative gears
+      // 1. Rotate decorative gears & Solar Resonator rings
       for (const gear of gearsList) {
         gear.rotation.y += dt * 1.2;
       }
+
+      solarRing1.rotation.z += dt * 1.5;
+      solarRing2.rotation.x += dt * 2.0;
+      solarCrystalOrb.rotation.y += dt * 1.0;
 
       const customData = state.customData || {};
 
@@ -691,6 +749,9 @@ export function buildHarmonyHallStage(): StageBuildResult {
       // --- Exit Door 3 (Central Gate) ---
       // Strictly closed unless main harmony puzzle is SOLVED!
       const part3Solved = mainState === 'SOLVED';
+      solarCrystalMat.emissiveIntensity = part3Solved ? 1.8 : 0.9;
+      solarCrystalMat.color.setHex(part3Solved ? 0xfef08a : 0xfbbf24);
+
       statefulDoor3.setTarget(part3Solved);
       statefulDoor3.update(dt);
 

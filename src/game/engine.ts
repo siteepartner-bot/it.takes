@@ -1110,6 +1110,33 @@ export class GameEngine {
       }
     }
 
+    // Stage 5 Frame Update: Chasm Pit Falls & Checks
+    if (this.currentStageId === 5) {
+      // Check Pit Fall in Canyon 1 (z: 24 to 62, y < -3.5)
+      if (this.playerPos.y < -3.5 && this.playerPos.z >= 24 && this.playerPos.z <= 62) {
+        soundManager.playPuzzleErrorBuzz();
+        const isWatchtowerSide = (this.playerPos.x < 0);
+        if (isWatchtowerSide) {
+          this.playerPos.set(-12, 10.8, 32); // Checkpoint 1 (Watchtower)
+          this.respawnPos.set(-12, 10.8, 32);
+        } else {
+          this.playerPos.set(0, 1.2, 3); // Checkpoint 0 (Entrance)
+          this.respawnPos.set(0, 1.2, 3);
+        }
+        this.playerVel.set(0, 0, 0);
+        this.callbacks.onCheckpointMessage('⚠️ به دره بزرگ سقوط کردید! بازگشت به چک‌پوینت');
+      }
+
+      // Check Pit Fall in Chasm 2 (z: 74 to 114, y < -3.5)
+      if (this.playerPos.y < -3.5 && this.playerPos.z >= 74 && this.playerPos.z <= 114) {
+        soundManager.playPuzzleErrorBuzz();
+        this.playerPos.set(0, 1.2, 70); // Checkpoint 2 (Control Station)
+        this.playerVel.set(0, 0, 0);
+        this.respawnPos.set(0, 1.2, 70);
+        this.callbacks.onCheckpointMessage('⚠️ به دره دوم سقوط کردید! بازگشت به چک‌پوینت ۲');
+      }
+    }
+
     // 3. Ability Trigger (F or Q or Touch Ability)
     const wantsAbility = this.keys['KeyF'] || this.keys['KeyQ'] || this.touchAbility;
     if (wantsAbility && this.abilityCooldown <= 0) {
@@ -1434,17 +1461,19 @@ export class GameEngine {
               soundManager.playPressurePlate(true);
               const otherTime = currentData[otherTimeKey] || 0;
               const isPart1Solved = !!currentData.stage4Part1Solved;
+              const isSolo = !networkClient.getRoomCode();
+              const allowedWindow = isSolo ? 15000 : 4000;
 
               let nextPart1Solved = isPart1Solved;
               let msg = isA ? '🟢 دکمه نیوشا فعال شد.' : '🟢 دکمه حسن فعال شد.';
 
-              if (!isPart1Solved && otherTime > 0 && Math.abs(nowTime - otherTime) <= 2500) {
+              if (!isPart1Solved && otherTime > 0 && Math.abs(nowTime - otherTime) <= allowedWindow) {
                 nextPart1Solved = true;
                 soundManager.playCheckpoint();
                 msg = '🎉 هماهنگی عالی! هر دو دکمه با موفقیت همزمان فشرده شدند. دروازه اول باز شد!';
-              } else if (!isPart1Solved && otherTime > 0 && Math.abs(nowTime - otherTime) > 2500) {
+              } else if (!isPart1Solved && otherTime > 0 && Math.abs(nowTime - otherTime) > allowedWindow) {
                 soundManager.playPuzzleErrorBuzz();
-                msg = '⚠️ زمان‌بندی هماهنگ نبود! هر دو دکمه باید با اختلاف کمتر از ۲.۵ ثانیه فشرده شوند.';
+                msg = '⚠️ زمان‌بندی هماهنگ نبود! هر دو دکمه باید با هم‌تیمی فشرده شوند.';
               }
 
               const nextData = {
@@ -1473,24 +1502,36 @@ export class GameEngine {
             if (nowTime - lastTime > 800) {
               soundManager.playPressurePlate(true);
               const otherTime = currentData[otherTimeKey] || 0;
+              const isSolo = !networkClient.getRoomCode();
+              const allowedWindow = isSolo ? 15000 : 4000;
 
               let nextState = currentState;
-              let msg = isA ? '🟢 قفل نوری نیوشا فعال شد.' : '🟢 قفل نوری حسن فعال شد.';
+              let msg = isA ? '🟢 رزوناتور خورشیدی نیوشا فعال شد.' : '🟢 رزوناتور خورشیدی حسن فعال شد.';
 
-              if (otherTime > 0 && Math.abs(nowTime - otherTime) <= 2500) {
+              if (otherTime > 0 && Math.abs(nowTime - otherTime) <= allowedWindow) {
                 nextState = 'SOLVED';
                 soundManager.playPuzzleSuccessChime();
-                msg = '🎉 هماهنگی نهایی کامل شد! دروازه مرکزی معبد برای همیشه باز شد!';
-              } else if (otherTime > 0 && Math.abs(nowTime - otherTime) > 2500) {
+                msg = '☀️ هماهنگی نهایی کامل شد! رزوناتور خورشیدی رخ داد و دروازه خروج باز شد!';
+              } else if (otherTime > 0 && Math.abs(nowTime - otherTime) > allowedWindow) {
                 soundManager.playPuzzleErrorBuzz();
-                msg = '⚠️ هماهنگی نهایی ناموفق! هر دو قفل نوری باید با اختلاف کمتر از ۲.۵ ثانیه فشرده شوند.';
+                msg = '⚠️ هماهنگی نهایی ناموفق! هر دو کلید رزوناتور خورشیدی باید هماهنگ فشرده شوند.';
               }
 
+              const isSolvedNow = nextState === 'SOLVED';
               const nextData = {
                 ...currentData,
                 [timeKey]: nowTime,
                 stage4MainState: nextState,
+                ...(isSolvedNow ? { solarResonator1: true, solarResonator2: true } : {}),
               };
+
+              if (isSolvedNow) {
+                this.puzzleState.solarResonator1 = true;
+                this.puzzleState.solarResonator2 = true;
+                networkClient.triggerPuzzle('solarResonator1', true);
+                networkClient.triggerPuzzle('solarResonator2', true);
+              }
+
               this.puzzleState.customData = nextData;
               networkClient.triggerPuzzle('customData', nextData);
               this.callbacks.onCheckpointMessage(msg);
@@ -1527,6 +1568,36 @@ export class GameEngine {
             }
           }
         }
+
+        // Stage 5 Exit Portal Pads
+        if (obj.id === 'portal_p1_stage5' || obj.id === 'portal_p2_stage5') {
+          const isP1 = obj.id === 'portal_p1_stage5';
+          const readyKey = isP1 ? 'stage5ExitP1Ready' : 'stage5ExitP2Ready';
+          const otherReadyKey = isP1 ? 'stage5ExitP2Ready' : 'stage5ExitP1Ready';
+          const currentData = this.puzzleState.customData || {};
+          const currentReady = !!currentData[readyKey];
+
+          if (isOccupied !== currentReady) {
+            const otherReady = !!currentData[otherReadyKey];
+            const nextData = {
+              ...currentData,
+              [readyKey]: isOccupied,
+            };
+            this.puzzleState.customData = nextData;
+            networkClient.triggerPuzzle('customData', nextData);
+
+            if (isOccupied) {
+              soundManager.playPressurePlate(true);
+              if (otherReady || isSolo) {
+                soundManager.playStageClear();
+                this.callbacks.onStageClear(this.currentStageId);
+                this.callbacks.onCheckpointMessage('🏆 تبریک! مرحله ۵ (پل‌های گم‌شده) با موفقیت به پایان رسید!');
+              } else {
+                this.callbacks.onCheckpointMessage(`✨ ${isP1 ? 'نیوشا' : 'حسن'} روی سکوی خروج مستقر شد. منتظر هم‌تیمی باشید...`);
+              }
+            }
+          }
+        }
       }
     }
 
@@ -1552,14 +1623,15 @@ export class GameEngine {
         // Discrete E-key interactions with debounced cooldown
         if (wantsInteract && this.interactCooldown <= 0) {
           // Ancient Story Lore Tablets
-          if (obj.id.startsWith('story_tablet_')) {
+          if (obj.id.startsWith('story_tablet_') || obj.id.startsWith('tablet_')) {
             soundManager.playCheckpoint();
             const loreTexts: Record<string, string> = {
               story_tablet_stage1: '📜 کتیبه اولین همکاری: «یکی روی دکمه فشاری بایستد تا دروازه باز شود، نفر دوم از دروازه عبور کند و اهرم پشت دروازه را بکشد تا مسیر برای همیشه باز بماند.»',
               story_tablet_stage2: '📜 کتیبه دره و پل متحرک: «همکاری رفت و برگشتی! ابتدا با اهرم اول، سکوی معلق را برای عبور به کار بیندازید. سپس یکی وارد مسیر A و دیگری مسیر B شود؛ بازیکن مسیر A بالابر را برای بازیکن B می‌فرستد و بازیکن B از بالای برج، پل مسیر A را می‌گشاید.»',
               story_tablet_stage3: '📜 کتیبه اتاق‌های آینه‌ای: «هر بازیکن فقط ترتیب نمادهای اتاق دیگر را در آینه خود می‌بیند. تنها با گفت‌وگو، راهنمایی کلامی و فعال‌سازی نوبتی نمادهای خورشید، ماه، ستاره و موج می‌توانید دروازه خروج را بگشایید.»',
               story_tablet_stage4: '📜 کتیبه تالار هماهنگی: «اهرم‌ها و چرخ‌دنده‌ها تنها با همیاری دو قهرمان به حرکت درمی‌آیند. در بخش اول، دکمه‌ها را هم‌زمان بفشارید. در بخش دوم، راه‌ها را متقابلاً بگشایید و در آزمون نهایی، سکوها را برای یکدیگر به حرکت درآورید.»',
-              story_tablet_stage5: '📜 کتیبه هزارتوی گرانش: هر دو قهرمان باید روی مدارهای ضدجاذبه قرار گیرند تا پل نوری اثیری شکل گیرد.',
+              story_tablet_stage5: '📜 کتیبه پل‌های گم‌شده: «از فراز برج دیده‌بانی، فانوس‌های باستانی مسیر امن را بر سکوهای دره روشن می‌سازند. با راهنمایی از بالای برج، از پل‌های ناپایدار گذشته و اهرم‌های دوطرفه را برای پیوستن دوباره بگشایید.»',
+              tablet_watchtower: '🔎 راهنمای برج دیده‌بانی: فانوس‌های آبی و نمادهای درخشان فقط از این بالا دیده می‌شوند! پل اول: سمت راست | پل دوم: سمت چپ (متحرک) | پل سوم: وسط (زمان‌دار)',
               story_tablet_stage6: '📜 کتیبه دژ ابدیت: هسته بلورین اِیتِر نیازمند تعادل عناصر است.',
             };
             this.callbacks.onCheckpointMessage(loreTexts[obj.id] || `📜 کتیبه راز باستانی مرحله ${this.currentStageId}`);
@@ -1830,6 +1902,54 @@ export class GameEngine {
             this.interactCooldown = 0.5;
           }
 
+          // Stage 5 Reverse Lever 1 (Watchtower Drawbridge)
+          if (obj.id === 'lever_stage5_reverse1') {
+            soundManager.playGateMove();
+            soundManager.playInteract();
+            const nextData = {
+              ...this.puzzleState.customData,
+              stage5WatchtowerBridgeLowered: true,
+            };
+            this.puzzleState.customData = nextData;
+            networkClient.triggerPuzzle('customData', nextData);
+            this.callbacks.onCheckpointMessage('🌉 اهرم باز شد! پل معلق برج پایین آمد. اکنون هم‌تیمی شما می‌تواند از برج پایین آمده و به شما بپیوندد.');
+            this.interactCooldown = 0.5;
+          }
+
+          // Stage 5 Controlled Platform Levers
+          if (obj.id === 'lever_stage5_ctrl1' || obj.id === 'lever_stage5_ctrl2' || obj.id === 'lever_stage5_ctrl3') {
+            soundManager.playInteract();
+            soundManager.playGateMove();
+            const targetNum = obj.id === 'lever_stage5_ctrl1' ? 1 : obj.id === 'lever_stage5_ctrl2' ? 2 : 3;
+            const currentData = this.puzzleState.customData || {};
+            const prevTarget = currentData.stage5ControlTarget || 0;
+
+            const graceKey = prevTarget === 1 ? 'p1Grace' : prevTarget === 2 ? 'p2Grace' : prevTarget === 3 ? 'p3Grace' : '';
+            const nextData = {
+              ...currentData,
+              stage5ControlTarget: targetNum,
+              ...(graceKey ? { [graceKey]: 2.0 } : {}),
+            };
+            this.puzzleState.customData = nextData;
+            networkClient.triggerPuzzle('customData', nextData);
+            this.callbacks.onCheckpointMessage(`⚙️ اهرم ${targetNum} فعال شد! سکوی متحرک ${targetNum} به مسیر اضافه گردید.`);
+            this.interactCooldown = 0.5;
+          }
+
+          // Stage 5 Reverse Lever 2 (Main Canyon Bridge)
+          if (obj.id === 'lever_stage5_reverse2') {
+            soundManager.playGateMove();
+            soundManager.playInteract();
+            const nextData = {
+              ...this.puzzleState.customData,
+              stage5MainBridgeUnlocked: true,
+            };
+            this.puzzleState.customData = nextData;
+            networkClient.triggerPuzzle('customData', nextData);
+            this.callbacks.onCheckpointMessage('✨ اهرم نهایی کشیده شد! پل اصلی دره بزرگ باز شد. هم‌تیمی شما اکنون می‌تواند عبور کند.');
+            this.interactCooldown = 0.5;
+          }
+
           // Stage 3 Jamming Crate Toggle (Fallback for legacy)
           if (obj.id === 'clockwork_jam_crate' || obj.id === 'heavy_block') {
             const nextVal = !this.puzzleState.crusherJammed;
@@ -1980,14 +2100,17 @@ export class GameEngine {
             continue;
           }
 
-          // Validation Guard for Stage 4: Dual Solar Resonators must be active!
-          const isStage4ResonatorsActive = !!((this.puzzleState.solarResonator1 || this.puzzleState.customData?.solarResonator1) &&
-                                              (this.puzzleState.solarResonator2 || this.puzzleState.customData?.solarResonator2));
-          if (this.currentStageId === 4 && !isStage4ResonatorsActive) {
+          // Validation Guard for Stage 4: Dual Solar Resonators / Harmony Puzzle must be solved!
+          const isStage4Solved = !!(
+            (this.puzzleState.customData?.stage4MainState === 'SOLVED') ||
+            (this.puzzleState.solarResonator1 && this.puzzleState.solarResonator2) ||
+            (this.puzzleState.customData?.solarResonator1 && this.puzzleState.customData?.solarResonator2)
+          );
+          if (this.currentStageId === 4 && !isStage4Solved) {
             const isStanding = (isP1Pad && (this.localRole === 'explorer' || isSolo) && explorerPos && (obj.bounds.distanceToPoint(explorerPos) < 2.2 || obj.bounds.containsPoint(explorerPos))) ||
                                (isP2Pad && (this.localRole === 'guardian' || isSolo) && guardianPos && (obj.bounds.distanceToPoint(guardianPos) < 2.2 || obj.bounds.containsPoint(guardianPos)));
             if (isStanding && this.interactCooldown <= 0) {
-              this.callbacks.onCheckpointMessage('⚠️ دروازه خورشید قفل است! ابتدا باید هر دو رزوناتور خورشیدی ۱ و ۲ توسط کایلن و برام لمس و فعال شوند.');
+              this.callbacks.onCheckpointMessage('⚠️ دروازه خورشید قفل است! ابتدا باید با کلیدهای دو طرف رزوناتور خورشیدی، هماهنگی را فعال کنید.');
               this.interactCooldown = 1.5;
             }
             continue;

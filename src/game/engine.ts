@@ -100,6 +100,36 @@ export class GameEngine {
   public soloDuoMode = false;
   private soloSwapped = false;
 
+  // Solo Mode Offline Physics & Position Tracking for Inactive Hero
+  private soloPositions: Record<PlayerRole, THREE.Vector3> = {
+    explorer: new THREE.Vector3(0, 1.2, 0),
+    guardian: new THREE.Vector3(1.5, 1.2, 0),
+  };
+  private soloYVels: Record<PlayerRole, number> = {
+    explorer: 0,
+    guardian: 0,
+  };
+  private soloGrounded: Record<PlayerRole, boolean> = {
+    explorer: true,
+    guardian: true,
+  };
+  private soloStandingOnCollider: Record<PlayerRole, THREE.Box3 | null> = {
+    explorer: null,
+    guardian: null,
+  };
+  private soloStandingOnLastMaxY: Record<PlayerRole, number> = {
+    explorer: 0,
+    guardian: 0,
+  };
+  private soloStandingOnLastCenterX: Record<PlayerRole, number> = {
+    explorer: 0,
+    guardian: 0,
+  };
+  private soloStandingOnLastCenterZ: Record<PlayerRole, number> = {
+    explorer: 0,
+    guardian: 0,
+  };
+
   // Animation & Loop
   private reqId: number | null = null;
   private lastFrameTime = performance.now();
@@ -239,6 +269,36 @@ export class GameEngine {
     this.respawnPos.copy(this.playerPos);
     this.playerVel.set(0, 0, 0);
 
+    // Initialize/Reset solo mode states
+    this.soloPositions = {
+      explorer: new THREE.Vector3(sp[0], sp[1], sp[2]),
+      guardian: new THREE.Vector3(sp[0] + 1.5, sp[1], sp[2]),
+    };
+    this.soloYVels = {
+      explorer: 0,
+      guardian: 0,
+    };
+    this.soloGrounded = {
+      explorer: true,
+      guardian: true,
+    };
+    this.soloStandingOnCollider = {
+      explorer: null,
+      guardian: null,
+    };
+    this.soloStandingOnLastMaxY = {
+      explorer: 0,
+      guardian: 0,
+    };
+    this.soloStandingOnLastCenterX = {
+      explorer: 0,
+      guardian: 0,
+    };
+    this.soloStandingOnLastCenterZ = {
+      explorer: 0,
+      guardian: 0,
+    };
+
     // Default puzzle state
     this.puzzleState = initialPuzzleState || {
       stageId,
@@ -287,7 +347,32 @@ export class GameEngine {
   }
 
   public setRoles(local: PlayerRole) {
-    this.localRole = local;
+    if (this.soloDuoMode) {
+      // Save old active character's state before switching
+      const prevRole = this.localRole;
+      if (prevRole) {
+        this.soloPositions[prevRole].copy(this.playerPos);
+        this.soloYVels[prevRole] = this.playerVel.y;
+        this.soloGrounded[prevRole] = this.isGrounded;
+        this.soloStandingOnCollider[prevRole] = this.standingOnCollider;
+        this.soloStandingOnLastMaxY[prevRole] = this.standingOnLastMaxY;
+        this.soloStandingOnLastCenterX[prevRole] = this.standingOnLastCenterX;
+        this.soloStandingOnLastCenterZ[prevRole] = this.standingOnLastCenterZ;
+      }
+
+      this.localRole = local;
+
+      // Load new active character's state
+      this.playerPos.copy(this.soloPositions[local]);
+      this.playerVel.set(0, this.soloYVels[local] || 0, 0);
+      this.isGrounded = this.soloGrounded[local] ?? true;
+      this.standingOnCollider = this.soloStandingOnCollider[local] ?? null;
+      this.standingOnLastMaxY = this.soloStandingOnLastMaxY[local] ?? 0;
+      this.standingOnLastCenterX = this.soloStandingOnLastCenterX[local] ?? 0;
+      this.standingOnLastCenterZ = this.soloStandingOnLastCenterZ[local] ?? 0;
+    } else {
+      this.localRole = local;
+    }
     this.spawnCharacters();
   }
 
@@ -311,8 +396,12 @@ export class GameEngine {
     this.remotePlayerMesh.setNametag(remoteRole === 'explorer' ? 'نیوشا (دختر چوبی)' : 'حسن (پسر چوبی)', false);
     this.scene.add(this.remotePlayerMesh.group);
 
-    // Initial offset for remote
-    this.remotePlayerMesh.group.position.set(this.playerPos.x + 2, this.playerPos.y, this.playerPos.z);
+    if (this.soloDuoMode && this.soloPositions[remoteRole]) {
+      this.remotePlayerMesh.group.position.copy(this.soloPositions[remoteRole]);
+    } else {
+      // Initial offset for remote
+      this.remotePlayerMesh.group.position.set(this.playerPos.x + 2, this.playerPos.y, this.playerPos.z);
+    }
   }
 
   public updatePartnerState(state: PlayerNetState) {
@@ -683,7 +772,9 @@ export class GameEngine {
         nextPos.z < maxZ
       ) {
         // Landing on top
-        if (this.playerPos.y >= maxY - 0.1 && nextPos.y <= maxY + 0.1 && this.playerVel.y <= 0) {
+        const isAlreadyStanding = (this.standingOnCollider === box);
+        const verticalCheck = isAlreadyStanding || (this.playerPos.y >= maxY - 0.25);
+        if (verticalCheck && nextPos.y <= maxY + 0.2 && this.playerVel.y <= 0.1) {
           nextPos.y = maxY;
           this.playerVel.y = 0;
           groundedThisFrame = true;
@@ -784,8 +875,96 @@ export class GameEngine {
       );
     }
 
-    // 6. Remote Player Smooth Interpolation
-    if (this.remotePlayerMesh && this.partnerNetState) {
+    // 6. Remote Player Smooth Interpolation & Solo Mode Physics
+    if (this.soloDuoMode) {
+      // Save current active player's state
+      this.soloPositions[this.localRole].copy(this.playerPos);
+      this.soloGrounded[this.localRole] = this.isGrounded;
+      this.soloStandingOnCollider[this.localRole] = this.standingOnCollider;
+      this.soloStandingOnLastMaxY[this.localRole] = this.standingOnLastMaxY;
+      this.soloStandingOnLastCenterX[this.localRole] = this.standingOnLastCenterX;
+      this.soloStandingOnLastCenterZ[this.localRole] = this.standingOnLastCenterZ;
+
+      // Update offline physics for inactive partner player
+      const remoteRole = this.localRole === 'explorer' ? 'guardian' : 'explorer';
+      const rPos = this.soloPositions[remoteRole];
+
+      // Platform Riding for Inactive Player
+      const rCollider = this.soloStandingOnCollider[remoteRole];
+      if (this.soloGrounded[remoteRole] && rCollider) {
+        const deltaY = rCollider.max.y - this.soloStandingOnLastMaxY[remoteRole];
+        const centerX = (rCollider.min.x + rCollider.max.x) / 2;
+        const deltaX = centerX - this.soloStandingOnLastCenterX[remoteRole];
+        const centerZ = (rCollider.min.z + rCollider.max.z) / 2;
+        const deltaZ = centerZ - this.soloStandingOnLastCenterZ[remoteRole];
+
+        if (Math.abs(deltaY) > 0.0001) {
+          rPos.y += deltaY;
+        }
+        if (Math.abs(deltaX) > 0.0001) {
+          rPos.x += deltaX;
+        }
+        if (Math.abs(deltaZ) > 0.0001) {
+          rPos.z += deltaZ;
+        }
+      }
+
+      // Gravity update
+      if (!this.soloGrounded[remoteRole]) {
+        this.soloYVels[remoteRole] -= 22 * dt;
+        rPos.y += this.soloYVels[remoteRole] * dt;
+      } else {
+        this.soloYVels[remoteRole] = 0;
+      }
+
+      // Simple grounded & collision check
+      let rGroundedThisFrame = false;
+      let rStandingBox: THREE.Box3 | null = null;
+      const playerRadius = 0.45;
+
+      if (this.currentStage) {
+        for (const box of this.currentStage.colliders) {
+          const minX = box.min.x - playerRadius;
+          const maxX = box.max.x + playerRadius;
+          const minZ = box.min.z - playerRadius;
+          const maxZ = box.max.z + playerRadius;
+          const maxY = box.max.y;
+
+          if (rPos.x > minX && rPos.x < maxX && rPos.z > minZ && rPos.z < maxZ) {
+            if (this.soloYVels[remoteRole] <= 0 && rPos.y >= maxY - 0.25 && rPos.y <= maxY + 0.15) {
+              rPos.y = maxY;
+              this.soloYVels[remoteRole] = 0;
+              rGroundedThisFrame = true;
+              rStandingBox = box;
+            }
+          }
+        }
+      }
+
+      this.soloGrounded[remoteRole] = rGroundedThisFrame;
+      this.soloStandingOnCollider[remoteRole] = rStandingBox;
+      if (rStandingBox) {
+        this.soloStandingOnLastMaxY[remoteRole] = rStandingBox.max.y;
+        this.soloStandingOnLastCenterX[remoteRole] = (rStandingBox.min.x + rStandingBox.max.x) / 2;
+        this.soloStandingOnLastCenterZ[remoteRole] = (rStandingBox.min.z + rStandingBox.max.z) / 2;
+      } else {
+        this.soloStandingOnLastMaxY[remoteRole] = 0;
+        this.soloStandingOnLastCenterX[remoteRole] = 0;
+        this.soloStandingOnLastCenterZ[remoteRole] = 0;
+      }
+
+      // Render the remote player mesh
+      if (this.remotePlayerMesh) {
+        this.remotePlayerMesh.group.position.lerp(rPos, Math.min(1, dt * 16));
+        this.remotePlayerMesh.updateAnimation('idle', dt, 0, false);
+      }
+
+      // HUD Distance indicator
+      const dist = Math.round(this.playerPos.distanceTo(rPos));
+      this.callbacks.onPartnerDistance(dist);
+
+    } else if (this.remotePlayerMesh && this.partnerNetState) {
+      // Normal multiplayer path
       const targetPos = new THREE.Vector3(
         this.partnerNetState.x,
         this.partnerNetState.y,

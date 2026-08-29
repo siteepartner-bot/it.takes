@@ -6,6 +6,7 @@ import { buildCampaignStage } from './stages/campaignStages.ts';
 import { buildGardenStage, type StageBuildResult, type InteractiveObject } from './stages/gardenStage.ts';
 import { buildFloatingIslandsStage } from './stages/floatingIslandsStage.ts';
 import { buildClockworkStage } from './stages/clockworkStage.ts';
+import { buildMirrorChambersStage, SACRED_SYMBOLS, getStage3Sequences } from './stages/mirrorChambersStage.ts';
 import { buildPrismTempleStage } from './stages/prismTempleStage.ts';
 import { buildGravityLabyrinthStage } from './stages/gravityLabyrinthStage.ts';
 import { buildCitadelStage } from './stages/citadelStage.ts';
@@ -76,6 +77,9 @@ export class GameEngine {
   private isMouseDown = false;
   private lastMouseX = 0;
   private lastMouseY = 0;
+
+  // Stage Clear One-shot Guard
+  private stageCompleted = false;
 
   // Active Inputs
   private keys: Record<string, boolean> = {};
@@ -205,6 +209,7 @@ export class GameEngine {
   public loadStage(stageId: number, startRole: PlayerRole, initialPuzzleState?: PuzzleState) {
     this.currentStageId = stageId;
     this.localRole = startRole;
+    this.stageCompleted = false;
 
     if (this.currentStage) {
       this.scene.remove(this.currentStage.rootGroup);
@@ -219,7 +224,12 @@ export class GameEngine {
       this.scene.fog = new THREE.FogExp2(0x13271a, 0.018);
       this.sunLight.color.setHex(0xfef08a);
       this.ambientLight.color.setHex(0xdcfce7);
-    } else if (stageId === 2 || stageId === 8) {
+    } else if (stageId === 2) {
+      this.scene.background = new THREE.Color(0x292524);
+      this.scene.fog = new THREE.FogExp2(0x1c1917, 0.016);
+      this.sunLight.color.setHex(0xfef08a);
+      this.ambientLight.color.setHex(0xfef3c7);
+    } else if (stageId === 8) {
       this.scene.background = new THREE.Color(0x0284c7);
       this.scene.fog = new THREE.FogExp2(0x38bdf8, 0.012);
       this.sunLight.color.setHex(0xffffff);
@@ -229,11 +239,12 @@ export class GameEngine {
       this.scene.fog = new THREE.FogExp2(0x292524, 0.022);
       this.sunLight.color.setHex(0xfbbf24);
       this.ambientLight.color.setHex(0xfef3c7);
-    } else if (stageId === 4 || stageId === 9 || stageId === 17) {
-      this.scene.background = new THREE.Color(0x1e1b4b);
-      this.scene.fog = new THREE.FogExp2(0x312e81, 0.015);
-      this.sunLight.color.setHex(0xfde047);
-      this.ambientLight.color.setHex(0xfae8ff);
+    } else if (stageId === 4) {
+      this.scene.background = new THREE.Color(0x292524);
+      this.scene.fog = new THREE.FogExp2(0x1c1917, 0.016);
+      this.sunLight.color.setHex(0xfacc15);
+      this.ambientLight.color.setHex(0xfef3c7);
+    } else if (stageId === 9 || stageId === 17) {
     } else if (stageId === 5 || stageId === 15) {
       this.scene.background = new THREE.Color(0x030712);
       this.scene.fog = new THREE.FogExp2(0x1e1b4b, 0.012);
@@ -326,7 +337,11 @@ export class GameEngine {
       stage3ExitP1Ready: false,
       stage3ExitP2Ready: false,
       prism1Aligned: false,
+      solarConduitActive: false,
       prism2Aligned: false,
+      sunCoreAwakened: false,
+      solarResonator1: false,
+      solarResonator2: false,
       stage4ExitP1Ready: false,
       stage4ExitP2Ready: false,
       gravityBridgeActive: false,
@@ -485,6 +500,11 @@ export class GameEngine {
         this.soloSwapped = !this.soloSwapped;
         this.setRoles(this.soloSwapped ? 'guardian' : 'explorer');
         this.callbacks.onCheckpointMessage(`تعویض به: ${this.localRole === 'explorer' ? 'نیوشا (دختر چوبی)' : 'حسن (پسر چوبی)'}`);
+      }
+
+      // Ghost Mode hint
+      if (e.code === 'KeyG' && !e.repeat) {
+        this.callbacks.onCheckpointMessage('👻 حالت عبور شبح‌وار فعال شد! برای رد شدن از دیوارها و شیشه‌ها، کلید G را نگه دارید.');
       }
     });
 
@@ -665,7 +685,7 @@ export class GameEngine {
     // 1. Stage Update (Puzzles, animated meshes, moving platforms) - Run first so colliders and player delta are perfectly in sync
     this.currentStage.update(dt, this.puzzleState);
 
-    // Apply moving platform delta if grounded
+    // Apply moving platform delta to player if grounded
     if (this.isGrounded && this.standingOnCollider) {
       const deltaY = this.standingOnCollider.max.y - this.standingOnLastMaxY;
       const centerX = (this.standingOnCollider.min.x + this.standingOnCollider.max.x) / 2;
@@ -673,16 +693,21 @@ export class GameEngine {
       const centerZ = (this.standingOnCollider.min.z + this.standingOnCollider.max.z) / 2;
       const deltaZ = centerZ - this.standingOnLastCenterZ;
 
-      if (Math.abs(deltaY) > 0.0001) {
+      if (Math.abs(deltaY) > 0.0001 && Math.abs(deltaY) < 1.5) {
         this.playerPos.y += deltaY;
         this.playerVel.y = 0;
       }
-      if (Math.abs(deltaX) > 0.0001) {
+      if (Math.abs(deltaX) > 0.0001 && Math.abs(deltaX) < 1.5) {
         this.playerPos.x += deltaX;
       }
-      if (Math.abs(deltaZ) > 0.0001) {
+      if (Math.abs(deltaZ) > 0.0001 && Math.abs(deltaZ) < 1.5) {
         this.playerPos.z += deltaZ;
       }
+
+      // Track consumed values
+      this.standingOnLastMaxY = this.standingOnCollider.max.y;
+      this.standingOnLastCenterX = centerX;
+      this.standingOnLastCenterZ = centerZ;
     }
 
     // 1. Process Movement Inputs
@@ -771,26 +796,30 @@ export class GameEngine {
         nextPos.z > minZ &&
         nextPos.z < maxZ
       ) {
-        // Landing on top
+        // Landing on top or stepping up small steps (up to 0.55m)
         const isAlreadyStanding = (this.standingOnCollider === box);
-        const verticalCheck = isAlreadyStanding || (this.playerPos.y >= maxY - 0.25);
-        if (verticalCheck && nextPos.y <= maxY + 0.2 && this.playerVel.y <= 0.1) {
+        const verticalCheck = isAlreadyStanding || (this.playerPos.y >= maxY - 0.55);
+        if (verticalCheck && nextPos.y <= maxY + 0.35 && this.playerVel.y <= 0.5) {
           nextPos.y = maxY;
           this.playerVel.y = 0;
           groundedThisFrame = true;
           standingBox = box;
         } else if (nextPos.y < maxY && nextPos.y + playerHeight > minY) {
           // Horizontal wall pushback
-          const overlapX1 = nextPos.x - minX;
-          const overlapX2 = maxX - nextPos.x;
-          const overlapZ1 = nextPos.z - minZ;
-          const overlapZ2 = maxZ - nextPos.z;
-          const minOverlap = Math.min(overlapX1, overlapX2, overlapZ1, overlapZ2);
+          if (this.keys['KeyG']) {
+            // Ghost Mode activated! Bypass horizontal collision pushback
+          } else {
+            const overlapX1 = nextPos.x - minX;
+            const overlapX2 = maxX - nextPos.x;
+            const overlapZ1 = nextPos.z - minZ;
+            const overlapZ2 = maxZ - nextPos.z;
+            const minOverlap = Math.min(overlapX1, overlapX2, overlapZ1, overlapZ2);
 
-          if (minOverlap === overlapX1) nextPos.x = minX;
-          else if (minOverlap === overlapX2) nextPos.x = maxX;
-          else if (minOverlap === overlapZ1) nextPos.z = minZ;
-          else if (minOverlap === overlapZ2) nextPos.z = maxZ;
+            if (minOverlap === overlapX1) nextPos.x = minX;
+            else if (minOverlap === overlapX2) nextPos.x = maxX;
+            else if (minOverlap === overlapZ1) nextPos.z = minZ;
+            else if (minOverlap === overlapZ2) nextPos.z = maxZ;
+          }
         }
       }
     }
@@ -811,11 +840,274 @@ export class GameEngine {
       this.standingOnLastCenterZ = 0;
     }
     this.playerPos.copy(nextPos);
+    if (this.soloDuoMode && this.localRole) {
+      this.soloPositions[this.localRole].copy(this.playerPos);
+    }
 
     // Abyss Fall Hazard Respawn
     const killY = this.currentStageId === 2 ? -6 : -12;
     if (this.playerPos.y < killY) {
       this.respawnAtCheckpoint();
+    }
+
+    // Stage 2 Checkpoint 2 Progress Trigger (Middle Plateau)
+    if (this.currentStageId === 2 && this.playerPos.z >= 26 && this.puzzleState.checkpointId < 1) {
+      this.puzzleState.checkpointId = 1;
+      this.respawnPos.set(0, 1.2, 28);
+      soundManager.playCheckpoint();
+      this.callbacks.onCheckpointMessage('🚩 چک‌پوینت ۲ ثبت شد: سکوی میانی دره');
+    }
+
+    // Stage 3 Room Assignment & Dynamic Lock State
+    if (this.currentStageId === 3) {
+      const isSolo = this.soloDuoMode || !networkClient.getRoomCode();
+      const pPos = this.playerPos;
+
+      const currentSeed = (this.puzzleState.customData && typeof this.puzzleState.customData.stage3Seed === 'number')
+        ? this.puzzleState.customData.stage3Seed
+        : 77;
+
+      let roomA_player: PlayerRole | null = this.puzzleState.customData?.stage3RoomA_Player || null;
+      let roomB_player: PlayerRole | null = this.puzzleState.customData?.stage3RoomB_Player || null;
+      let lockedA = !!(this.puzzleState.customData?.stage3LockedA);
+      let lockedB = !!(this.puzzleState.customData?.stage3LockedB);
+      let doorAOpen = !!(this.puzzleState.customData?.stage3DoorAOpen);
+      let doorBOpen = !!(this.puzzleState.customData?.stage3DoorBOpen);
+      let isLocked = !!(this.puzzleState.customData?.stage3Locked);
+
+      let dataChanged = false;
+
+      // 1. Proximity & Door Opening from outside (z: 10 to 16.5)
+      const nearDoorA = pPos.x < -4 && pPos.x > -13 && pPos.z >= 10 && pPos.z <= 16.5;
+      const nearDoorB = pPos.x > 4 && pPos.x < 13 && pPos.z >= 10 && pPos.z <= 16.5;
+
+      const inRoomA = pPos.x < -2 && pPos.z >= 17.5 && pPos.z <= 47.5;
+      const inRoomB = pPos.x > 2 && pPos.z >= 17.5 && pPos.z <= 47.5;
+
+      if (!isSolo) {
+        // --- MULTIPLAYER MODE ---
+        // Door A opens ONLY if room A is not occupied by another player
+        const canOpenA = nearDoorA && (!lockedA || roomA_player === this.localRole) && (roomA_player === null || roomA_player === this.localRole);
+        if (canOpenA !== doorAOpen && !lockedA) {
+          doorAOpen = canOpenA;
+          dataChanged = true;
+        }
+
+        // Door B opens ONLY if room B is not occupied by another player
+        const canOpenB = nearDoorB && (!lockedB || roomB_player === this.localRole) && (roomB_player === null || roomB_player === this.localRole);
+        if (canOpenB !== doorBOpen && !lockedB) {
+          doorBOpen = canOpenB;
+          dataChanged = true;
+        }
+
+        // Anti-glitch and Capacity Check for Room A (Strictly 1 Player)
+        if (inRoomA) {
+          if (roomA_player && roomA_player !== this.localRole) {
+            // Glitch / unauthorized second player detected!
+            this.playerPos.set(0, 1.2, 5);
+            this.playerVel.set(0, 0, 0);
+            soundManager.playPuzzleErrorBuzz();
+            this.callbacks.onCheckpointMessage('⚠️ ظرفیت اتاق A تنها ۱ نفر است! شما به تالار ورودی بازگردانده شدید.');
+          } else {
+            if (!lockedA || roomA_player !== this.localRole) {
+              roomA_player = this.localRole;
+              lockedA = true;
+              doorAOpen = false;
+              dataChanged = true;
+              soundManager.playGateMove();
+              this.respawnPos.set(-8.5, 1.2, 20);
+              this.callbacks.onCheckpointMessage('🔒 شما وارد اتاق A شدید و در ورودی قفل شد. به نمادهای روی آینه نگاه کنید و با هم‌تیمی‌ات صحبت کنید.');
+            }
+          }
+        }
+
+        // Anti-glitch and Capacity Check for Room B (Strictly 1 Player)
+        if (inRoomB) {
+          if (roomB_player && roomB_player !== this.localRole) {
+            // Glitch / unauthorized second player detected!
+            this.playerPos.set(0, 1.2, 5);
+            this.playerVel.set(0, 0, 0);
+            soundManager.playPuzzleErrorBuzz();
+            this.callbacks.onCheckpointMessage('⚠️ ظرفیت اتاق B تنها ۱ نفر است! شما به تالار ورودی بازگردانده شدید.');
+          } else {
+            if (!lockedB || roomB_player !== this.localRole) {
+              roomB_player = this.localRole;
+              lockedB = true;
+              doorBOpen = false;
+              dataChanged = true;
+              soundManager.playGateMove();
+              this.respawnPos.set(8.5, 1.2, 20);
+              this.callbacks.onCheckpointMessage('🔒 شما وارد اتاق B شدید و در ورودی قفل شد. به نمادهای روی آینه نگاه کنید و با هم‌تیمی‌ات صحبت کنید.');
+            }
+          }
+        }
+
+        const bothInside = !!(roomA_player && roomB_player && roomA_player !== roomB_player);
+        if (bothInside && !isLocked) {
+          isLocked = true;
+          dataChanged = true;
+          soundManager.playCheckpoint();
+          this.callbacks.onCheckpointMessage('🔒 هر دو بازیکن در اتاق‌های خود مستقر شدند! برای گشودن درهای خروج، نمادهای درست را طبق آینه هم‌تیمی فعال کنید.');
+        }
+
+      } else {
+        // --- SOLO MODE ---
+        const expPos = this.soloPositions['explorer'];
+        const grdPos = this.soloPositions['guardian'];
+
+        const expInA = expPos.x < -2 && expPos.z >= 17.5 && expPos.z <= 47.5;
+        const expInB = expPos.x > 2 && expPos.z >= 17.5 && expPos.z <= 47.5;
+        const grdInA = grdPos.x < -2 && grdPos.z >= 17.5 && grdPos.z <= 47.5;
+        const grdInB = grdPos.x > 2 && grdPos.z >= 17.5 && grdPos.z <= 47.5;
+
+        // Anti-glitch: both heroes cannot be in the same chamber
+        if ((expInA && grdInA) || (expInB && grdInB)) {
+          this.playerPos.set(0, 1.2, 5);
+          this.playerVel.set(0, 0, 0);
+          this.soloPositions[this.localRole].set(0, 1.2, 5);
+          soundManager.playPuzzleErrorBuzz();
+          this.callbacks.onCheckpointMessage('⚠️ هر اتاق فقط ظرفیت ۱ قهرمان دارد! به تالار اصلی بازگردانده شدید.');
+        } else {
+          const occupantA: PlayerRole | null = expInA ? 'explorer' : (grdInA ? 'guardian' : null);
+          const occupantB: PlayerRole | null = expInB ? 'explorer' : (grdInB ? 'guardian' : null);
+
+          // Door A Open trigger in Solo
+          const nearA = nearDoorA && (!occupantA || occupantA === this.localRole);
+          if (nearA !== doorAOpen && !lockedA) {
+            doorAOpen = nearA;
+            dataChanged = true;
+          }
+
+          // Door B Open trigger in Solo
+          const nearB = nearDoorB && (!occupantB || occupantB === this.localRole);
+          if (nearB !== doorBOpen && !lockedB) {
+            doorBOpen = nearB;
+            dataChanged = true;
+          }
+
+          if (inRoomA && !lockedA) {
+            lockedA = true;
+            doorAOpen = false;
+            roomA_player = this.localRole;
+            dataChanged = true;
+            soundManager.playGateMove();
+            this.respawnPos.set(-8.5, 1.2, 20);
+            this.callbacks.onCheckpointMessage(`🔒 ${this.localRole === 'explorer' ? 'نیوشا' : 'حسن'} وارد اتاق A شد و در قفل شد! با Tab شخصیت دیگر را وارد اتاق B کنید.`);
+          }
+
+          if (inRoomB && !lockedB) {
+            lockedB = true;
+            doorBOpen = false;
+            roomB_player = this.localRole;
+            dataChanged = true;
+            soundManager.playGateMove();
+            this.respawnPos.set(8.5, 1.2, 20);
+            this.callbacks.onCheckpointMessage(`🔒 ${this.localRole === 'explorer' ? 'نیوشا' : 'حسن'} وارد اتاق B شد و در قفل شد! با Tab شخصیت دیگر را وارد اتاق A کنید.`);
+          }
+
+          if (occupantA && occupantB && !isLocked) {
+            isLocked = true;
+            lockedA = true;
+            lockedB = true;
+            doorAOpen = false;
+            doorBOpen = false;
+            roomA_player = occupantA;
+            roomB_player = occupantB;
+            dataChanged = true;
+            soundManager.playCheckpoint();
+            this.callbacks.onCheckpointMessage('🔒 هر دو قهرمان در اتاق‌ها مستقر شدند! با کلید Tab بین نیوشا و حسن سوییچ کنید و نمادها را طبق آینه‌ها فعال کنید.');
+          }
+        }
+      }
+
+      if (dataChanged) {
+        const nextData = {
+          ...this.puzzleState.customData,
+          stage3Seed: currentSeed,
+          stage3RoomA_Player: roomA_player,
+          stage3RoomB_Player: roomB_player,
+          stage3LockedA: lockedA,
+          stage3LockedB: lockedB,
+          stage3DoorAOpen: doorAOpen,
+          stage3DoorBOpen: doorBOpen,
+          stage3Locked: isLocked,
+          stage3StateA: isLocked ? 'ACTIVE' : 'WAITING',
+          stage3StateB: isLocked ? 'ACTIVE' : 'WAITING',
+          stage3SeqA: this.puzzleState.customData?.stage3SeqA || [],
+          stage3SeqB: this.puzzleState.customData?.stage3SeqB || [],
+        };
+        this.puzzleState.customData = nextData;
+        networkClient.triggerPuzzle('customData', nextData);
+      }
+    }
+
+    // Stage 4 Frame Update: Timed doors countdown, doorway safety, chasm fall check, and auto state progression
+    if (this.currentStageId === 4) {
+      const customData = this.puzzleState.customData || {};
+      let customChanged = false;
+      let timerA = typeof customData.stage4TimedDoorATimer === 'number' ? customData.stage4TimedDoorATimer : 0;
+      let timerB = typeof customData.stage4TimedDoorBTimer === 'number' ? customData.stage4TimedDoorBTimer : 0;
+
+      // Decrement Timer A if active
+      if (timerA > 0) {
+        timerA -= dt;
+        const playerInDoorwayA = (Math.abs(this.playerPos.x - (-5.875)) < 2.5 && Math.abs(this.playerPos.z - 38) < 2.0);
+        if (timerA <= 0 && playerInDoorwayA) {
+          timerA = 0.2; // Keep open until player clears doorway
+        }
+        if (timerA < 0) timerA = 0;
+        customChanged = true;
+      }
+
+      // Decrement Timer B if active
+      if (timerB > 0) {
+        timerB -= dt;
+        const playerInDoorwayB = (Math.abs(this.playerPos.x - 5.875) < 2.5 && Math.abs(this.playerPos.z - 38) < 2.0);
+        if (timerB <= 0 && playerInDoorwayB) {
+          timerB = 0.2; // Keep open until player clears doorway
+        }
+        if (timerB < 0) timerB = 0;
+        customChanged = true;
+      }
+
+      // Check Chasm Pit Fall in Part 3 (z: 56 to 78, y < -3.5)
+      if (this.playerPos.y < -3.5 && this.playerPos.z >= 56 && this.playerPos.z <= 78) {
+        soundManager.playPuzzleErrorBuzz();
+        this.playerPos.set(0, 1.2, 52); // Checkpoint 3
+        this.playerVel.set(0, 0, 0);
+        this.respawnPos.set(0, 1.2, 52);
+        this.callbacks.onCheckpointMessage('⚠️ به گودال چرخ‌دنده‌ها سقوط کردید! بازگشت به چک‌پوینت ۳');
+      }
+
+      // Check Automatic State Progression for Platforms in Part 3
+      const mainState: string = customData.stage4MainState || 'WAITING';
+      if (mainState === 'A_HELPING_B') {
+        const expAcross = (this.soloPositions.explorer.z >= 76);
+        const grdAcross = (this.soloPositions.guardian.z >= 76);
+        const pAcross = (this.playerPos.z >= 76);
+        if (expAcross || grdAcross || pAcross) {
+          customData.stage4MainState = 'B_CROSSED';
+          customChanged = true;
+        }
+      } else if (mainState === 'B_HELPING_A') {
+        const expAcross = (this.soloPositions.explorer.z >= 76);
+        const grdAcross = (this.soloPositions.guardian.z >= 76);
+        const pAcross = (this.playerPos.z >= 76);
+        if ((expAcross && grdAcross) || pAcross) {
+          customData.stage4MainState = 'A_CROSSED';
+          customChanged = true;
+        }
+      }
+
+      if (customChanged) {
+        const nextData = {
+          ...customData,
+          stage4TimedDoorATimer: timerA,
+          stage4TimedDoorBTimer: timerB,
+        };
+        this.puzzleState.customData = nextData;
+        networkClient.triggerPuzzle('customData', nextData);
+      }
     }
 
     // 3. Ability Trigger (F or Q or Touch Ability)
@@ -845,6 +1137,9 @@ export class GameEngine {
         this.abilityActive = false;
         if (this.localRole === 'guardian' && this.currentStageId === 1 && !this.puzzleState.bridgePedestalRotated) {
           networkClient.triggerPuzzle('lightBridgeActive', false);
+        }
+        if (this.localRole === 'guardian' && this.currentStageId === 2) {
+          networkClient.triggerPuzzle('turretShieldDeflected', false);
         }
       }
     }
@@ -992,6 +1287,26 @@ export class GameEngine {
       this.callbacks.onPartnerDistance(dist);
     }
 
+    // 7. Stage 1 Glass/Light Bridge Auto-trigger if Guardian is standing on the switch
+    if (this.currentStageId === 1 && !this.puzzleState.bridgePedestalRotated) {
+      const isSolo = !networkClient.getRoomCode();
+      const guardianPos = isSolo 
+        ? this.soloPositions['guardian'] 
+        : (this.localRole === 'guardian' 
+            ? this.playerPos 
+            : (this.partnerNetState ? new THREE.Vector3(this.partnerNetState.x, this.partnerNetState.y, this.partnerNetState.z) : null)
+          );
+      
+      if (guardianPos) {
+        const isGuardianNearBridgeTrigger = guardianPos.distanceTo(new THREE.Vector3(0, 5.5, 49)) < 4.0;
+        const wantsAbility = this.keys['KeyF'] || this.keys['KeyQ'] || this.touchAbility;
+        const wantBridgeActive = isGuardianNearBridgeTrigger || (this.localRole === 'guardian' && wantsAbility);
+        if (wantBridgeActive !== !!this.puzzleState.lightBridgeActive) {
+          networkClient.triggerPuzzle('lightBridgeActive', wantBridgeActive);
+        }
+      }
+    }
+
     // 8. Ping Beacon Animation
     if (this.activePingMesh) {
       this.pingTime += dt;
@@ -1039,26 +1354,45 @@ export class GameEngine {
     }
 
     // 2. Strict Occupancy-based Pressure Plate Evaluation
-    const remotePos = this.partnerNetState ? new THREE.Vector3(this.partnerNetState.x, this.partnerNetState.y, this.partnerNetState.z) : null;
     const isSolo = !networkClient.getRoomCode();
+    const explorerPos = isSolo 
+      ? this.soloPositions['explorer'] 
+      : (this.localRole === 'explorer' 
+          ? this.playerPos 
+          : (this.partnerNetState ? new THREE.Vector3(this.partnerNetState.x, this.partnerNetState.y, this.partnerNetState.z) : null)
+        );
+    const guardianPos = isSolo 
+      ? this.soloPositions['guardian'] 
+      : (this.localRole === 'guardian' 
+          ? this.playerPos 
+          : (this.partnerNetState ? new THREE.Vector3(this.partnerNetState.x, this.partnerNetState.y, this.partnerNetState.z) : null)
+        );
 
     for (const obj of this.currentStage.interactiveObjects) {
       if (obj.type === 'pressure_plate') {
-        const localDist = obj.bounds.distanceToPoint(this.playerPos);
-        const localStanding = localDist < 2.2 || obj.bounds.containsPoint(this.playerPos);
-        const remoteStanding = remotePos ? (obj.bounds.distanceToPoint(remotePos) < 2.2 || obj.bounds.containsPoint(remotePos)) : false;
+        const playersOnPlate = new Set<string>();
+        if (explorerPos && (obj.bounds.distanceToPoint(explorerPos) < 2.0 || obj.bounds.containsPoint(explorerPos))) {
+          playersOnPlate.add('explorer');
+        }
+        if (guardianPos && (obj.bounds.distanceToPoint(guardianPos) < 2.0 || obj.bounds.containsPoint(guardianPos))) {
+          playersOnPlate.add('guardian');
+        }
 
-        const isOccupied = localStanding || remoteStanding;
+        const isOccupied = playersOnPlate.size > 0;
 
-        // Stage 1 Gate Pressure Plate
+        // Stage 1 Gate Pressure Plate (State Machine: LOCKED -> BUTTON_ACTIVE -> PERMANENTLY_UNLOCKED)
         if (obj.id === 'plate_gate_1') {
           const wantOpen = isOccupied;
           if (wantOpen !== !!this.puzzleState.gate1Open) {
             networkClient.triggerPuzzle('gate1Open', wantOpen);
             soundManager.playPressurePlate(wantOpen);
-            this.callbacks.onCheckpointMessage(
-              wantOpen ? '🟢 دکمه فشاری فعال شد (دروازه باز شد)' : '🔴 دکمه فشاری رها شد (دروازه بسته شد)'
-            );
+            if (wantOpen) {
+              this.callbacks.onCheckpointMessage('🟢 دکمه فشاری فشرده شد (دروازه باز شد)');
+            } else {
+              if (!this.puzzleState.lever1Activated) {
+                this.callbacks.onCheckpointMessage('🔴 دکمه فشاری رها شد (دروازه بسته شد)');
+              }
+            }
           }
         }
 
@@ -1085,6 +1419,114 @@ export class GameEngine {
             soundManager.playPressurePlate(isOccupied);
           }
         }
+
+        // Stage 4 Part 1 Sync Buttons
+        if (obj.id === 'button_sync_1a' || obj.id === 'button_sync_1b') {
+          const isA = obj.id === 'button_sync_1a';
+          const timeKey = isA ? 'stage4Btn1ATime' : 'stage4Btn1BTime';
+          const otherTimeKey = isA ? 'stage4Btn1BTime' : 'stage4Btn1ATime';
+          const currentData = this.puzzleState.customData || {};
+
+          if (isOccupied) {
+            const nowTime = Date.now();
+            const lastTime = currentData[timeKey] || 0;
+            if (nowTime - lastTime > 800) {
+              soundManager.playPressurePlate(true);
+              const otherTime = currentData[otherTimeKey] || 0;
+              const isPart1Solved = !!currentData.stage4Part1Solved;
+
+              let nextPart1Solved = isPart1Solved;
+              let msg = isA ? '🟢 دکمه نیوشا فعال شد.' : '🟢 دکمه حسن فعال شد.';
+
+              if (!isPart1Solved && otherTime > 0 && Math.abs(nowTime - otherTime) <= 2500) {
+                nextPart1Solved = true;
+                soundManager.playCheckpoint();
+                msg = '🎉 هماهنگی عالی! هر دو دکمه با موفقیت همزمان فشرده شدند. دروازه اول باز شد!';
+              } else if (!isPart1Solved && otherTime > 0 && Math.abs(nowTime - otherTime) > 2500) {
+                soundManager.playPuzzleErrorBuzz();
+                msg = '⚠️ زمان‌بندی هماهنگ نبود! هر دو دکمه باید با اختلاف کمتر از ۲.۵ ثانیه فشرده شوند.';
+              }
+
+              const nextData = {
+                ...currentData,
+                [timeKey]: nowTime,
+                stage4Part1Solved: nextPart1Solved,
+              };
+              this.puzzleState.customData = nextData;
+              networkClient.triggerPuzzle('customData', nextData);
+              this.callbacks.onCheckpointMessage(msg);
+            }
+          }
+        }
+
+        // Stage 4 Part 3 Final Sync Buttons
+        if (obj.id === 'button_final_a' || obj.id === 'button_final_b') {
+          const isA = obj.id === 'button_final_a';
+          const timeKey = isA ? 'stage4FinalBtnATime' : 'stage4FinalBtnBTime';
+          const otherTimeKey = isA ? 'stage4FinalBtnBTime' : 'stage4FinalBtnATime';
+          const currentData = this.puzzleState.customData || {};
+          const currentState = currentData.stage4MainState || 'WAITING';
+
+          if (isOccupied && currentState !== 'SOLVED') {
+            const nowTime = Date.now();
+            const lastTime = currentData[timeKey] || 0;
+            if (nowTime - lastTime > 800) {
+              soundManager.playPressurePlate(true);
+              const otherTime = currentData[otherTimeKey] || 0;
+
+              let nextState = currentState;
+              let msg = isA ? '🟢 قفل نوری نیوشا فعال شد.' : '🟢 قفل نوری حسن فعال شد.';
+
+              if (otherTime > 0 && Math.abs(nowTime - otherTime) <= 2500) {
+                nextState = 'SOLVED';
+                soundManager.playPuzzleSuccessChime();
+                msg = '🎉 هماهنگی نهایی کامل شد! دروازه مرکزی معبد برای همیشه باز شد!';
+              } else if (otherTime > 0 && Math.abs(nowTime - otherTime) > 2500) {
+                soundManager.playPuzzleErrorBuzz();
+                msg = '⚠️ هماهنگی نهایی ناموفق! هر دو قفل نوری باید با اختلاف کمتر از ۲.۵ ثانیه فشرده شوند.';
+              }
+
+              const nextData = {
+                ...currentData,
+                [timeKey]: nowTime,
+                stage4MainState: nextState,
+              };
+              this.puzzleState.customData = nextData;
+              networkClient.triggerPuzzle('customData', nextData);
+              this.callbacks.onCheckpointMessage(msg);
+            }
+          }
+        }
+
+        // Stage 4 Exit Portal Pads
+        if (obj.id === 'portal_p1_stage4' || obj.id === 'portal_p2_stage4') {
+          const isP1 = obj.id === 'portal_p1_stage4';
+          const readyKey = isP1 ? 'stage4ExitP1Ready' : 'stage4ExitP2Ready';
+          const otherReadyKey = isP1 ? 'stage4ExitP2Ready' : 'stage4ExitP1Ready';
+          const currentData = this.puzzleState.customData || {};
+          const currentReady = !!currentData[readyKey];
+
+          if (isOccupied !== currentReady) {
+            const otherReady = !!currentData[otherReadyKey];
+            const nextData = {
+              ...currentData,
+              [readyKey]: isOccupied,
+            };
+            this.puzzleState.customData = nextData;
+            networkClient.triggerPuzzle('customData', nextData);
+
+            if (isOccupied) {
+              soundManager.playPressurePlate(true);
+              if (otherReady || isSolo) {
+                soundManager.playStageClear();
+                this.callbacks.onStageClear(this.currentStageId);
+                this.callbacks.onCheckpointMessage('🏆 تبریک! مرحله ۴ (تالار هماهنگی) با موفقیت به پایان رسید!');
+              } else {
+                this.callbacks.onCheckpointMessage(`✨ ${isP1 ? 'نیوشا' : 'حسن'} روی سکوی خروج مستقر شد. منتظر هم‌تیمی باشید...`);
+              }
+            }
+          }
+        }
       }
     }
 
@@ -1107,16 +1549,16 @@ export class GameEngine {
           nearestPrompt = obj.prompt;
         }
 
-        // Discrete E-key interactions with debounced cooldown & bidirectional toggle
+        // Discrete E-key interactions with debounced cooldown
         if (wantsInteract && this.interactCooldown <= 0) {
           // Ancient Story Lore Tablets
           if (obj.id.startsWith('story_tablet_')) {
             soundManager.playCheckpoint();
             const loreTexts: Record<string, string> = {
-              story_tablet_stage1: '📜 کتیبه باغ کهن: این باغ توسط الیاس ساخته شد. مکعب رسانا سنگ محکی از تیتان است؛ آن را روی پدستال بگذارید تا بالابر آبی فعال گردد.',
-              story_tablet_stage2: '📜 کتیبه جزایر معلق: فقط سپر صیقلی حسن می‌تواند پرتو لیزر را منحرف کند تا نیوشا مدار را قطع نماید.',
-              story_tablet_stage3: '📜 کتیبه کوره زمان: پیستون‌های کوبنده، ضربان قلب ساعت کیهان هستند. جعبه برنجی را زیر پیستون بگذارید تا مهار شود.',
-              story_tablet_stage4: '📜 کتیبه معبد خورشید: منشورهای کریستال نوری انعکاسی از پیوند نیوشا و حسن هستند.',
+              story_tablet_stage1: '📜 کتیبه اولین همکاری: «یکی روی دکمه فشاری بایستد تا دروازه باز شود، نفر دوم از دروازه عبور کند و اهرم پشت دروازه را بکشد تا مسیر برای همیشه باز بماند.»',
+              story_tablet_stage2: '📜 کتیبه دره و پل متحرک: «همکاری رفت و برگشتی! ابتدا با اهرم اول، سکوی معلق را برای عبور به کار بیندازید. سپس یکی وارد مسیر A و دیگری مسیر B شود؛ بازیکن مسیر A بالابر را برای بازیکن B می‌فرستد و بازیکن B از بالای برج، پل مسیر A را می‌گشاید.»',
+              story_tablet_stage3: '📜 کتیبه اتاق‌های آینه‌ای: «هر بازیکن فقط ترتیب نمادهای اتاق دیگر را در آینه خود می‌بیند. تنها با گفت‌وگو، راهنمایی کلامی و فعال‌سازی نوبتی نمادهای خورشید، ماه، ستاره و موج می‌توانید دروازه خروج را بگشایید.»',
+              story_tablet_stage4: '📜 کتیبه تالار هماهنگی: «اهرم‌ها و چرخ‌دنده‌ها تنها با همیاری دو قهرمان به حرکت درمی‌آیند. در بخش اول، دکمه‌ها را هم‌زمان بفشارید. در بخش دوم، راه‌ها را متقابلاً بگشایید و در آزمون نهایی، سکوها را برای یکدیگر به حرکت درآورید.»',
               story_tablet_stage5: '📜 کتیبه هزارتوی گرانش: هر دو قهرمان باید روی مدارهای ضدجاذبه قرار گیرند تا پل نوری اثیری شکل گیرد.',
               story_tablet_stage6: '📜 کتیبه دژ ابدیت: هسته بلورین اِیتِر نیازمند تعادل عناصر است.',
             };
@@ -1124,13 +1566,17 @@ export class GameEngine {
             this.interactCooldown = 0.5;
           }
 
-          // Lever 1 Toggle
+          // Lever 1 (Stage 1 Permanent Unlock)
           if (obj.id === 'lever_1') {
-            const nextVal = !this.puzzleState.lever1Activated;
-            networkClient.triggerPuzzle('lever1Activated', nextVal);
-            soundManager.playInteract();
-            this.callbacks.onCheckpointMessage(nextVal ? '⚙️ اهرم کشیده شد (دروازه باز شد)' : '⚙️ اهرم بازگردانده شد (دروازه بسته شد)');
-            this.interactCooldown = 0.35;
+            if (!this.puzzleState.lever1Activated) {
+              networkClient.triggerPuzzle('lever1Activated', true);
+              soundManager.playGateMove();
+              soundManager.playInteract();
+              this.callbacks.onCheckpointMessage('🎉 اهرم با موفقیت کشیده شد! دروازه برای همیشه باز شد. اکنون هر دو نفر می‌توانید عبور کنید.');
+            } else {
+              this.callbacks.onCheckpointMessage('دروازه قبلاً برای همیشه باز شده است.');
+            }
+            this.interactCooldown = 0.5;
           }
 
           // Heavy Block Placement / Toggle
@@ -1143,6 +1589,41 @@ export class GameEngine {
             this.interactCooldown = 0.35;
           }
 
+          // Elevator Call Buttons
+          if (obj.id === 'elevator_call_bottom' || obj.id === 'elevator_call_top') {
+            soundManager.playInteract();
+            const isStandingOnElevator = Math.abs(this.playerPos.x) < 2.5 && Math.abs(this.playerPos.z - 33) < 2.5;
+
+            if (obj.id === 'elevator_call_bottom') {
+              if (!this.puzzleState.heavyBlockPlaced) {
+                if (isStandingOnElevator) {
+                  this.callbacks.onCheckpointMessage('❌ شما روی بالابر ایستاده‌اید! نمی‌توانید خودتان را با دکمه همکف بالا بفرستید.');
+                } else {
+                  // If not on it, allow sending it up to someone on top
+                  networkClient.triggerPuzzle('heavyBlockPlaced', true);
+                  soundManager.playPressurePlate(true);
+                  this.callbacks.onCheckpointMessage('⚡ بالابر به طبقه بالا فرستاده شد.');
+                }
+              } else {
+                // Elevator is at the top. Bring it down!
+                networkClient.triggerPuzzle('heavyBlockPlaced', false);
+                this.callbacks.onCheckpointMessage('⚡ بالابر به طبقه پایین فراخوانده شد.');
+              }
+            } else { // elevator_call_top
+              if (!this.puzzleState.heavyBlockPlaced) {
+                // Elevator is at the bottom. Bring it up!
+                networkClient.triggerPuzzle('heavyBlockPlaced', true);
+                soundManager.playPressurePlate(true);
+                this.callbacks.onCheckpointMessage('⚡ بالابر به طبقه بالا فراخوانده شد.');
+              } else {
+                // Elevator is at the top. Send it down!
+                networkClient.triggerPuzzle('heavyBlockPlaced', false);
+                this.callbacks.onCheckpointMessage('⚡ بالابر به طبقه پایین فرستاده شد.');
+              }
+            }
+            this.interactCooldown = 0.35;
+          }
+
           // Permanent Bridge Anchor Toggle
           if (obj.id === 'explorer_bridge_anchor') {
             const nextVal = !this.puzzleState.bridgePedestalRotated;
@@ -1152,25 +1633,204 @@ export class GameEngine {
             this.interactCooldown = 0.35;
           }
 
-          // Stage 2 Moving Platform Crank Toggle
-          if (obj.id === 'crank_island_bridge') {
-            const nextVal = !this.puzzleState.floatingIslandBridgeActive;
+          // Stage 2 Lever 1 (Moving Platform 1 Across First Gorge)
+          if (obj.id === 'lever_stage2_platform1' || obj.id === 'lever_stage2_platform1_return' || obj.id === 'crank_island_bridge') {
+            const curr = !!(this.puzzleState.floatingIslandBridgeActive || (this.puzzleState.customData && this.puzzleState.customData.stage2Platform1Active));
+            const nextVal = !curr;
             networkClient.triggerPuzzle('floatingIslandBridgeActive', nextVal);
+            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, stage2Platform1Active: nextVal });
+            soundManager.playGateMove();
             soundManager.playInteract();
-            this.callbacks.onCheckpointMessage(nextVal ? 'اهرم سکوی پرنده فعال شد' : 'اهرم سکوی پرنده متوقف گردید');
-            this.interactCooldown = 0.35;
+            this.callbacks.onCheckpointMessage(nextVal ? '⚙️ سکوی متحرک اول به سمت سکوی میانی حرکت کرد.' : '⚙️ سکوی متحرک اول به سمت نقطه شروع بازگشت.');
+            this.interactCooldown = 0.5;
           }
 
-          // Stage 2 Sentinel Disruptor Toggle
-          if (obj.id === 'disrupt_laser_turret') {
-            const nextVal = !this.puzzleState.laserTurretDisabled;
+          // Stage 2 Lever A (Path A -> Ascends Platform 2 for Path B)
+          if (obj.id === 'lever_stage2_pathA') {
+            const curr = !!(this.puzzleState.laserTurretDisabled || (this.puzzleState.customData && this.puzzleState.customData.stage2LeverA));
+            const nextVal = !curr;
             networkClient.triggerPuzzle('laserTurretDisabled', nextVal);
+            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, stage2LeverA: nextVal });
+            soundManager.playGateMove();
             soundManager.playInteract();
-            this.callbacks.onCheckpointMessage(nextVal ? 'برجک لیزری غیرفعال شد!' : 'برجک لیزری مجدداً فعال شد!');
-            this.interactCooldown = 0.35;
+            this.callbacks.onCheckpointMessage(nextVal ? '⚙️ اهرم مسیر A فعال شد! بالابر عمودی به سمت مسیر B حرکت کرد.' : 'اهرم مسیر A به حالت اولیه بازگشت.');
+            this.interactCooldown = 0.5;
           }
 
-          // Stage 3 Jamming Crate Toggle
+          // Stage 2 Lever B (Path B Upper Tower -> Lowers Drawbridge A)
+          if (obj.id === 'lever_stage2_pathB') {
+            const curr = !!(this.puzzleState.vortexActivated || (this.puzzleState.customData && this.puzzleState.customData.stage2LeverB));
+            const nextVal = !curr;
+            networkClient.triggerPuzzle('vortexActivated', nextVal);
+            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, stage2LeverB: nextVal });
+            soundManager.playGateMove();
+            soundManager.playInteract();
+            this.callbacks.onCheckpointMessage(nextVal ? '🎉 اهرم برج B کشیده شد! پل چوبی مسیر A پایین آمد و مسیر باز شد.' : 'پل چوبی مسیر A بالا رفت.');
+            this.interactCooldown = 0.5;
+          }
+
+          // Stage 3 Mirror Chambers: Symbol Pedestals (Room A & Room B)
+          if (obj.id.startsWith('stage3_roomA_symbol_') || obj.id.startsWith('stage3_roomB_symbol_')) {
+            const isRoomA = obj.id.startsWith('stage3_roomA_symbol_');
+            const symbolId = parseInt(obj.id.split('_').pop() || '0', 10);
+            const symDef = SACRED_SYMBOLS[symbolId] || SACRED_SYMBOLS[0];
+
+            const seed = (this.puzzleState.customData && typeof this.puzzleState.customData.stage3Seed === 'number')
+              ? this.puzzleState.customData.stage3Seed
+              : 77;
+            const { sequenceTargetA, sequenceTargetB } = getStage3Sequences(seed);
+
+            const isLocked = !!(this.puzzleState.customData && this.puzzleState.customData.stage3Locked);
+            const isSolo = this.soloDuoMode || !networkClient.getRoomCode();
+
+            // Guard: Must have both players in rooms (or in solo mode, allow solving directly)
+            if (!isLocked && !isSolo) {
+              this.callbacks.onCheckpointMessage('⚠️ ابتدا باید هر دو بازیکن وارد اتاق‌های A و B شوند تا پازل فعال گردد.');
+              this.interactCooldown = 0.5;
+            } else {
+              const solvedKey = isRoomA ? 'stage3SolvedA' : 'stage3SolvedB';
+              const seqKey = isRoomA ? 'stage3SeqA' : 'stage3SeqB';
+              const targetSeq = isRoomA ? sequenceTargetA : sequenceTargetB;
+              const roomName = isRoomA ? 'A' : 'B';
+              const otherRoomName = isRoomA ? 'B' : 'A';
+
+              const isAlreadySolved = !!(this.puzzleState.customData && this.puzzleState.customData[solvedKey]);
+              if (isAlreadySolved) {
+                this.callbacks.onCheckpointMessage(`✨ پازل اتاق ${roomName} قبلاً با موفقیت حل شده است.`);
+                this.interactCooldown = 0.35;
+              } else {
+                const currentSeq: number[] = (this.puzzleState.customData && Array.isArray(this.puzzleState.customData[seqKey]))
+                  ? [...this.puzzleState.customData[seqKey]]
+                  : [];
+
+                if (currentSeq.includes(symbolId)) {
+                  this.callbacks.onCheckpointMessage(`نماد ${symDef.icon} ${symDef.persianName} قبلاً در این دور فشرده شده است.`);
+                  this.interactCooldown = 0.35;
+                } else {
+                  const expectedSymbol = targetSeq[currentSeq.length];
+
+                  if (symbolId === expectedSymbol) {
+                    // Correct step!
+                    const newSeq = [...currentSeq, symbolId];
+                    soundManager.playSymbolChime(currentSeq.length);
+
+                    if (newSeq.length === 4) {
+                      // Solved this room!
+                      soundManager.playPuzzleSuccessChime();
+                      const otherSolved = isRoomA
+                        ? !!(this.puzzleState.customData && this.puzzleState.customData.stage3SolvedB)
+                        : !!(this.puzzleState.customData && this.puzzleState.customData.stage3SolvedA);
+                      const exitUnlocked = otherSolved;
+
+                      const nextCustom = {
+                        ...this.puzzleState.customData,
+                        [seqKey]: newSeq,
+                        [solvedKey]: true,
+                        stage3ExitUnlocked: exitUnlocked,
+                      };
+                      this.puzzleState.customData = nextCustom;
+                      networkClient.triggerPuzzle('customData', nextCustom);
+
+                      if (exitUnlocked) {
+                        soundManager.playGateMove();
+                        this.callbacks.onCheckpointMessage(`🎉 هر دو اتاق آینه‌ای کامل شدند! دروازه‌های خروج به تالار اعظم گشوده شدند!`);
+                      } else {
+                        this.callbacks.onCheckpointMessage(`✨ پازل اتاق ${roomName} با موفقیت حل شد! منتظر حل اتاق ${otherRoomName} باشید...`);
+                      }
+                    } else {
+                      const nextCustom = {
+                        ...this.puzzleState.customData,
+                        [seqKey]: newSeq,
+                      };
+                      this.puzzleState.customData = nextCustom;
+                      networkClient.triggerPuzzle('customData', nextCustom);
+                      this.callbacks.onCheckpointMessage(`✨ نماد ${symDef.icon} ${symDef.persianName} درست بود! (${newSeq.length}/4)`);
+                    }
+                    this.interactCooldown = 0.4;
+                  } else {
+                    // Wrong step! Reset this room sequence
+                    soundManager.playPuzzleErrorBuzz();
+                    const nextCustom = {
+                      ...this.puzzleState.customData,
+                      [seqKey]: [],
+                    };
+                    this.puzzleState.customData = nextCustom;
+                    networkClient.triggerPuzzle('customData', nextCustom);
+                    this.callbacks.onCheckpointMessage(`❌ نماد اشتباه! ترتیب اتاق ${roomName} ریست شد. به راهنمای روی آینه اتاق ${otherRoomName} گوش بده!`);
+                    this.interactCooldown = 0.5;
+                  }
+                }
+              }
+            }
+          }
+
+          // Stage 4 Dual Path Levers (Part 2)
+          if (obj.id === 'lever_dual_a') {
+            soundManager.playGateMove();
+            soundManager.playInteract();
+            const nextCustom = {
+              ...this.puzzleState.customData,
+              stage4TimedDoorBTimer: 7.0,
+            };
+            this.puzzleState.customData = nextCustom;
+            networkClient.triggerPuzzle('customData', nextCustom);
+            this.callbacks.onCheckpointMessage('⏱️ اهرم مسیر A کشیده شد! دروازه زمان‌دار مسیر B به مدت ۷ ثانیه باز شد.');
+            this.interactCooldown = 0.5;
+          }
+
+          if (obj.id === 'lever_dual_b') {
+            soundManager.playGateMove();
+            soundManager.playInteract();
+            const nextCustom = {
+              ...this.puzzleState.customData,
+              stage4TimedDoorATimer: 7.0,
+            };
+            this.puzzleState.customData = nextCustom;
+            networkClient.triggerPuzzle('customData', nextCustom);
+            this.callbacks.onCheckpointMessage('⏱️ اهرم مسیر B کشیده شد! دروازه زمان‌دار مسیر A به مدت ۷ ثانیه باز شد.');
+            this.interactCooldown = 0.5;
+          }
+
+          // Stage 4 Main Harmony Levers (Part 3)
+          if (obj.id === 'lever_main_a') {
+            const currentState = this.puzzleState.customData?.stage4MainState || 'WAITING';
+            if (currentState === 'WAITING') {
+              soundManager.playGateMove();
+              soundManager.playInteract();
+              const nextCustom = {
+                ...this.puzzleState.customData,
+                stage4MainState: 'A_HELPING_B',
+              };
+              this.puzzleState.customData = nextCustom;
+              networkClient.triggerPuzzle('customData', nextCustom);
+              this.callbacks.onCheckpointMessage('⚙️ اهرم سمت چپ کشیده شد! سکوی متحرک سمت راست برای انتقال هم‌تیمی حرکت کرد.');
+            } else {
+              this.callbacks.onCheckpointMessage('سکوی هم‌تیمی قبلاً جابه‌جا شده است.');
+            }
+            this.interactCooldown = 0.5;
+          }
+
+          if (obj.id === 'lever_main_b') {
+            const currentState = this.puzzleState.customData?.stage4MainState || 'WAITING';
+            if (currentState === 'A_HELPING_B' || currentState === 'B_CROSSED') {
+              soundManager.playGateMove();
+              soundManager.playInteract();
+              const nextCustom = {
+                ...this.puzzleState.customData,
+                stage4MainState: 'B_HELPING_A',
+              };
+              this.puzzleState.customData = nextCustom;
+              networkClient.triggerPuzzle('customData', nextCustom);
+              this.callbacks.onCheckpointMessage('⚙️ اهرم سمت راست کشیده شد! سکوی متحرک سمت چپ برای انتقال هم‌تیمی حرکت کرد.');
+            } else if (currentState === 'WAITING') {
+              this.callbacks.onCheckpointMessage('⚠️ ابتدا هم‌تیمی شما باید اهرم اول را بکشد تا شما به این سکو برسید!');
+            } else {
+              this.callbacks.onCheckpointMessage('سکوی سمت چپ قبلاً جابه‌جا شده است.');
+            }
+            this.interactCooldown = 0.5;
+          }
+
+          // Stage 3 Jamming Crate Toggle (Fallback for legacy)
           if (obj.id === 'clockwork_jam_crate' || obj.id === 'heavy_block') {
             const nextVal = !this.puzzleState.crusherJammed;
             networkClient.triggerPuzzle('crusherJammed', nextVal);
@@ -1179,7 +1839,7 @@ export class GameEngine {
             this.interactCooldown = 0.35;
           }
 
-          // Stage 3 Synchronized Valves Toggle
+          // Stage 3 Synchronized Valves Toggle (Fallback for legacy)
           if (obj.id === 'boiler_valve_1') {
             const nextVal = !this.puzzleState.boilerValve1;
             networkClient.triggerPuzzle('boilerValve1', nextVal);
@@ -1195,19 +1855,82 @@ export class GameEngine {
             this.interactCooldown = 0.35;
           }
 
-          // Stage 4 Prisms Toggle
-          if (obj.id === 'prism_pedestal_1') {
-            const curr = !!(this.puzzleState.customData && this.puzzleState.customData.prism1Aligned);
-            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, prism1Aligned: !curr });
+          // Stage 4 Lore Tablet
+          if (obj.id === 'story_tablet_stage4') {
             soundManager.playInteract();
-            this.callbacks.onCheckpointMessage(!curr ? 'منشور نوری ۱ با کانون خورشیدی تنظیم شد!' : 'منشور نوری ۱ به حالت اول بازگشت.');
+            this.callbacks.onCheckpointMessage('📜 کتیبه باستانی معبد: «نور را با منشورها هدایت کنید، مکعب بلورین را روی هادی انرژی بگذارید و با سکوهای رقصان خورشید از ورطه گذشته، قفل دوگانه رزوناتورها را هم‌زمان بگشایید.»');
+            this.interactCooldown = 0.5;
+          }
+
+          // Stage 4 Prisms & Solar Conduits
+          if (obj.id === 'prism_pedestal_1') {
+            const curr = !!(this.puzzleState.prism1Aligned || (this.puzzleState.customData && this.puzzleState.customData.prism1Aligned));
+            const nextVal = !curr;
+            networkClient.triggerPuzzle('prism1Aligned', nextVal);
+            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, prism1Aligned: nextVal });
+            soundManager.playInteract();
+            if (nextVal) soundManager.playPressurePlate(true);
+            this.callbacks.onCheckpointMessage(nextVal ? '✨ منشور نوری ۱ با کانون معبد تنظیم شد! پل نوری خورشید گسترش یافت.' : 'منشور نوری ۱ از کانون خارج شد.');
             this.interactCooldown = 0.35;
           }
-          if (obj.id === 'prism_pedestal_2') {
-            const curr = !!(this.puzzleState.customData && this.puzzleState.customData.prism2Aligned);
-            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, prism2Aligned: !curr });
+
+          if (obj.id === 'solar_push_crate' || obj.id === 'solar_conduit_plate') {
+            const curr = !!(this.puzzleState.solarConduitActive || (this.puzzleState.customData && this.puzzleState.customData.solarConduitActive));
+            const nextVal = !curr;
+            networkClient.triggerPuzzle('solarConduitActive', nextVal);
+            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, solarConduitActive: nextVal });
             soundManager.playInteract();
-            this.callbacks.onCheckpointMessage(!curr ? 'منشور نوری ۲ تنظیم شد! دروازه خورشیدی باز شد.' : 'منشور نوری ۲ غیرفعال شد.');
+            if (nextVal) soundManager.playPressurePlate(true);
+            this.callbacks.onCheckpointMessage(nextVal ? '⚡ مکعب خورشید روی هادی انرژی مستقر شد! برج منشور ۲ با انرژی خورشیدی شارژ گردید.' : 'مکعب از روی هادی انرژی برداشته شد.');
+            this.interactCooldown = 0.35;
+          }
+
+          if (obj.id === 'prism_pedestal_2') {
+            const isConduitReady = !!(this.puzzleState.solarConduitActive || (this.puzzleState.customData && this.puzzleState.customData.solarConduitActive));
+            if (!isConduitReady) {
+              soundManager.playInteract();
+              this.callbacks.onCheckpointMessage('⚠️ برج منشور ۲ انرژی ندارد! ابتدا باید مکعب خورشید را روی هادی انرژی (صفحه زرد) قرار دهید.');
+              this.interactCooldown = 0.5;
+            } else {
+              const curr = !!(this.puzzleState.prism2Aligned || (this.puzzleState.customData && this.puzzleState.customData.prism2Aligned));
+              const nextVal = !curr;
+              networkClient.triggerPuzzle('prism2Aligned', nextVal);
+              networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, prism2Aligned: nextVal, sunCoreAwakened: nextVal });
+              soundManager.playInteract();
+              if (nextVal) soundManager.playPressurePlate(true);
+              this.callbacks.onCheckpointMessage(nextVal ? '🌟 منشور نوری ۲ پرتو را به هسته خورشید تابانید! هسته اعظم بیدار شد و سکوهای پرنده به حرکت درآمدند.' : 'منشور نوری ۲ غیرفعال شد.');
+              this.interactCooldown = 0.35;
+            }
+          }
+
+          // Stage 4 Dual Resonators
+          if (obj.id === 'solar_resonator_1') {
+            const curr = !!(this.puzzleState.solarResonator1 || (this.puzzleState.customData && this.puzzleState.customData.solarResonator1));
+            const nextVal = !curr;
+            networkClient.triggerPuzzle('solarResonator1', nextVal);
+            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, solarResonator1: nextVal });
+            soundManager.playInteract();
+            const partnerActive = !!(this.puzzleState.solarResonator2 || (this.puzzleState.customData && this.puzzleState.customData.solarResonator2));
+            if (nextVal && partnerActive) {
+              this.callbacks.onCheckpointMessage('☀️ قفل دوگانه رزوناتورها باز شد! دروازه خورشید گشوده شد.');
+            } else {
+              this.callbacks.onCheckpointMessage(nextVal ? '🔹 رزوناتور خورشیدی ۱ توسط کاوشگر فعال شد!' : 'رزوناتور ۱ غیرفعال شد.');
+            }
+            this.interactCooldown = 0.35;
+          }
+
+          if (obj.id === 'solar_resonator_2') {
+            const curr = !!(this.puzzleState.solarResonator2 || (this.puzzleState.customData && this.puzzleState.customData.solarResonator2));
+            const nextVal = !curr;
+            networkClient.triggerPuzzle('solarResonator2', nextVal);
+            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, solarResonator2: nextVal });
+            soundManager.playInteract();
+            const partnerActive = !!(this.puzzleState.solarResonator1 || (this.puzzleState.customData && this.puzzleState.customData.solarResonator1));
+            if (nextVal && partnerActive) {
+              this.callbacks.onCheckpointMessage('☀️ قفل دوگانه رزوناتورها باز شد! دروازه خورشید گشوده شد.');
+            } else {
+              this.callbacks.onCheckpointMessage(nextVal ? '🔸 رزوناتور خورشیدی ۲ توسط نگهبان فعال شد!' : 'رزوناتور ۲ غیرفعال شد.');
+            }
             this.interactCooldown = 0.35;
           }
 
@@ -1223,27 +1946,86 @@ export class GameEngine {
           }
         }
 
-        // Stage Exit Pads
+        // Stage Exit Pads Real-time Occupancy
         if (obj.type === 'portal_pad') {
           const isP1Pad = obj.id.includes('p1');
           const isP2Pad = obj.id.includes('p2');
           const isSolo = !networkClient.getRoomCode();
 
+          const explorerPos = isSolo 
+            ? this.soloPositions['explorer'] 
+            : (this.localRole === 'explorer' 
+                ? this.playerPos 
+                : (this.partnerNetState ? new THREE.Vector3(this.partnerNetState.x, this.partnerNetState.y, this.partnerNetState.z) : null)
+              );
+          const guardianPos = isSolo 
+            ? this.soloPositions['guardian'] 
+            : (this.localRole === 'guardian' 
+                ? this.playerPos 
+                : (this.partnerNetState ? new THREE.Vector3(this.partnerNetState.x, this.partnerNetState.y, this.partnerNetState.z) : null)
+              );
+
+          // Validation Guard for Stage 3: Both Mirror Chambers must be solved!
+          const isStage3Solved = !!(
+            (this.puzzleState.customData?.stage3ExitUnlocked) ||
+            (this.puzzleState.customData?.stage3SolvedA && this.puzzleState.customData?.stage3SolvedB)
+          );
+          if (this.currentStageId === 3 && !isStage3Solved) {
+            const isStanding = (isP1Pad && (this.localRole === 'explorer' || isSolo) && explorerPos && (obj.bounds.distanceToPoint(explorerPos) < 2.2 || obj.bounds.containsPoint(explorerPos))) ||
+                               (isP2Pad && (this.localRole === 'guardian' || isSolo) && guardianPos && (obj.bounds.distanceToPoint(guardianPos) < 2.2 || obj.bounds.containsPoint(guardianPos)));
+            if (isStanding && this.interactCooldown <= 0) {
+              this.callbacks.onCheckpointMessage('⚠️ دروازه خروج قفل است! ابتدا باید پازل نمادهای هر دو اتاق A و B با همکاری حل شوند.');
+              this.interactCooldown = 1.5;
+            }
+            continue;
+          }
+
+          // Validation Guard for Stage 4: Dual Solar Resonators must be active!
+          const isStage4ResonatorsActive = !!((this.puzzleState.solarResonator1 || this.puzzleState.customData?.solarResonator1) &&
+                                              (this.puzzleState.solarResonator2 || this.puzzleState.customData?.solarResonator2));
+          if (this.currentStageId === 4 && !isStage4ResonatorsActive) {
+            const isStanding = (isP1Pad && (this.localRole === 'explorer' || isSolo) && explorerPos && (obj.bounds.distanceToPoint(explorerPos) < 2.2 || obj.bounds.containsPoint(explorerPos))) ||
+                               (isP2Pad && (this.localRole === 'guardian' || isSolo) && guardianPos && (obj.bounds.distanceToPoint(guardianPos) < 2.2 || obj.bounds.containsPoint(guardianPos)));
+            if (isStanding && this.interactCooldown <= 0) {
+              this.callbacks.onCheckpointMessage('⚠️ دروازه خورشید قفل است! ابتدا باید هر دو رزوناتور خورشیدی ۱ و ۲ توسط کایلن و برام لمس و فعال شوند.');
+              this.interactCooldown = 1.5;
+            }
+            continue;
+          }
+
+          const key1 = `stage${this.currentStageId}ExitP1Ready`;
+          const key2 = `stage${this.currentStageId}ExitP2Ready`;
+
           if (isP1Pad && (this.localRole === 'explorer' || isSolo)) {
-            const key = `stage${this.currentStageId}ExitP1Ready`;
-            if (!(this.puzzleState as any)[key] && !(this.puzzleState.customData && this.puzzleState.customData[key])) {
-              networkClient.triggerPuzzle(key, true);
-              networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [key]: true });
-              soundManager.playPressurePlate(true);
+            const isStanding = explorerPos && (obj.bounds.distanceToPoint(explorerPos) < 2.2 || obj.bounds.containsPoint(explorerPos));
+            const isCurrentlyP1Ready = !!(this.puzzleState as any)[key1] || !!(this.puzzleState.customData && this.puzzleState.customData[key1]);
+            
+            if (isStanding !== isCurrentlyP1Ready) {
+              networkClient.triggerPuzzle(key1, isStanding);
+              networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [key1]: isStanding });
+              soundManager.playPressurePlate(isStanding);
+              if (isStanding) {
+                this.callbacks.onCheckpointMessage('🟢 نیوشا روی سکوی خروج ایستاد. منتظر حسن...');
+              } else {
+                this.callbacks.onCheckpointMessage('🔴 نیوشا از روی سکوی خروج خارج شد.');
+              }
               this.checkPortalWarp();
             }
           }
+
           if (isP2Pad && (this.localRole === 'guardian' || isSolo)) {
-            const key = `stage${this.currentStageId}ExitP2Ready`;
-            if (!(this.puzzleState as any)[key] && !(this.puzzleState.customData && this.puzzleState.customData[key])) {
-              networkClient.triggerPuzzle(key, true);
-              networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [key]: true });
-              soundManager.playPressurePlate(true);
+            const isStanding = guardianPos && (obj.bounds.distanceToPoint(guardianPos) < 2.2 || obj.bounds.containsPoint(guardianPos));
+            const isCurrentlyP2Ready = !!(this.puzzleState as any)[key2] || !!(this.puzzleState.customData && this.puzzleState.customData[key2]);
+
+            if (isStanding !== isCurrentlyP2Ready) {
+              networkClient.triggerPuzzle(key2, isStanding);
+              networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [key2]: isStanding });
+              soundManager.playPressurePlate(isStanding);
+              if (isStanding) {
+                this.callbacks.onCheckpointMessage('🟢 حسن روی سکوی خروج ایستاد. منتظر نیوشا...');
+              } else {
+                this.callbacks.onCheckpointMessage('🔴 حسن از روی سکوی خروج خارج شد.');
+              }
               this.checkPortalWarp();
             }
           }
@@ -1275,6 +2057,8 @@ export class GameEngine {
   }
 
   private checkPortalWarp() {
+    if (this.stageCompleted) return;
+
     const key1 = `stage${this.currentStageId}ExitP1Ready`;
     const key2 = `stage${this.currentStageId}ExitP2Ready`;
 
@@ -1284,11 +2068,10 @@ export class GameEngine {
     const p1Ready = !!(this.puzzleState as any)[key1] || customP1;
     const p2Ready = !!(this.puzzleState as any)[key2] || customP2;
 
-    // In solo practice mode, stepping on either pad or both triggers progress safely
-    const isSolo = !networkClient.getRoomCode();
-
-    if ((p1Ready && p2Ready) || (isSolo && (p1Ready || p2Ready))) {
+    if (p1Ready && p2Ready) {
+      this.stageCompleted = true;
       soundManager.playStageClear();
+      this.callbacks.onCheckpointMessage(`🏆 مرحله ${this.currentStageId} کامل شد — هر دو بازیکن به نقطه پایان رسیدند!`);
       this.callbacks.onStageClear(this.currentStageId);
     }
   }
@@ -1301,6 +2084,9 @@ export class GameEngine {
   }
 
   private updateCamera(dt: number) {
+    // Look-at point on player (head/chest level)
+    const lookAtPos = this.playerPos.clone().add(new THREE.Vector3(0, 1.4, 0));
+
     // Calculate desired camera target position behind player
     const offset = new THREE.Vector3(
       Math.sin(this.cameraYaw) * Math.cos(this.cameraPitch) * this.cameraDistance,
@@ -1308,11 +2094,34 @@ export class GameEngine {
       Math.cos(this.cameraYaw) * Math.cos(this.cameraPitch) * this.cameraDistance
     );
 
-    const targetCamPos = this.playerPos.clone().add(offset);
-    const lookAtPos = this.playerPos.clone().add(new THREE.Vector3(0, 1.4, 0));
+    const desiredCamPos = this.playerPos.clone().add(offset);
+    const camDir = desiredCamPos.clone().sub(lookAtPos);
+    const maxDist = camDir.length();
+    camDir.normalize();
+
+    // Camera Collision & Occlusion Prevention:
+    // Cast ray from player lookAt point towards desired camera position to avoid clipping into walls/geometry
+    let hitDistance = maxDist;
+    if (this.currentStage && this.currentStage.colliders.length > 0) {
+      const ray = new THREE.Ray(lookAtPos, camDir);
+      const hitPoint = new THREE.Vector3();
+      for (const box of this.currentStage.colliders) {
+        // Skip box if the player's lookAt is inside or below floor
+        if (ray.intersectBox(box, hitPoint)) {
+          const d = lookAtPos.distanceTo(hitPoint);
+          if (d > 0.4 && d < hitDistance) {
+            hitDistance = d;
+          }
+        }
+      }
+    }
+
+    // Safety margin from wall: 0.35m clearance, minimum camera distance 1.2m from player
+    const finalDist = Math.max(1.2, hitDistance - 0.35);
+    const targetCamPos = lookAtPos.clone().addScaledVector(camDir, finalDist);
 
     // Smooth spring follow
-    this.camera.position.lerp(targetCamPos, Math.min(1, dt * 10));
+    this.camera.position.lerp(targetCamPos, Math.min(1, dt * 14));
     this.camera.lookAt(lookAtPos);
 
     // Keep sun light centered near player for dynamic shadows

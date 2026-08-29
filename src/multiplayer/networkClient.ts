@@ -50,6 +50,7 @@ export class NetworkClient {
   public isConnected: boolean = false;
   private pingInterval: number | null = null;
   public latencyMs: number = 0;
+  public currentStageId: number = 1;
 
   // Configuration
   private networkMode: NetworkMode = 'auto';
@@ -607,9 +608,10 @@ export class NetworkClient {
   }
 
   // --- Public API for Room Lifecycle ---
-  public async createRoom(playerName: string, preferredRole?: PlayerRole): Promise<void> {
+  public async createRoom(playerName: string, preferredRole?: PlayerRole, stageId: number = 1): Promise<void> {
     this.myName = playerName;
     const role = preferredRole || 'explorer';
+    this.currentStageId = stageId;
 
     // 1. WebSocket (instant 1-50ms connection when backend is accessible)
     if (this.networkMode === 'websocket' || this.networkMode === 'auto') {
@@ -620,6 +622,7 @@ export class NetworkClient {
           type: 'create_room',
           playerName,
           preferredRole: role,
+          stageId,
         }));
         return;
       }
@@ -638,7 +641,7 @@ export class NetworkClient {
     if (this.networkMode === 'firebase' || this.networkMode === 'auto') {
       try {
         const code = generateP2PRoomCode();
-        await this.firebaseSync.createRoom(code, playerName, role, 1);
+        await this.firebaseSync.createRoom(code, playerName, role, stageId);
         this.activeTransport = 'firebase';
         this.roomCode = code;
         this.myRole = role;
@@ -888,7 +891,9 @@ export class NetworkClient {
     if (!this.roomCode) {
       if (msg.type === 'puzzle_trigger') {
         const updatedState = { ...this.currentPuzzleState };
-        if (msg.key in updatedState) {
+        if (msg.key === 'customData') {
+          updatedState.customData = { ...updatedState.customData, ...msg.value };
+        } else if (msg.key in updatedState) {
           (updatedState as any)[msg.key] = msg.value;
         } else {
           updatedState.customData = { ...updatedState.customData, [msg.key]: msg.value };

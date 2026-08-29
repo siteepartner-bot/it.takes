@@ -18,12 +18,16 @@ import {
   BookOpen,
   Maximize2,
   Minimize2,
+  Map,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import type { PlayerRole, RoomData } from '../types.ts';
 import { networkClient, type NetworkMode } from '../multiplayer/networkClient.ts';
 import { StoryModal } from './StoryModal.tsx';
 import { GeminiActivationModal } from './GeminiActivationModal.tsx';
 import { isFullscreen, toggleFullscreen } from '../utils/fullscreen.ts';
+import { CAMPAIGN_STAGES_INFO } from '../data/loreStory.ts';
 
 interface LobbyScreenProps {
   onCreateRoom: (name: string, role: PlayerRole) => void;
@@ -34,6 +38,8 @@ interface LobbyScreenProps {
   onStartSoloPractice: () => void;
   errorMessage: string | null;
   isConnecting: boolean;
+  currentStageId?: number;
+  onSetStageId?: (stageId: number) => void;
 }
 
 export const LobbyScreen: React.FC<LobbyScreenProps> = ({
@@ -45,6 +51,8 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   onStartSoloPractice,
   errorMessage,
   isConnecting,
+  currentStageId = 1,
+  onSetStageId,
 }) => {
   const [view, setView] = useState<'home' | 'create' | 'join'>('home');
   const [playerName, setPlayerName] = useState(
@@ -56,6 +64,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   const [showNetworkModal, setShowNetworkModal] = useState(false);
   const [showStoryModal, setShowStoryModal] = useState(false);
   const [showGeminiModal, setShowGeminiModal] = useState(false);
+  const [showStageSelector, setShowStageSelector] = useState(false);
   const [inFullscreen, setInFullscreen] = useState(false);
   const [networkMode, setNetworkMode] = useState<NetworkMode>(() => networkClient.getNetworkMode());
 
@@ -454,6 +463,85 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                   </p>
                 </div>
               </div>
+            </div>
+
+            {/* Elegant Stage Selector (Stages 1 to 20) */}
+            <div className="mb-4 bg-slate-950/40 border border-slate-800/60 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs uppercase tracking-wider text-slate-400 font-semibold flex items-center gap-1.5">
+                  <Map className="w-4 h-4 text-cyan-400" />
+                  <span>انتخاب مرحله شروع بازی</span>
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
+                  ۲۰ مرحله فعال
+                </span>
+              </div>
+
+              {/* Current Active Stage Display / Toggle */}
+              <button
+                type="button"
+                onClick={() => setShowStageSelector(!showStageSelector)}
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 text-right transition-all text-xs text-slate-200 cursor-pointer"
+              >
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-cyan-400 font-bold">
+                    {CAMPAIGN_STAGES_INFO.find((s) => s.id === currentStageId)?.name || `مرحله ${currentStageId}`}
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    {CAMPAIGN_STAGES_INFO.find((s) => s.id === currentStageId)?.subtitle || 'بدون زیرعنوان'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] text-cyan-300 hover:underline">تغییر مرحله</span>
+                  {showStageSelector ? (
+                    <ChevronUp className="w-4 h-4 text-slate-400 animate-pulse" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                  )}
+                </div>
+              </button>
+
+              {/* Collapsible Grid of Stages */}
+              <AnimatePresence>
+                {showStageSelector && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden mt-3"
+                  >
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 max-h-52 overflow-y-auto pr-1">
+                      {CAMPAIGN_STAGES_INFO.map((stage) => {
+                        const isSelected = stage.id === currentStageId;
+                        return (
+                          <div
+                            key={stage.id}
+                            onClick={() => {
+                              onSetStageId?.(stage.id);
+                              setShowStageSelector(false);
+                            }}
+                            className={`cursor-pointer p-2 rounded-lg border text-center transition-all ${
+                              isSelected
+                                ? 'bg-cyan-950/60 border-cyan-500 text-white shadow-sm shadow-cyan-950/60'
+                                : 'bg-slate-900/60 border-slate-850 hover:border-slate-700 text-slate-300'
+                            }`}
+                          >
+                            <div className="text-[10px] font-bold text-cyan-400 font-mono mb-0.5">
+                              مرحله {stage.id}
+                            </div>
+                            <div className="text-[10px] font-semibold truncate" title={stage.name}>
+                              {stage.name.replace(/^مرحله \d+: /, '')}
+                            </div>
+                            <div className="text-[8px] text-slate-400 truncate mt-0.5">
+                              {stage.subtitle}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Menu Actions */}

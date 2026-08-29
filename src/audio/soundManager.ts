@@ -330,6 +330,71 @@ class SoundManager {
     });
   }
 
+  public playSymbolChime(stepIndex = 0) {
+    this.initContext();
+    if (this.isMuted || !this.ctx || !this.sfxGain) return;
+    const t = this.ctx.currentTime;
+
+    const freqs = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
+    const baseFreq = freqs[Math.min(stepIndex, freqs.length - 1)] || 523.25;
+
+    [baseFreq, baseFreq * 1.5].forEach((freq, i) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t + i * 0.04);
+
+      gain.gain.setValueAtTime(0.28, t + i * 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.04 + 0.35);
+
+      osc.connect(gain);
+      gain.connect(this.sfxGain!);
+      osc.start(t + i * 0.04);
+      osc.stop(t + i * 0.04 + 0.35);
+    });
+  }
+
+  public playPuzzleErrorBuzz() {
+    this.initContext();
+    if (this.isMuted || !this.ctx || !this.sfxGain) return;
+    const t = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(140, t);
+    osc.frequency.linearRampToValueAtTime(80, t + 0.3);
+
+    gain.gain.setValueAtTime(0.3, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain!);
+    osc.start(t);
+    osc.stop(t + 0.35);
+  }
+
+  public playPuzzleSuccessChime() {
+    this.initContext();
+    if (this.isMuted || !this.ctx || !this.sfxGain) return;
+    const t = this.ctx.currentTime;
+
+    [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((freq, idx) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t + idx * 0.08);
+
+      gain.gain.setValueAtTime(0.25, t + idx * 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.08 + 0.55);
+
+      osc.connect(gain);
+      gain.connect(this.sfxGain!);
+      osc.start(t + idx * 0.08);
+      osc.stop(t + idx * 0.08 + 0.55);
+    });
+  }
+
   // --- Ambient Music Loop ---
   public startAmbientMusic(stageId: number) {
     this.currentStage = stageId;

@@ -4,6 +4,8 @@ import type { StageBuildResult, InteractiveObject } from './gardenStage.ts';
 import { buildGardenStage } from './gardenStage.ts';
 import { buildFloatingIslandsStage } from './floatingIslandsStage.ts';
 import { buildClockworkStage } from './clockworkStage.ts';
+import { buildMirrorChambersStage } from './mirrorChambersStage.ts';
+import { buildHarmonyHallStage } from './harmonyHallStage.ts';
 import { buildPrismTempleStage } from './prismTempleStage.ts';
 import { buildGravityLabyrinthStage } from './gravityLabyrinthStage.ts';
 import { buildCitadelStage } from './citadelStage.ts';
@@ -92,8 +94,8 @@ export function buildCampaignStage(stageId: number): StageBuildResult {
   // Delegate existing handcrafted stages 1-6 for backwards compatibility with enhanced features
   if (stageId === 1) return buildGardenStage();
   if (stageId === 2) return buildFloatingIslandsStage();
-  if (stageId === 3) return buildClockworkStage();
-  if (stageId === 4) return buildPrismTempleStage();
+  if (stageId === 3) return buildMirrorChambersStage();
+  if (stageId === 4) return buildHarmonyHallStage();
   if (stageId === 5) return buildGravityLabyrinthStage();
   if (stageId === 6) return buildCitadelStage();
 

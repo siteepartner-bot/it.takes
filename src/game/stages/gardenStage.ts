@@ -21,52 +21,92 @@ export interface InteractiveObject {
   onInteract?: () => void;
 }
 
+/**
+ * Stage 1: First Co-op (اولین همکاری)
+ * Designed with a charming wooden garden aesthetic suited for the wooden doll puppets (Hasan & Niwsha).
+ * Airtight collision boundaries, single clear co-op puzzle with button occupancy and permanent lever unlock.
+ */
 export function buildGardenStage(): StageBuildResult {
   const rootGroup = new THREE.Group();
-  rootGroup.name = 'stage_forgotten_garden';
+  rootGroup.name = 'stage_1_first_coop_garden';
 
   const colliders: THREE.Box3[] = [];
   const interactiveObjects: InteractiveObject[] = [];
 
   // --- Materials ---
-  const stoneMat = new THREE.MeshStandardMaterial({
-    color: 0x526b58, // Mossy stone
-    roughness: 0.8,
+  // Warm wooden floorboards & garden pathways
+  const woodenFloorMat = new THREE.MeshStandardMaterial({
+    color: 0x854d0e,
+    roughness: 0.65,
+    metalness: 0.05,
+  });
+
+  const mossyStoneMat = new THREE.MeshStandardMaterial({
+    color: 0x3f6212,
+    roughness: 0.85,
+    metalness: 0.05,
+  });
+
+  const boundaryWallMat = new THREE.MeshStandardMaterial({
+    color: 0x292524,
+    roughness: 0.9,
     metalness: 0.1,
   });
 
-  const pathMat = new THREE.MeshStandardMaterial({
-    color: 0x8a9a86,
-    roughness: 0.9,
+  const carvedWoodMat = new THREE.MeshStandardMaterial({
+    color: 0x713f12,
+    roughness: 0.55,
+    metalness: 0.15,
   });
 
-  const woodMat = new THREE.MeshStandardMaterial({
-    color: 0x78350f,
+  const brassTrimMat = new THREE.MeshStandardMaterial({
+    color: 0xd97706,
+    roughness: 0.35,
+    metalness: 0.8,
+  });
+
+  const gateWoodMat = new THREE.MeshStandardMaterial({
+    color: 0x451a03,
+    roughness: 0.6,
+    metalness: 0.2,
+  });
+
+  const plateBaseMat = new THREE.MeshStandardMaterial({
+    color: 0x1e293b,
     roughness: 0.7,
+    metalness: 0.3,
   });
 
-  const crystalMat = new THREE.MeshStandardMaterial({
-    color: 0x06b6d4,
-    emissive: 0x0891b2,
-    emissiveIntensity: 0.6,
+  const plateActiveMat = new THREE.MeshStandardMaterial({
+    color: 0x38bdf8,
+    emissive: 0x0284c7,
+    emissiveIntensity: 0.35,
+    roughness: 0.3,
+  });
+
+  const leverCrystalMat = new THREE.MeshStandardMaterial({
+    color: 0xf59e0b,
+    emissive: 0xd97706,
+    emissiveIntensity: 0.4,
     roughness: 0.2,
   });
 
-  const mushroomMat = new THREE.MeshStandardMaterial({
-    color: 0xec4899,
-    emissive: 0xdb2777,
+  const exitPadP1Mat = new THREE.MeshStandardMaterial({
+    color: 0x38bdf8,
+    emissive: 0x0284c7,
     emissiveIntensity: 0.4,
     roughness: 0.3,
   });
 
-  const gateMat = new THREE.MeshStandardMaterial({
-    color: 0x334155,
-    metalness: 0.8,
+  const exitPadP2Mat = new THREE.MeshStandardMaterial({
+    color: 0x34d399,
+    emissive: 0x059669,
+    emissiveIntensity: 0.4,
     roughness: 0.3,
   });
 
-  // Helper to add platform with physics collider
-  function addPlatform(x: number, y: number, z: number, w: number, h: number, d: number, mat: THREE.Material = stoneMat) {
+  // --- Helper Functions ---
+  function addPlatform(x: number, y: number, z: number, w: number, h: number, d: number, mat: THREE.Material = woodenFloorMat) {
     const geo = new THREE.BoxGeometry(w, h, d);
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(x, y - h / 2, z);
@@ -79,302 +119,270 @@ export function buildGardenStage(): StageBuildResult {
     return mesh;
   }
 
-  // --- Stage Architecture ---
-  // Area 1: Start Courtyard
-  addPlatform(0, 0, 0, 16, 2, 16, pathMat);
-  addPlatform(0, 0, 12, 12, 2, 10, stoneMat);
+  function addWall(x: number, y: number, z: number, w: number, h: number, d: number, mat: THREE.Material = boundaryWallMat) {
+    const geo = new THREE.BoxGeometry(w, h, d);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    rootGroup.add(mesh);
 
-  // Decorative Columns & Giant Luminescent Mushrooms
-  function addColumn(x: number, z: number, height = 4) {
-    const colGeo = new THREE.CylinderGeometry(0.5, 0.6, height, 8);
-    const colMesh = new THREE.Mesh(colGeo, stoneMat);
-    colMesh.position.set(x, height / 2, z);
-    colMesh.castShadow = true;
-    colMesh.receiveShadow = true;
-    rootGroup.add(colMesh);
-    colliders.push(new THREE.Box3().setFromObject(colMesh));
+    const box = new THREE.Box3().setFromObject(mesh);
+    colliders.push(box);
+    return mesh;
   }
 
-  function addMushroom(x: number, z: number, scale = 1) {
-    const stemGeo = new THREE.CylinderGeometry(0.2 * scale, 0.35 * scale, 2 * scale, 8);
-    const stem = new THREE.Mesh(stemGeo, stoneMat);
-    stem.position.set(x, scale, z);
+  function addWoodenPillar(x: number, z: number, height = 5) {
+    const pillarGeo = new THREE.CylinderGeometry(0.45, 0.55, height, 8);
+    const pillarMesh = new THREE.Mesh(pillarGeo, carvedWoodMat);
+    pillarMesh.position.set(x, height / 2, z);
+    pillarMesh.castShadow = true;
+    pillarMesh.receiveShadow = true;
+    rootGroup.add(pillarMesh);
 
-    const capGeo = new THREE.SphereGeometry(1.2 * scale, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2);
-    const cap = new THREE.Mesh(capGeo, mushroomMat);
-    cap.position.set(0, scale, 0);
-    stem.add(cap);
-    rootGroup.add(stem);
+    // Brass collar rings
+    const ringGeo = new THREE.TorusGeometry(0.55, 0.08, 6, 16);
+    const ring1 = new THREE.Mesh(ringGeo, brassTrimMat);
+    ring1.rotation.x = Math.PI / 2;
+    ring1.position.set(x, 0.8, z);
+    rootGroup.add(ring1);
+
+    const ring2 = new THREE.Mesh(ringGeo, brassTrimMat);
+    ring2.rotation.x = Math.PI / 2;
+    ring2.position.set(x, height - 0.8, z);
+    rootGroup.add(ring2);
+
+    colliders.push(new THREE.Box3().setFromObject(pillarMesh));
   }
 
-  addColumn(-6, -6, 5);
-  addColumn(6, -6, 5);
-  addColumn(-6, 6, 4);
-  addColumn(6, 6, 4);
-  addMushroom(-7, 2, 1.4);
-  addMushroom(7, -2, 1.2);
-  addMushroom(-4, 15, 0.9);
+  function addDecorativePlant(x: number, z: number, scale = 1) {
+    const potGeo = new THREE.CylinderGeometry(0.5 * scale, 0.35 * scale, 0.6 * scale, 8);
+    const pot = new THREE.Mesh(potGeo, carvedWoodMat);
+    pot.position.set(x, 0.3 * scale, z);
+    pot.castShadow = true;
+    rootGroup.add(pot);
 
-  // --- Puzzle 1-A: Pressure Plate & Runic Gate ---
-  // Pressure plate on left side
-  const plateGeo = new THREE.CylinderGeometry(1.2, 1.3, 0.15, 16);
-  const plateMat = new THREE.MeshStandardMaterial({
-    color: 0x38bdf8,
-    emissive: 0x0284c7,
+    const foliageGeo = new THREE.SphereGeometry(0.8 * scale, 8, 8);
+    const foliage = new THREE.Mesh(foliageGeo, mossyStoneMat);
+    foliage.position.set(x, 0.9 * scale, z);
+    foliage.castShadow = true;
+    rootGroup.add(foliage);
+  }
+
+  // ==========================================
+  // 1. ENVIRONMENT ARCHITECTURE
+  // ==========================================
+
+  // --- Area 1: Start Courtyard (z: -4 to 16, width 14) ---
+  addPlatform(0, 0, 6, 14, 2, 20, woodenFloorMat);
+
+  // Decorative border grass/moss trim
+  addPlatform(-6, 0.05, 6, 1.8, 1.9, 20, mossyStoneMat);
+  addPlatform(6, 0.05, 6, 1.8, 1.9, 20, mossyStoneMat);
+
+  // Decorative pillars and planters in Start Area
+  addWoodenPillar(-5, -2, 5);
+  addWoodenPillar(5, -2, 5);
+  addWoodenPillar(-5, 8, 5);
+  addWoodenPillar(5, 8, 5);
+
+  addDecorativePlant(-4, 0, 1.1);
+  addDecorativePlant(4, 0, 1.1);
+  addDecorativePlant(-4, 6, 0.9);
+  addDecorativePlant(4, 6, 0.9);
+
+  // --- Ancient Lore Tablet (Guide & Intro) ---
+  const tabletGeo = new THREE.BoxGeometry(1.2, 1.6, 0.2);
+  const tabletMat = new THREE.MeshStandardMaterial({
+    color: 0xf59e0b,
+    emissive: 0xd97706,
     emissiveIntensity: 0.3,
+    roughness: 0.4,
   });
-  const plateMesh = new THREE.Mesh(plateGeo, plateMat);
-  plateMesh.position.set(-4, 0.08, 12);
-  plateMesh.receiveShadow = true;
-  rootGroup.add(plateMesh);
+  const tabletMesh = new THREE.Mesh(tabletGeo, tabletMat);
+  tabletMesh.position.set(-3.5, 0.9, 4);
+  rootGroup.add(tabletMesh);
+
+  interactiveObjects.push({
+    id: 'story_tablet_stage1',
+    type: 'lever',
+    mesh: tabletMesh,
+    bounds: new THREE.Box3().setFromCenterAndSize(
+      new THREE.Vector3(-3.5, 0.9, 4),
+      new THREE.Vector3(2.5, 2, 2.5)
+    ),
+    prompt: 'خواندن کتیبه اولین همکاری (کلید E)',
+  });
+
+  // ==========================================
+  // 2. PUZZLE: PRESSURE BUTTON & LARGE GATE
+  // ==========================================
+
+  // --- Large Pressure Button (Placed at x: -3.5, z: 12) ---
+  const plateBaseGeo = new THREE.CylinderGeometry(1.6, 1.7, 0.2, 24);
+  const plateBaseMesh = new THREE.Mesh(plateBaseGeo, plateBaseMat);
+  plateBaseMesh.position.set(-3.5, 0.1, 12);
+  plateBaseMesh.receiveShadow = true;
+  rootGroup.add(plateBaseMesh);
+
+  const plateCapGeo = new THREE.CylinderGeometry(1.4, 1.45, 0.18, 24);
+  const plateCapMesh = new THREE.Mesh(plateCapGeo, plateActiveMat);
+  plateCapMesh.position.set(-3.5, 0.18, 12);
+  plateCapMesh.receiveShadow = true;
+  rootGroup.add(plateCapMesh);
+
+  // Glowing brass rune ring around the button
+  const plateRingGeo = new THREE.TorusGeometry(1.5, 0.05, 8, 24);
+  const plateRing = new THREE.Mesh(plateRingGeo, brassTrimMat);
+  plateRing.rotation.x = Math.PI / 2;
+  plateRing.position.set(-3.5, 0.22, 12);
+  rootGroup.add(plateRing);
 
   interactiveObjects.push({
     id: 'plate_gate_1',
     type: 'pressure_plate',
-    mesh: plateMesh,
+    mesh: plateCapMesh,
     bounds: new THREE.Box3().setFromCenterAndSize(
-      new THREE.Vector3(-4, 0.5, 12),
-      new THREE.Vector3(2.5, 1.5, 2.5)
+      new THREE.Vector3(-3.5, 0.5, 12),
+      new THREE.Vector3(3.2, 1.8, 3.2)
     ),
-    prompt: 'روی صفحه فشاری بایستید تا دروازه کهن باز بماند',
+    prompt: 'روی دکمه فشاری بایستید تا دروازه باز بماند',
   });
 
-  // Runic Gate
+  // --- Large Wooden Gate Architecture (At z: 16) ---
+  const gateFrameLeft = addWall(-3.7, 3, 16, 1.2, 6, 1.4, carvedWoodMat);
+  const gateFrameRight = addWall(3.7, 3, 16, 1.2, 6, 1.4, carvedWoodMat);
+  const gateArchTop = addWall(0, 5.5, 16, 8.6, 1.2, 1.6, carvedWoodMat);
+
+  // Side airtight barrier walls flanking the gate (prevent walking around the gate)
+  const leftBarrier = addWall(-5.8, 3, 16, 3.0, 6, 1.2, boundaryWallMat);
+  const rightBarrier = addWall(5.8, 3, 16, 3.0, 6, 1.2, boundaryWallMat);
+
+  // The Sliding Gate Portcullis Mesh
   const gateGroup = new THREE.Group();
   gateGroup.position.set(0, 0, 16);
   rootGroup.add(gateGroup);
 
-  const gateMesh = new THREE.Mesh(new THREE.BoxGeometry(7, 4.5, 0.6), gateMat);
-  gateMesh.position.y = 2.25;
+  const gateMesh = new THREE.Mesh(new THREE.BoxGeometry(6.2, 4.8, 0.7), gateWoodMat);
+  gateMesh.position.y = 2.4;
   gateMesh.castShadow = true;
   gateGroup.add(gateMesh);
 
-  // Gate side archways
-  addColumn(-3.8, 16, 5);
-  addColumn(3.8, 16, 5);
-  const gateTop = new THREE.Mesh(new THREE.BoxGeometry(8.5, 1, 1), stoneMat);
-  gateTop.position.set(0, 5, 16);
-  rootGroup.add(gateTop);
+  // Brass vertical reinforcing bars on the gate
+  for (let bx = -2.4; bx <= 2.4; bx += 0.8) {
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 4.6, 8), brassTrimMat);
+    bar.position.set(bx, 2.4, 0.38);
+    gateGroup.add(bar);
+  }
 
-  // Dynamic gate collider index
+  // Dynamic Gate Box3 Collider index
   const gateColliderIndex = colliders.length;
-  colliders.push(new THREE.Box3().setFromObject(gateMesh));
+  const gateBox = new THREE.Box3().setFromObject(gateMesh);
+  colliders.push(gateBox);
 
-  // Area 2: The Inner Sanctum (Past Gate 1)
-  addPlatform(0, 0, 24, 16, 2, 14, pathMat);
+  // ==========================================
+  // 3. AREA 2: INNER SANCTUM & LEVER
+  // ==========================================
 
-  // Lever 1 (Inside Area 2, on right wall)
-  const leverBase = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.4, 0.8), stoneMat);
-  leverBase.position.set(4, 0.2, 22);
-  rootGroup.add(leverBase);
+  // --- Area 2: Inner Sanctum Path (z: 16 to 40, width 14) ---
+  addPlatform(0, 0, 28, 14, 2, 24, woodenFloorMat);
+  addPlatform(-6, 0.05, 28, 1.8, 1.9, 24, mossyStoneMat);
+  addPlatform(6, 0.05, 28, 1.8, 1.9, 24, mossyStoneMat);
 
-  const leverStick = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.2), crystalMat);
-  leverStick.position.set(4, 0.8, 22);
-  leverStick.rotation.z = 0.5;
-  rootGroup.add(leverStick);
+  // Inner pillars
+  addWoodenPillar(-5, 22, 5);
+  addWoodenPillar(5, 22, 5);
+  addWoodenPillar(-5, 30, 5);
+  addWoodenPillar(5, 30, 5);
+
+  addDecorativePlant(-4, 20, 1.0);
+  addDecorativePlant(4, 20, 1.0);
+  addDecorativePlant(-4, 28, 0.9);
+  addDecorativePlant(4, 28, 0.9);
+
+  // --- The Permanent Unlock Lever (At x: 4, z: 22 behind gate) ---
+  const leverPedestal = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.7, 1.0), carvedWoodMat);
+  leverPedestal.position.set(4, 0.35, 22);
+  leverPedestal.castShadow = true;
+  rootGroup.add(leverPedestal);
+
+  const leverPlate = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.08, 0.8), brassTrimMat);
+  leverPlate.position.set(4, 0.72, 22);
+  rootGroup.add(leverPlate);
+
+  const leverPivotGroup = new THREE.Group();
+  leverPivotGroup.position.set(4, 0.75, 22);
+  rootGroup.add(leverPivotGroup);
+
+  const leverStick = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.1, 8), brassTrimMat);
+  leverStick.position.set(0, 0.55, 0);
+  leverStick.castShadow = true;
+  leverPivotGroup.add(leverStick);
+
+  const leverHandle = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 12), leverCrystalMat);
+  leverHandle.position.set(0, 1.1, 0);
+  leverPivotGroup.add(leverHandle);
+
+  // Initial tilt forward
+  leverPivotGroup.rotation.z = 0.55;
 
   interactiveObjects.push({
     id: 'lever_1',
     type: 'lever',
     mesh: leverStick,
     bounds: new THREE.Box3().setFromCenterAndSize(
-      new THREE.Vector3(4, 0.8, 22),
-      new THREE.Vector3(2.5, 2, 2.5)
+      new THREE.Vector3(4, 0.9, 22),
+      new THREE.Vector3(3.0, 2.5, 3.0)
     ),
-    prompt: 'تغییر وضعیت اهرم (کلید E - قابل بازگردانی)',
+    prompt: 'کشیدن اهرم برای باز شدن دائمی دروازه (کلید E)',
   });
 
-  // Ancient Lore Tablet 1
-  const tabletGeo = new THREE.BoxGeometry(1.2, 1.8, 0.2);
-  const tabletMat = new THREE.MeshStandardMaterial({
-    color: 0xf59e0b,
-    emissive: 0xd97706,
-    emissiveIntensity: 0.4,
-    metalness: 0.5,
-  });
-  const tablet1 = new THREE.Mesh(tabletGeo, tabletMat);
-  tablet1.position.set(-6, 1, 4);
-  rootGroup.add(tablet1);
+  // ==========================================
+  // 4. EXIT PORTAL & TWIN EXIT PADS
+  // ==========================================
 
-  interactiveObjects.push({
-    id: 'story_tablet_stage1',
-    type: 'lever',
-    mesh: tablet1,
-    bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(-6, 1, 4), new THREE.Vector3(2.5, 2, 2.5)),
-    prompt: 'خواندن کتیبه راز باغ کهن ساعت‌ساز (کلید E)',
-  });
+  // Ornate Wooden Archway at Exit (At z: 37)
+  const exitArchLeft = addWall(-3.5, 3, 37, 1.0, 6, 1.2, carvedWoodMat);
+  const exitArchRight = addWall(3.5, 3, 37, 1.0, 6, 1.2, carvedWoodMat);
+  const exitArchTop = addWall(0, 5.6, 37, 8.0, 1.2, 1.4, carvedWoodMat);
 
-  // --- Puzzle 1-B: Heavy Conductive Block & Rising Elevator ---
-  // Heavy magnetic block that Hassan (Guardian) can push/carry and jump on top of
-  const blockGeo = new THREE.BoxGeometry(1.6, 1.6, 1.6);
-  const blockMat = new THREE.MeshStandardMaterial({
-    color: 0xd97706,
-    roughness: 0.4,
-    metalness: 0.6,
-    emissive: 0x78350f,
-    emissiveIntensity: 0.3,
-  });
-  const heavyBlockMesh = new THREE.Mesh(blockGeo, blockMat);
-  heavyBlockMesh.position.set(6, 0.8, 25);
-  heavyBlockMesh.castShadow = true;
-  rootGroup.add(heavyBlockMesh);
-
-  // Add solid physical Box3 collider for heavy block so player CANNOT walk through it
-  const heavyBlockColliderIndex = colliders.length;
-  const heavyBlockBox = new THREE.Box3().setFromObject(heavyBlockMesh);
-  colliders.push(heavyBlockBox);
-
-  interactiveObjects.push({
-    id: 'heavy_block_1',
-    type: 'heavy_block',
-    mesh: heavyBlockMesh,
-    bounds: new THREE.Box3().setFromCenterAndSize(heavyBlockMesh.position, new THREE.Vector3(3, 3, 3)),
-    prompt: 'هل دادن / قرار دادن مکعب سنگین رسانا روی پدستال (کلید E)',
-  });
-
-  // Conduit Pedestal with glowing socket ring & energy line
-  const pedestalGeo = new THREE.CylinderGeometry(1.2, 1.4, 0.5, 8);
-  const pedestalMat = new THREE.MeshStandardMaterial({
-    color: 0x38bdf8,
-    emissive: 0x0284c7,
-    emissiveIntensity: 0.2,
-    roughness: 0.4,
-  });
-  const pedestalMesh = new THREE.Mesh(pedestalGeo, pedestalMat);
-  pedestalMesh.position.set(6, 0.25, 29);
-  rootGroup.add(pedestalMesh);
-
-  // Floating Hologram Target Ring above Pedestal
-  const pedestalRingGeo = new THREE.TorusGeometry(1.4, 0.08, 8, 24);
-  const pedestalRingMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.7 });
-  const pedestalRing = new THREE.Mesh(pedestalRingGeo, pedestalRingMat);
-  pedestalRing.rotation.x = Math.PI / 2;
-  pedestalRing.position.set(6, 0.52, 29);
-  rootGroup.add(pedestalRing);
-
-  // Glowing Energy Line connecting Pedestal to Elevator
-  const lineGeo = new THREE.BoxGeometry(0.3, 0.05, 7);
-  const lineMat = new THREE.MeshStandardMaterial({
-    color: 0x06b6d4,
-    emissive: 0x0891b2,
-    emissiveIntensity: 0.2,
-  });
-  const conduitLine = new THREE.Mesh(lineGeo, lineMat);
-  conduitLine.position.set(3, 0.05, 31);
-  conduitLine.rotation.y = Math.atan2(-6, 4);
-  rootGroup.add(conduitLine);
-
-  // Rising Water Elevator Platform
-  const elevatorPlatform = new THREE.Mesh(new THREE.BoxGeometry(5, 0.6, 5), stoneMat);
-  elevatorPlatform.position.set(0, 0.3, 33);
-  elevatorPlatform.castShadow = true;
-  elevatorPlatform.receiveShadow = true;
-  rootGroup.add(elevatorPlatform);
-
-  const elevatorColliderIndex = colliders.length;
-  colliders.push(new THREE.Box3().setFromObject(elevatorPlatform));
-
-  // Upper Terrace (Height y: 5.5)
-  addPlatform(0, 5.5, 43, 18, 2, 14, pathMat);
-  addMushroom(-6, 42, 1.6);
-  addMushroom(6, 45, 1.1);
-
-  // Checkpoint 1 (On Upper Terrace)
-  const cpMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.8, 2.5, 6), crystalMat);
-  cpMesh.position.set(-6, 6.75, 39);
-  rootGroup.add(cpMesh);
-
-  const checkpoints = [
-    { id: 0, pos: [0, 1.2, 0] as [number, number, number], active: true, mesh: plateMesh },
-    { id: 1, pos: [0, 6.7, 41] as [number, number, number], active: false, mesh: cpMesh },
-  ];
-
-  // --- Puzzle 1-C: The Broken Chasm & Kinetic Light Bridge ---
-  // Abyss gap between z: 50 and z: 66
-  addPlatform(0, -6, 58, 26, 4, 18, new THREE.MeshBasicMaterial({ color: 0x0f172a })); // Dark bottom
-
-  // Light Bridge mesh (activated by Guardian's shield / kinetic power)
-  const lightBridgeGeo = new THREE.BoxGeometry(4, 0.3, 14);
-  const lightBridgeMat = new THREE.MeshStandardMaterial({
-    color: 0x34d399,
-    emissive: 0x10b981,
-    emissiveIntensity: 0.8,
-    transparent: true,
-    opacity: 0.2,
-  });
-  const lightBridgeMesh = new THREE.Mesh(lightBridgeGeo, lightBridgeMat);
-  lightBridgeMesh.position.set(0, 5.5, 57);
-  rootGroup.add(lightBridgeMesh);
-
-  const bridgeColliderIndex = colliders.length;
-  const bridgeCollider = new THREE.Box3().setFromObject(lightBridgeMesh);
-  // Default disabled collider
-  bridgeCollider.min.y = -999;
-  bridgeCollider.max.y = -998;
-  colliders.push(bridgeCollider);
-
-  interactiveObjects.push({
-    id: 'guardian_bridge_trigger',
-    type: 'bridge_switch',
-    mesh: lightBridgeMesh,
-    bounds: new THREE.Box3().setFromCenterAndSize(
-      new THREE.Vector3(0, 6, 49),
-      new THREE.Vector3(5, 3, 3)
-    ),
-    targetRole: 'guardian',
-    prompt: 'بِرام: با سپر محافظ (F) پل نوری را پایدار نگه دارید',
-  });
-
-  // Far Portal Island (Height y: 5.5)
-  addPlatform(0, 5.5, 74, 20, 2, 16, pathMat);
-
-  // Rotating stone lever on far side (Explorer pulls to permanently anchor the bridge)
-  const anchorLever = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1.2), crystalMat);
-  anchorLever.position.set(3, 6.6, 68);
-  rootGroup.add(anchorLever);
-
-  interactiveObjects.push({
-    id: 'explorer_bridge_anchor',
-    type: 'lever',
-    mesh: anchorLever,
-    bounds: new THREE.Box3().setFromCenterAndSize(
-      new THREE.Vector3(3, 6.6, 68),
-      new THREE.Vector3(3, 2.5, 3)
-    ),
-    targetRole: 'explorer',
-    prompt: 'کایلِن: اهرم را بکشید تا پل سنگی مستقر شود',
-  });
-
-  // Permanent stone bridge that drops into place
-  const stoneBridge = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.8, 14), stoneMat);
-  stoneBridge.position.set(0, 15, 57); // Starts high in air
-  stoneBridge.castShadow = true;
-  rootGroup.add(stoneBridge);
-  const stoneBridgeColliderIndex = colliders.length;
-  colliders.push(new THREE.Box3().setFromObject(stoneBridge));
-
-  // --- Stage Exit Portal (Twin Glowing Circles) ---
-  const portalArch = new THREE.Mesh(new THREE.TorusGeometry(3.5, 0.45, 12, 32), stoneMat);
-  portalArch.position.set(0, 9, 80);
-  rootGroup.add(portalArch);
+  // Glowing Golden Portal Ring
+  const portalRing = new THREE.Mesh(
+    new THREE.TorusGeometry(3.0, 0.35, 12, 32),
+    brassTrimMat
+  );
+  portalRing.position.set(0, 4.5, 38.5);
+  rootGroup.add(portalRing);
 
   const portalVortex = new THREE.Mesh(
-    new THREE.CircleGeometry(3.2, 24),
-    new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.75, side: THREE.DoubleSide })
+    new THREE.CircleGeometry(2.8, 24),
+    new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.7,
+      side: THREE.DoubleSide,
+    })
   );
-  portalVortex.position.set(0, 9, 80);
+  portalVortex.position.set(0, 4.5, 38.4);
   rootGroup.add(portalVortex);
 
-  // Twin Exit Pads
-  const p1Pad = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.3, 0.2, 16), plateMat);
-  p1Pad.position.set(-3, 5.6, 77);
+  // --- Twin Exit Pads (Hasan & Niwsha must both stand here simultaneously) ---
+  // Pad 1 (Left - Explorer / Niwsha)
+  const p1Base = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.5, 0.15, 24), plateBaseMat);
+  p1Base.position.set(-2.6, 0.08, 35.5);
+  rootGroup.add(p1Base);
+
+  const p1Pad = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.25, 0.15, 24), exitPadP1Mat);
+  p1Pad.position.set(-2.6, 0.16, 35.5);
   rootGroup.add(p1Pad);
 
-  const p2Pad = new THREE.Mesh(
-    new THREE.CylinderGeometry(1.2, 1.3, 0.2, 16),
-    new THREE.MeshStandardMaterial({ color: 0x34d399, emissive: 0x059669, emissiveIntensity: 0.4 })
-  );
-  p2Pad.position.set(3, 5.6, 77);
+  // Pad 2 (Right - Guardian / Hasan)
+  const p2Base = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.5, 0.15, 24), plateBaseMat);
+  p2Base.position.set(2.6, 0.08, 35.5);
+  rootGroup.add(p2Base);
+
+  const p2Pad = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.25, 0.15, 24), exitPadP2Mat);
+  p2Pad.position.set(2.6, 0.16, 35.5);
   rootGroup.add(p2Pad);
 
   interactiveObjects.push(
@@ -382,91 +390,95 @@ export function buildGardenStage(): StageBuildResult {
       id: 'stage1_exit_p1',
       type: 'portal_pad',
       mesh: p1Pad,
-      bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(-3, 6, 77), new THREE.Vector3(2.5, 2, 2.5)),
-      prompt: 'کایلِن: روی سکوی پورتال کاوشگر بایستید',
+      bounds: new THREE.Box3().setFromCenterAndSize(
+        new THREE.Vector3(-2.6, 0.5, 35.5),
+        new THREE.Vector3(2.8, 2.0, 2.8)
+      ),
+      prompt: 'نیوشا (کاوشگر): روی سکوی خروج پورتال بایستید',
     },
     {
       id: 'stage1_exit_p2',
       type: 'portal_pad',
       mesh: p2Pad,
-      bounds: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(3, 6, 77), new THREE.Vector3(2.5, 2, 2.5)),
-      prompt: 'بِرام: روی سکوی پورتال نگهبان بایستید',
+      bounds: new THREE.Box3().setFromCenterAndSize(
+        new THREE.Vector3(2.6, 0.5, 35.5),
+        new THREE.Vector3(2.8, 2.0, 2.8)
+      ),
+      prompt: 'حسن (نگهبان): روی سکوی خروج پورتال بایستید',
     }
   );
 
-  // Boundaries & invisible walls to prevent straying off limits
-  function addBoundary(x: number, y: number, z: number, w: number, h: number, d: number) {
-    const box = new THREE.Box3().setFromCenterAndSize(
-      new THREE.Vector3(x, y, z),
-      new THREE.Vector3(w, h, d)
-    );
-    colliders.push(box);
-  }
+  // ==========================================
+  // 5. AIRTIGHT BOUNDARY WALLS (NO CLIPPING/BYPASSING)
+  // ==========================================
 
-  addBoundary(-9, 5, 12, 1, 10, 30);
-  addBoundary(9, 5, 12, 1, 10, 30);
-  addBoundary(0, 5, -8, 20, 10, 1);
-  addBoundary(-10, 8, 43, 1, 10, 20);
-  addBoundary(10, 8, 43, 1, 10, 20);
-  addBoundary(-11, 8, 74, 1, 10, 20);
-  addBoundary(11, 8, 74, 1, 10, 20);
-  addBoundary(0, 8, 83, 22, 10, 1);
+  // North (Back) Wall at Exit
+  addWall(0, 4, 39.5, 16, 8, 1.5, boundaryWallMat);
 
-  // Dynamic animation/update loop
+  // South (Front) Wall at Start
+  addWall(0, 4, -4.5, 16, 8, 1.5, boundaryWallMat);
+
+  // West (Left) Wall entire length
+  addWall(-7.5, 4, 17.5, 1.5, 8, 45, boundaryWallMat);
+
+  // East (Right) Wall entire length
+  addWall(7.5, 4, 17.5, 1.5, 8, 45, boundaryWallMat);
+
+  // ==========================================
+  // 6. CHECKPOINT & SPAWN
+  // ==========================================
+  const cpMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 1.8, 8), exitPadP1Mat);
+  cpMesh.position.set(0, 0.9, -1);
+  rootGroup.add(cpMesh);
+
+  const checkpoints = [
+    { id: 0, pos: [0, 1.2, 0] as [number, number, number], active: true, mesh: cpMesh },
+  ];
+
+  // ==========================================
+  // 7. DYNAMIC UPDATE LOOP & STATE MACHINE
+  // ==========================================
   function update(dt: number, state: PuzzleState) {
-    // 1. Gate 1 Logic: open if plate is stood on OR lever is activated
-    const gateOpen = state.gate1Open || state.lever1Activated;
-    const targetGateY = gateOpen ? -3.5 : 2.25;
-    gateMesh.position.y += (targetGateY - gateMesh.position.y) * Math.min(1, dt * 6);
+    // 1. State Machine: LOCKED -> BUTTON_ACTIVE -> PERMANENTLY_UNLOCKED
+    const isPermanentlyUnlocked = !!state.lever1Activated;
+    const isButtonActive = !!state.gate1Open;
+    const shouldDoorBeOpen = isPermanentlyUnlocked || isButtonActive;
 
-    if (gateOpen) {
-      colliders[gateColliderIndex].setFromCenterAndSize(new THREE.Vector3(0, -999, 0), new THREE.Vector3(0, 0, 0));
+    // Smooth Gate Translation
+    const targetGateY = shouldDoorBeOpen ? -3.8 : 2.4;
+    gateMesh.position.y += (targetGateY - gateMesh.position.y) * Math.min(1, dt * 6.5);
+
+    // Collision Synchronization:
+    // If gate is moving down and clear enough (below y: 0.2), disable collider completely
+    if (gateMesh.position.y < 0.2) {
+      colliders[gateColliderIndex].setFromCenterAndSize(
+        new THREE.Vector3(0, -999, 0),
+        new THREE.Vector3(0, 0, 0)
+      );
     } else {
       colliders[gateColliderIndex].setFromObject(gateMesh);
     }
 
-    // Pressure plate Y animation & glow
-    const targetPlateY = state.gate1Open ? 0.02 : 0.08;
-    plateMesh.position.y += (targetPlateY - plateMesh.position.y) * Math.min(1, dt * 10);
-    plateMat.emissiveIntensity = state.gate1Open ? 1.0 : 0.3;
+    // 2. Pressure Button Depression & Glow
+    // If button is physically occupied, depress it; otherwise raise it
+    const targetPlateY = isButtonActive ? 0.05 : 0.18;
+    plateCapMesh.position.y += (targetPlateY - plateCapMesh.position.y) * Math.min(1, dt * 12);
+    plateActiveMat.emissiveIntensity = isButtonActive ? 1.0 : 0.25;
 
-    // Lever animation
-    leverStick.rotation.z += ((state.lever1Activated ? -0.5 : 0.5) - leverStick.rotation.z) * Math.min(1, dt * 8);
+    // 3. Lever Rotation Animation
+    const targetLeverRot = isPermanentlyUnlocked ? -0.55 : 0.55;
+    leverPivotGroup.rotation.z += (targetLeverRot - leverPivotGroup.rotation.z) * Math.min(1, dt * 8);
+    leverCrystalMat.emissiveIntensity = isPermanentlyUnlocked ? 1.0 : 0.35;
 
-    // 2. Heavy Block Placement & Elevator with smooth lerp
-    const targetBlockPos = state.heavyBlockPlaced ? new THREE.Vector3(6, 1.25, 29) : new THREE.Vector3(6, 0.8, 25);
-    heavyBlockMesh.position.lerp(targetBlockPos, Math.min(1, dt * 6));
-    colliders[heavyBlockColliderIndex].setFromObject(heavyBlockMesh);
+    // 4. Exit Pads Glow when occupied
+    const isP1Ready = !!state.stage1ExitP1Ready || !!(state.customData && state.customData.stage1ExitP1Ready);
+    const isP2Ready = !!state.stage1ExitP2Ready || !!(state.customData && state.customData.stage1ExitP2Ready);
 
-    // Dynamic pedestal ring spin & conduit glow
-    pedestalRing.rotation.z += dt * 2.0;
-    pedestalMat.emissiveIntensity = state.heavyBlockPlaced ? 1.0 : 0.2;
-    lineMat.emissiveIntensity = state.heavyBlockPlaced ? 1.0 : 0.2;
+    exitPadP1Mat.emissiveIntensity = isP1Ready ? 1.2 : 0.35;
+    exitPadP2Mat.emissiveIntensity = isP2Ready ? 1.2 : 0.35;
 
-    // Raise elevator smoothly when block is placed
-    const targetElevatorY = state.heavyBlockPlaced ? 5.2 : 0.3;
-    elevatorPlatform.position.y += (targetElevatorY - elevatorPlatform.position.y) * Math.min(1, dt * 3);
-    colliders[elevatorColliderIndex].setFromObject(elevatorPlatform);
-
-    // 3. Light Bridge & Stone Bridge
-    const bridgeActive = state.lightBridgeActive || state.bridgePedestalRotated;
-    lightBridgeMat.opacity += ((bridgeActive ? 0.75 : 0.15) - lightBridgeMat.opacity) * Math.min(1, dt * 6);
-    if (bridgeActive) {
-      colliders[bridgeColliderIndex].setFromObject(lightBridgeMesh);
-    } else {
-      colliders[bridgeColliderIndex].min.y = -999;
-      colliders[bridgeColliderIndex].max.y = -998;
-    }
-
-    // Anchor lever
-    anchorLever.rotation.z += ((state.bridgePedestalRotated ? -0.6 : 0.6) - anchorLever.rotation.z) * Math.min(1, dt * 8);
-    if (state.bridgePedestalRotated) {
-      stoneBridge.position.y += (5.5 - stoneBridge.position.y) * Math.min(1, dt * 4);
-      colliders[stoneBridgeColliderIndex].setFromObject(stoneBridge);
-    }
-
-    // Vortex spin
-    portalVortex.rotation.z += dt * 1.5;
+    // 5. Exit Vortex Subtle Swirl
+    portalVortex.rotation.z += dt * 1.8;
   }
 
   function dispose() {

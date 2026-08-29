@@ -1,9 +1,11 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { ArrowUp, Hand, Zap, Shield, MapPin, Compass, MessageSquare } from 'lucide-react';
+import { ArrowUp, Hand, Zap, Shield, MapPin, Compass, MessageSquare, Users } from 'lucide-react';
 import type { PlayerRole } from '../types.ts';
 
 interface TouchControlsProps {
   myRole?: PlayerRole;
+  soloMode?: boolean;
+  onToggleSoloHero?: () => void;
   onUpdateInput: (input: {
     moveVector: { x: number; y: number };
     jump: boolean;
@@ -19,6 +21,8 @@ interface TouchControlsProps {
 
 export const TouchControls: React.FC<TouchControlsProps> = ({
   myRole = 'explorer',
+  soloMode = false,
+  onToggleSoloHero,
   onUpdateInput,
   onSendPing,
   onOpenGeminiCall,
@@ -209,6 +213,19 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
         <div className="pointer-events-auto flex flex-col items-end gap-2" dir="rtl">
           {/* Secondary Utility Controls */}
           <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Solo Mode Hero Swap Button */}
+            {soloMode && onToggleSoloHero && (
+              <button
+                id="touch_btn_solo_swap"
+                onClick={onToggleSoloHero}
+                className="px-2.5 sm:px-3 h-10 sm:h-11 rounded-2xl bg-cyan-950/90 border border-cyan-400/60 text-cyan-300 flex items-center gap-1 text-xs font-black shadow-lg active:scale-90 transition-transform"
+                title="تغییر شخصیت (نیوشا / حسن)"
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>{isExplorer ? '⚡ نیوشا' : '🛡️ حسن'}</span>
+              </button>
+            )}
+
             {/* Master Gemini AI Guidance Messenger Button */}
             {onOpenGeminiCall && (
               <button

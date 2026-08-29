@@ -68,6 +68,10 @@ export function buildClockworkStage(): StageBuildResult {
   addPlatform(0, 0, 20, 20, 2, 18);
   addPlatform(0, 4, 44, 24, 2, 22);
 
+  // Stepping stairs/steps to transition from Platform 2 (y=0, z=29) to Platform 3 (y=4, z=33)
+  addPlatform(0, 1.3, 30.2, 6, 1.3, 1.2, brassMat);
+  addPlatform(0, 2.6, 31.8, 6, 1.3, 1.2, brassMat);
+
   // Massive Background Cogs
   const gear1 = addGear(4.5, 16, 0.6);
   gear1.rotation.x = Math.PI / 2;
@@ -86,10 +90,10 @@ export function buildClockworkStage(): StageBuildResult {
 
   // --- Puzzle 3-A: Crusher Piston & Heavy Jamming Block ---
   const pistonGroup = new THREE.Group();
-  pistonGroup.position.set(0, 4.5, 10);
+  pistonGroup.position.set(0, 4.0, 10); // Lowered the group slightly to match our optimized physics curve
   rootGroup.add(pistonGroup);
 
-  const pistonMesh = new THREE.Mesh(new THREE.BoxGeometry(6, 2.5, 3), copperMat);
+  const pistonMesh = new THREE.Mesh(new THREE.BoxGeometry(6, 6, 3), copperMat);
   pistonMesh.position.y = 0;
   pistonMesh.castShadow = true;
   pistonGroup.add(pistonMesh);
@@ -138,7 +142,7 @@ export function buildClockworkStage(): StageBuildResult {
 
   const checkpoints = [
     { id: 0, pos: [0, 1.2, 0] as [number, number, number], active: true, mesh: jamCrate },
-    { id: 1, pos: [0, 5.2, 38] as [number, number, number], active: false, mesh: cpMesh },
+    { id: 1, pos: [-6, 5.25, 36] as [number, number, number], active: false, mesh: cpMesh },
   ];
 
   // --- Puzzle 3-B: Synchronized Dual Steam Valves ---
@@ -230,25 +234,34 @@ export function buildClockworkStage(): StageBuildResult {
 
     // Piston cycle (unless jammed)
     if (!state.crusherJammed) {
-      const pistonY = 3.5 + Math.sin(animT * 3) * 2;
+      // Oscillates world bottom perfectly between y = 0.2 and y = 3.0 (clears 1.8 height player easily when up)
+      const pistonY = 0.6 + Math.sin(animT * 4) * 1.4;
       pistonMesh.position.y = pistonY;
-      colliders[pistonColliderIndex].setFromObject(pistonMesh);
     } else {
-      // Stopped raised
-      pistonMesh.position.y = 5.2;
-      colliders[pistonColliderIndex].setFromObject(pistonMesh);
+      // Stopped raised high enough for players crossing on the jam crate
+      pistonMesh.position.y = 4.0;
     }
+    pistonMesh.updateMatrixWorld(true);
+    colliders[pistonColliderIndex].setFromObject(pistonMesh);
 
     // Jam crate position & collider update
     if (state.crusherJammed) {
+      // Positioned right under the piston over the floor gap to act as a solid bridge
       jamCrate.position.set(0, 0.9, 10);
+    } else {
+      // Returned to its original safe side-niche starting position
+      jamCrate.position.set(4, 0.9, 5);
     }
+    jamCrate.updateMatrixWorld(true);
     colliders[jamCrateColliderIndex].setFromObject(jamCrate);
 
     // Valves spin when turned
     if (state.boilerValve1) valve1Wheel.rotation.z += dt * 3;
     if (state.boilerValve2) valve2Wheel.rotation.z -= dt * 3;
 
+    // Portal core visibility & rotation (only opens when both valves are active)
+    const valvesActive = !!(state.boilerValve1 && state.boilerValve2);
+    portalCore.visible = valvesActive;
     portalCore.rotation.z += dt * 1.5;
   }
 

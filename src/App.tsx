@@ -329,7 +329,7 @@ export default function App() {
     setMyName(name);
     setMyRole(role);
     try {
-      await networkClient.createRoom(name, role);
+      await networkClient.createRoom(name, role, currentStageId);
     } catch (err: any) {
       setErrorMessage(err?.message || 'خطا در برقراری ارتباط و ساخت اتاق.');
     } finally {
@@ -471,6 +471,8 @@ export default function App() {
           onStartSoloPractice={handleStartSoloPractice}
           errorMessage={errorMessage}
           isConnecting={isConnecting}
+          currentStageId={currentStageId}
+          onSetStageId={setCurrentStageId}
         />
       )}
 
@@ -521,6 +523,8 @@ export default function App() {
           <TouchControls
             visible={controlMode === 'mobile'}
             myRole={myRole}
+            soloMode={soloMode}
+            onToggleSoloHero={handleToggleSoloHero}
             onUpdateInput={handleTouchInput}
             onSendEmote={handleSendEmote}
             onSendPing={handleSendPing}

@@ -71,7 +71,11 @@ export interface PuzzleState {
 
   // Stage 4 puzzles
   prism1Aligned: boolean;
+  solarConduitActive: boolean;
   prism2Aligned: boolean;
+  sunCoreAwakened: boolean;
+  solarResonator1: boolean;
+  solarResonator2: boolean;
   stage4ExitP1Ready: boolean;
   stage4ExitP2Ready: boolean;
 
@@ -122,7 +126,11 @@ export function createDefaultPuzzleState(stageId = 1): PuzzleState {
     stage3ExitP2Ready: false,
 
     prism1Aligned: false,
+    solarConduitActive: false,
     prism2Aligned: false,
+    sunCoreAwakened: false,
+    solarResonator1: false,
+    solarResonator2: false,
     stage4ExitP1Ready: false,
     stage4ExitP2Ready: false,
 

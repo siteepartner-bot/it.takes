@@ -1,6 +1,7 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { ArrowUp, Hand, MapPin, Compass, MessageSquare, Users } from 'lucide-react';
+import { ArrowUp, Hand, MapPin, Compass, MessageSquare, Users, Maximize2, Minimize2 } from 'lucide-react';
 import type { PlayerRole } from '../types.ts';
+import { isFullscreen, toggleFullscreen } from '../utils/fullscreen.ts';
 
 interface TouchControlsProps {
   myRole?: PlayerRole;
@@ -30,6 +31,18 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
 }) => {
   const [sprintActive, setSprintActive] = useState(false);
   const [isStickActive, setIsStickActive] = useState(false);
+  const [inFullscreen, setInFullscreen] = useState(false);
+
+  useEffect(() => {
+    const checkFullscreen = () => setInFullscreen(isFullscreen());
+    checkFullscreen();
+    document.addEventListener('fullscreenchange', checkFullscreen);
+    document.addEventListener('webkitfullscreenchange', checkFullscreen);
+    return () => {
+      document.removeEventListener('fullscreenchange', checkFullscreen);
+      document.removeEventListener('webkitfullscreenchange', checkFullscreen);
+    };
+  }, []);
 
   const joystickZoneRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef<HTMLDivElement>(null);
@@ -238,6 +251,20 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
                 <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping absolute -top-0.5 -right-0.5" />
               </button>
             )}
+
+            {/* Fullscreen Toggle Button for Mobile */}
+            <button
+              id="touch_btn_fullscreen"
+              onClick={() => toggleFullscreen()}
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-slate-900/90 border border-slate-700 text-cyan-300 flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+              title={inFullscreen ? 'خروج از تمام صفحه' : 'حالت تمام صفحه'}
+            >
+              {inFullscreen ? (
+                <Minimize2 className="w-4 h-4 text-cyan-400" />
+              ) : (
+                <Maximize2 className="w-4 h-4 text-slate-200" />
+              )}
+            </button>
 
             {/* Ping Beacon Button */}
             <button

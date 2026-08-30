@@ -8,20 +8,24 @@ export function isFullscreen(): boolean {
     document.fullscreenElement ||
       (document as any).webkitFullscreenElement ||
       (document as any).mozFullScreenElement ||
-      (document as any).msFullscreenElement
+      (document as any).msFullscreenElement ||
+      (document as any).webkitIsFullScreen
   );
 }
 
 export async function enterFullscreen(element?: HTMLElement): Promise<boolean> {
   if (typeof document === 'undefined') return false;
-  const target = element || document.documentElement;
+  const target = element || document.documentElement || document.body;
 
   try {
     if (target.requestFullscreen) {
-      await target.requestFullscreen();
+      await target.requestFullscreen({ navigationUI: 'hide' } as any);
       return true;
     } else if ((target as any).webkitRequestFullscreen) {
       await (target as any).webkitRequestFullscreen();
+      return true;
+    } else if ((target as any).webkitRequestFullScreen) {
+      await (target as any).webkitRequestFullScreen();
       return true;
     } else if ((target as any).mozRequestFullScreen) {
       await (target as any).mozRequestFullScreen();
@@ -66,3 +70,4 @@ export async function toggleFullscreen(element?: HTMLElement): Promise<boolean> 
     return enterFullscreen(element);
   }
 }
+

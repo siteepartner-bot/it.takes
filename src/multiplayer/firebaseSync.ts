@@ -30,6 +30,10 @@ export interface FirebaseSyncCallbacks {
   onCheckpointUpdated?: (data: { checkpointId: number; respawnPos: [number, number, number] }) => void;
   onStageChanged?: (stageId: number) => void;
   onConnectionChange?: (connected: boolean, pingMs: number) => void;
+  onVoiceSignal?: (data: { from: string; signal: any; type: string }) => void;
+  onVoiceSpeaking?: (data: { userId: string; isSpeaking: boolean }) => void;
+  onVoiceJoin?: (data: { userId: string; role?: PlayerRole }) => void;
+  onVoiceLeave?: (data: { userId: string }) => void;
   onError?: (msg: string) => void;
 }
 
@@ -423,6 +427,30 @@ export class FirebaseSync {
             senderName: data.senderName,
             timestamp: data.timestamp,
           });
+        } else if (data.type === 'voice_signal' || data.type === 'voice:signal') {
+          let signalData = data.signal;
+          if (typeof signalData === 'string') {
+            try { signalData = JSON.parse(signalData); } catch (_) {}
+          }
+          this.callbacks.onVoiceSignal?.({
+            from: data.senderId || data.senderRole || 'partner',
+            signal: signalData,
+            type: data.signalType || data.type || 'signal',
+          });
+        } else if (data.type === 'voice_speaking' || data.type === 'voice:speaking') {
+          this.callbacks.onVoiceSpeaking?.({
+            userId: data.senderId || data.senderRole || 'partner',
+            isSpeaking: !!data.isSpeaking,
+          });
+        } else if (data.type === 'voice_join' || data.type === 'voice:join') {
+          this.callbacks.onVoiceJoin?.({
+            userId: data.senderId || data.senderRole || 'partner',
+            role: data.senderRole,
+          });
+        } else if (data.type === 'voice_leave' || data.type === 'voice:leave') {
+          this.callbacks.onVoiceLeave?.({
+            userId: data.senderId || data.senderRole || 'partner',
+          });
         }
       },
       (err) => {
@@ -561,6 +589,56 @@ export class FirebaseSync {
     }).catch((err) => {
       if (FirebaseSync.isQuotaError(err)) this.handleQuotaExceeded(err);
     });
+  }
+
+  // --- Voice Signaling & State Sync ---
+  public sendVoiceJoin() {
+    if (FirebaseSync.isQuotaExhausted || !this.activeRoomCode || !this.myRole) return;
+    const eventRef = doc(db, 'rooms', this.activeRoomCode, 'events', 'latest');
+    setDoc(eventRef, {
+      type: 'voice_join',
+      senderId: this.myId || this.myRole,
+      senderRole: this.myRole,
+      timestamp: Date.now(),
+    }).catch(() => {});
+  }
+
+  public sendVoiceLeave() {
+    if (FirebaseSync.isQuotaExhausted || !this.activeRoomCode || !this.myRole) return;
+    const eventRef = doc(db, 'rooms', this.activeRoomCode, 'events', 'latest');
+    setDoc(eventRef, {
+      type: 'voice_leave',
+      senderId: this.myId || this.myRole,
+      senderRole: this.myRole,
+      timestamp: Date.now(),
+    }).catch(() => {});
+  }
+
+  public sendVoiceSignal(signal: any, signalType?: string, to?: string) {
+    if (FirebaseSync.isQuotaExhausted || !this.activeRoomCode || !this.myRole) return;
+    const eventRef = doc(db, 'rooms', this.activeRoomCode, 'events', 'latest');
+    const serializedSignal = typeof signal === 'string' ? signal : JSON.stringify(signal);
+    setDoc(eventRef, {
+      type: 'voice_signal',
+      signal: serializedSignal,
+      signalType: signalType || 'signal',
+      to: to || null,
+      senderId: this.myId || this.myRole,
+      senderRole: this.myRole,
+      timestamp: Date.now(),
+    }).catch(() => {});
+  }
+
+  public sendVoiceSpeaking(isSpeaking: boolean) {
+    if (FirebaseSync.isQuotaExhausted || !this.activeRoomCode || !this.myRole) return;
+    const eventRef = doc(db, 'rooms', this.activeRoomCode, 'events', 'latest');
+    setDoc(eventRef, {
+      type: 'voice_speaking',
+      isSpeaking,
+      senderId: this.myId || this.myRole,
+      senderRole: this.myRole,
+      timestamp: Date.now(),
+    }).catch(() => {});
   }
 
   // --- Checkpoint & Stage Advance ---

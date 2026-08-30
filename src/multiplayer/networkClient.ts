@@ -119,6 +119,28 @@ export class NetworkClient {
         this.latencyMs = pingMs;
         this.onConnectionChange?.(connected, pingMs);
       },
+      onVoiceJoin: (data) => {
+        this.voiceEventListeners.get('voice:userJoined')?.forEach((cb) => cb(data));
+        this.voiceEventListeners.get('voice:user-joined')?.forEach((cb) => cb(data));
+        this.voiceEventListeners.get('voice_user_joined')?.forEach((cb) => cb(data));
+        this.onVoiceUserJoined?.(data);
+      },
+      onVoiceLeave: (data) => {
+        this.voiceEventListeners.get('voice:userLeft')?.forEach((cb) => cb(data));
+        this.voiceEventListeners.get('voice:user-left')?.forEach((cb) => cb(data));
+        this.voiceEventListeners.get('voice_user_left')?.forEach((cb) => cb(data));
+        this.onVoiceUserLeft?.(data);
+      },
+      onVoiceSignal: (data) => {
+        this.voiceEventListeners.get('voice:signal')?.forEach((cb) => cb(data));
+        this.voiceEventListeners.get('voice_signal')?.forEach((cb) => cb(data));
+        this.onVoiceSignal?.(data);
+      },
+      onVoiceSpeaking: (data) => {
+        this.voiceEventListeners.get('voice:speaking')?.forEach((cb) => cb(data));
+        this.voiceEventListeners.get('voice_speaking')?.forEach((cb) => cb(data));
+        this.onVoiceSpeaking?.(data);
+      },
       onError: (msg) => {
         this.onError?.(msg);
       },
@@ -830,12 +852,16 @@ export class NetworkClient {
             this.ws.send(JSON.stringify({ type: 'voice_join' }));
           } else if (this.activeTransport === 'p2p' && this.p2pConn?.open) {
             this.p2pConn.send({ type: 'voice:join', userId: this.myId || 'p2p_self' });
+          } else if (this.activeTransport === 'firebase' || this.firebaseSync) {
+            this.firebaseSync.sendVoiceJoin();
           }
         } else if (event === 'voice:leave' || event === 'voice_leave') {
           if (this.activeTransport === 'ws' && this.ws?.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify({ type: 'voice_leave' }));
           } else if (this.activeTransport === 'p2p' && this.p2pConn?.open) {
             this.p2pConn.send({ type: 'voice:leave', userId: this.myId || 'p2p_self' });
+          } else if (this.activeTransport === 'firebase' || this.firebaseSync) {
+            this.firebaseSync.sendVoiceLeave();
           }
         } else if (event === 'voice:signal' || event === 'voice_signal') {
           if (this.activeTransport === 'ws' && this.ws?.readyState === WebSocket.OPEN) {
@@ -852,12 +878,16 @@ export class NetworkClient {
               signal: data?.signal,
               signalType: data?.type || data?.signalType,
             });
+          } else if (this.activeTransport === 'firebase' || this.firebaseSync) {
+            this.firebaseSync.sendVoiceSignal(data?.signal, data?.type || data?.signalType, data?.to);
           }
         } else if (event === 'voice:speaking' || event === 'voice_speaking') {
           if (this.activeTransport === 'ws' && this.ws?.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify({ type: 'voice_speaking', isSpeaking: data?.isSpeaking }));
           } else if (this.activeTransport === 'p2p' && this.p2pConn?.open) {
             this.p2pConn.send({ type: 'voice:speaking', userId: this.myId || 'p2p_self', isSpeaking: data?.isSpeaking });
+          } else if (this.activeTransport === 'firebase' || this.firebaseSync) {
+            this.firebaseSync.sendVoiceSpeaking(!!data?.isSpeaking);
           }
         } else if (event === 'voice:mute' || event === 'voice_mute') {
           if (this.activeTransport === 'ws' && this.ws?.readyState === WebSocket.OPEN) {

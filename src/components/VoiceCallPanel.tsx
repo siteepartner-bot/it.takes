@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Mic,
@@ -15,8 +15,11 @@ import {
   Minimize2,
   Maximize2,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import type { RoomParticipant } from '../types.ts';
+import { isFullscreen, toggleFullscreen } from '../utils/fullscreen.ts';
 
 interface VoiceCallPanelProps {
   myId: string;
@@ -52,6 +55,18 @@ export const VoiceCallPanel: React.FC<VoiceCallPanelProps> = ({
   compact = false,
 }) => {
   const [isMinimized, setIsMinimized] = useState(compact);
+  const [inFullscreen, setInFullscreen] = useState(false);
+
+  useEffect(() => {
+    const checkFullscreen = () => setInFullscreen(isFullscreen());
+    checkFullscreen();
+    document.addEventListener('fullscreenchange', checkFullscreen);
+    document.addEventListener('webkitfullscreenchange', checkFullscreen);
+    return () => {
+      document.removeEventListener('fullscreenchange', checkFullscreen);
+      document.removeEventListener('webkitfullscreenchange', checkFullscreen);
+    };
+  }, []);
 
   // Filter participants in room
   const allMembers: RoomParticipant[] = [
@@ -132,11 +147,23 @@ export const VoiceCallPanel: React.FC<VoiceCallPanelProps> = ({
           )}
 
           <button
+            onClick={() => toggleFullscreen()}
+            className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 hover:text-cyan-300 border border-slate-700/60 transition-colors"
+            title={inFullscreen ? 'خروج از تمام صفحه' : 'حالت تمام صفحه'}
+          >
+            {inFullscreen ? (
+              <Minimize2 className="w-3.5 h-3.5 text-cyan-400" />
+            ) : (
+              <Maximize2 className="w-3.5 h-3.5 text-slate-300" />
+            )}
+          </button>
+
+          <button
             onClick={() => setIsMinimized(false)}
             className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors"
             title="بزرگنمایی پنل ویس‌کال"
           >
-            <Maximize2 className="w-3.5 h-3.5" />
+            <ChevronUp className="w-4 h-4" />
           </button>
         </div>
       ) : (
@@ -158,13 +185,29 @@ export const VoiceCallPanel: React.FC<VoiceCallPanelProps> = ({
                 <p className="text-[10px] text-slate-400">ارتباط صوتی بلادرنگ (WebRTC P2P)</p>
               </div>
             </div>
-            <button
-              onClick={() => setIsMinimized(true)}
-              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-              title="کوچک‌سازی پنل"
-            >
-              <Minimize2 className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1.5">
+              {/* Fullscreen Toggle */}
+              <button
+                onClick={() => toggleFullscreen()}
+                className="p-1 rounded-lg text-cyan-400 hover:text-cyan-300 hover:bg-slate-800 transition-colors"
+                title={inFullscreen ? 'خروج از تمام صفحه' : 'حالت تمام صفحه'}
+              >
+                {inFullscreen ? (
+                  <Minimize2 className="w-4 h-4 text-cyan-400" />
+                ) : (
+                  <Maximize2 className="w-4 h-4 text-slate-300" />
+                )}
+              </button>
+
+              {/* Minimize Panel */}
+              <button
+                onClick={() => setIsMinimized(true)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                title="کوچک‌سازی پنل"
+              >
+                <ChevronDown className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Permission Error Message */}

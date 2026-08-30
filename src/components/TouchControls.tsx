@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { ArrowUp, Hand, Zap, Shield, MapPin, Compass, MessageSquare, Users } from 'lucide-react';
+import { ArrowUp, Hand, MapPin, Compass, MessageSquare, Users } from 'lucide-react';
 import type { PlayerRole } from '../types.ts';
 
 interface TouchControlsProps {
@@ -49,7 +49,7 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
       moveVector: { ...inputRef.current.moveVector },
       jump: inputRef.current.jump,
       interact: inputRef.current.interact,
-      ability: inputRef.current.ability,
+      ability: false,
       sprint: inputRef.current.sprint,
     });
   }, [onUpdateInput]);
@@ -62,7 +62,7 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
   if (!visible) return null;
 
   // -------------------------------------------------------------
-  // SOLID VIRTUAL JOYSTICK
+  // VIRTUAL JOYSTICK
   // -------------------------------------------------------------
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -115,7 +115,7 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
     const dx = clientX - centerPosRef.current.x;
     const dy = clientY - centerPosRef.current.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    const maxRadius = window.innerWidth < 640 ? 40 : 48;
+    const maxRadius = window.innerWidth < 640 ? 38 : 46;
 
     let clampedX = dx;
     let clampedY = dy;
@@ -140,7 +140,7 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
     dispatchInput();
   };
 
-  const handleButtonPress = (key: 'jump' | 'interact' | 'ability', pressed: boolean) => {
+  const handleButtonPress = (key: 'jump' | 'interact', pressed: boolean) => {
     inputRef.current[key] = pressed;
     dispatchInput();
   };
@@ -152,7 +152,7 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
       dir="ltr"
       className="fixed inset-0 pointer-events-none z-40 flex flex-col justify-end p-3 sm:p-5 pb-5 sm:pb-6 pb-safe select-none touch-none"
     >
-      {/* Container: Left Joystick & Right Actions */}
+      {/* Container: Left Joystick & Right Actions - Middle is completely clear! */}
       <div className="flex items-end justify-between w-full">
         {/* =========================================
             VIRTUAL JOYSTICK (LEFT ZONE)
@@ -166,63 +166,63 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
             onPointerUp={handlePointerUpOrCancel}
             onPointerCancel={handlePointerUpOrCancel}
             onContextMenu={(e) => e.preventDefault()}
-            className={`w-28 h-28 sm:w-36 sm:h-36 rounded-full relative flex items-center justify-center cursor-grab active:cursor-grabbing backdrop-blur-md shadow-2xl transition-colors select-none ${
+            className={`w-28 h-28 sm:w-32 sm:h-32 rounded-full relative flex items-center justify-center cursor-grab active:cursor-grabbing backdrop-blur-md shadow-2xl transition-colors select-none ${
               isStickActive
-                ? 'bg-slate-900/80 border-2 border-cyan-400 shadow-cyan-500/20'
-                : 'bg-slate-900/60 border-2 border-slate-700/80'
+                ? 'bg-slate-900/85 border-2 border-cyan-400 shadow-cyan-500/30'
+                : 'bg-slate-900/65 border-2 border-slate-700/80'
             }`}
             style={{ touchAction: 'none' }}
           >
             {/* Cardinal Direction Ticks */}
-            <div className="absolute inset-2 rounded-full border border-dashed border-slate-600/40 pointer-events-none" />
-            <div className="absolute top-2 w-1.5 h-1.5 rounded-full bg-slate-500/60 pointer-events-none" />
-            <div className="absolute bottom-2 w-1.5 h-1.5 rounded-full bg-slate-500/60 pointer-events-none" />
-            <div className="absolute left-2 w-1.5 h-1.5 rounded-full bg-slate-500/60 pointer-events-none" />
-            <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-slate-500/60 pointer-events-none" />
+            <div className="absolute inset-2 rounded-full border border-dashed border-slate-600/30 pointer-events-none" />
+            <div className="absolute top-2 w-1.5 h-1.5 rounded-full bg-slate-500/50 pointer-events-none" />
+            <div className="absolute bottom-2 w-1.5 h-1.5 rounded-full bg-slate-500/50 pointer-events-none" />
+            <div className="absolute left-2 w-1.5 h-1.5 rounded-full bg-slate-500/50 pointer-events-none" />
+            <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-slate-500/50 pointer-events-none" />
 
             {/* Inner Center Target */}
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border border-slate-700/50 flex items-center justify-center pointer-events-none">
-              <Compass className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500/40" />
+            <div className="w-8 h-8 rounded-full border border-slate-700/40 flex items-center justify-center pointer-events-none">
+              <Compass className="w-3.5 h-3.5 text-slate-500/40" />
             </div>
 
             {/* Draggable Stick Head */}
             <div
               ref={stickRef}
-              className={`absolute w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-white shadow-xl pointer-events-none flex items-center justify-center select-none ${
+              className={`absolute w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-white shadow-xl pointer-events-none flex items-center justify-center select-none ${
                 isExplorer
                   ? isStickActive
-                    ? 'bg-cyan-500 shadow-cyan-400/50 scale-105'
+                    ? 'bg-cyan-500 shadow-cyan-400/60 scale-105'
                     : 'bg-cyan-600/90 shadow-cyan-600/30'
                   : isStickActive
-                  ? 'bg-emerald-500 shadow-emerald-400/50 scale-105'
+                  ? 'bg-emerald-500 shadow-emerald-400/60 scale-105'
                   : 'bg-emerald-600/90 shadow-emerald-600/30'
               }`}
             >
-              <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-white/80 shadow-sm" />
+              <div className="w-3 h-3 rounded-full bg-white/80 shadow-sm" />
             </div>
           </div>
 
-          <div className="text-[9px] sm:text-[10px] font-bold text-slate-400 mt-1 tracking-wider uppercase flex items-center gap-1">
-            <span>حرکت / جوی‌استیک</span>
+          <div className="text-[9px] font-bold text-slate-400 mt-1 tracking-wider uppercase flex items-center gap-1">
+            <span>حرکت</span>
           </div>
         </div>
 
         {/* =========================================
-            ACTION BUTTONS ZONE (RIGHT ZONE)
+            ACTION BUTTONS (RIGHT ZONE ONLY)
             ========================================= */}
         <div className="pointer-events-auto flex flex-col items-end gap-2" dir="rtl">
-          {/* Secondary Utility Controls */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Small Utility Controls (Right Aligned) */}
+          <div className="flex items-center gap-1.5">
             {/* Solo Mode Hero Swap Button */}
             {soloMode && onToggleSoloHero && (
               <button
                 id="touch_btn_solo_swap"
                 onClick={onToggleSoloHero}
-                className="px-2.5 sm:px-3 h-10 sm:h-11 rounded-2xl bg-cyan-950/90 border border-cyan-400/60 text-cyan-300 flex items-center gap-1 text-xs font-black shadow-lg active:scale-90 transition-transform"
+                className="px-2.5 h-9 sm:h-10 rounded-2xl bg-cyan-950/90 border border-cyan-400/60 text-cyan-300 flex items-center gap-1 text-[11px] font-black shadow-lg active:scale-90 transition-transform"
                 title="تغییر شخصیت (نیوشا / حسن)"
               >
                 <Users className="w-3.5 h-3.5" />
-                <span>{isExplorer ? '⚡ نیوشا' : '🛡️ حسن'}</span>
+                <span>{isExplorer ? 'نیوشا' : 'حسن'}</span>
               </button>
             )}
 
@@ -231,11 +231,11 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
               <button
                 id="touch_btn_gemini_call"
                 onClick={onOpenGeminiCall}
-                className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-amber-950/90 border border-amber-400/50 text-amber-300 flex items-center justify-center shadow-lg active:scale-90 transition-transform relative"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-amber-950/90 border border-amber-400/50 text-amber-300 flex items-center justify-center shadow-lg active:scale-90 transition-transform relative"
                 title="پیام‌رسان استاد الیاس (Gemini AI)"
               >
                 <MessageSquare className="w-4 h-4 text-amber-400" />
-                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping absolute -top-1 -right-1" />
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping absolute -top-0.5 -right-0.5" />
               </button>
             )}
 
@@ -243,7 +243,7 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
             <button
               id="touch_btn_ping"
               onClick={onSendPing}
-              className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-slate-900/90 border border-cyan-500/40 text-cyan-400 flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-slate-900/90 border border-cyan-500/40 text-cyan-400 flex items-center justify-center shadow-lg active:scale-90 transition-transform"
               title="علامت‌گذاری پینگ"
             >
               <MapPin className="w-4 h-4" />
@@ -253,7 +253,7 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
             <button
               id="touch_btn_sprint"
               onClick={() => setSprintActive(!sprintActive)}
-              className={`px-3 sm:px-4 h-10 sm:h-11 rounded-2xl border text-xs font-black flex items-center justify-center shadow-lg transition-all active:scale-90 ${
+              className={`px-3 h-9 sm:h-10 rounded-2xl border text-[11px] font-black flex items-center justify-center shadow-lg transition-all active:scale-90 ${
                 sprintActive
                   ? 'bg-amber-500 border-amber-300 text-slate-950 shadow-amber-500/30'
                   : 'bg-slate-900/90 border-slate-700 text-slate-300'
@@ -263,40 +263,8 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
             </button>
           </div>
 
-          {/* Primary Action Hex-cluster */}
-          <div className="grid grid-cols-2 gap-1.5 sm:gap-2 mt-1">
-            {/* Unique Ability Button [F] */}
-            <button
-              id="touch_btn_ability"
-              onPointerDown={(e) => {
-                e.preventDefault();
-                handleButtonPress('ability', true);
-              }}
-              onPointerUp={(e) => {
-                e.preventDefault();
-                handleButtonPress('ability', false);
-              }}
-              onPointerCancel={(e) => {
-                e.preventDefault();
-                handleButtonPress('ability', false);
-              }}
-              onContextMenu={(e) => e.preventDefault()}
-              className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl border-2 text-slate-950 flex flex-col items-center justify-center shadow-xl active:scale-90 transition-transform ${
-                isExplorer
-                  ? 'bg-cyan-400 border-cyan-200 shadow-cyan-500/30'
-                  : 'bg-emerald-400 border-emerald-200 shadow-emerald-500/30'
-              }`}
-            >
-              {isExplorer ? (
-                <Zap className="w-5 h-5 fill-slate-950" />
-              ) : (
-                <Shield className="w-5 h-5 fill-slate-950" />
-              )}
-              <span className="text-[10px] font-black mt-0.5">
-                {isExplorer ? 'صاعقه [F]' : 'سپر [F]'}
-              </span>
-            </button>
-
+          {/* Primary Action Buttons: Interact [E] & Jump [Space] */}
+          <div className="flex items-center gap-2 mt-0.5">
             {/* Interact Button [E] */}
             <button
               id="touch_btn_interact"
@@ -313,10 +281,10 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
                 handleButtonPress('interact', false);
               }}
               onContextMenu={(e) => e.preventDefault()}
-              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-amber-500 border-2 border-amber-200 text-slate-950 flex flex-col items-center justify-center shadow-xl active:scale-90 transition-transform shadow-amber-500/20"
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-amber-600 to-amber-400 border-2 border-amber-200 text-slate-950 flex flex-col items-center justify-center shadow-xl active:scale-90 transition-transform shadow-amber-500/25"
             >
               <Hand className="w-5 h-5 fill-slate-950" />
-              <span className="text-[10px] font-black mt-0.5">عمل [E]</span>
+              <span className="text-[11px] font-black mt-0.5">عمل (E)</span>
             </button>
 
             {/* Jump Button [Space] */}
@@ -335,10 +303,10 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
                 handleButtonPress('jump', false);
               }}
               onContextMenu={(e) => e.preventDefault()}
-              className="col-span-2 h-12 sm:h-14 rounded-2xl bg-slate-100 border-2 border-white text-slate-950 font-black text-sm uppercase flex items-center justify-center gap-1.5 shadow-2xl active:scale-95 transition-transform"
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-cyan-500 to-cyan-300 border-2 border-white text-slate-950 flex flex-col items-center justify-center shadow-xl active:scale-90 transition-transform shadow-cyan-500/25"
             >
               <ArrowUp className="w-5 h-5 stroke-[3]" />
-              <span>پرش (Space)</span>
+              <span className="text-[11px] font-black mt-0.5">پرش</span>
             </button>
           </div>
         </div>

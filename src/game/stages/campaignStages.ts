@@ -9,6 +9,10 @@ import { buildHarmonyHallStage } from './harmonyHallStage.ts';
 import { buildPrismTempleStage } from './prismTempleStage.ts';
 import { buildGravityLabyrinthStage } from './gravityLabyrinthStage.ts';
 import { buildCitadelStage } from './citadelStage.ts';
+import { buildTowerOfBalanceStage } from './towerOfBalanceStage.ts';
+import { buildDualPathsTempleStage } from './dualPathsTempleStage.ts';
+import { buildFourChambersStage } from './fourChambersStage.ts';
+import { buildOurLastPathStage } from './ourLastPathStage.ts';
 
 /**
  * Universal Occupancy Set helper to track player IDs on buttons/plates.
@@ -97,7 +101,9 @@ export function buildCampaignStage(stageId: number): StageBuildResult {
   if (stageId === 3) return buildMirrorChambersStage();
   if (stageId === 4) return buildHarmonyHallStage();
   if (stageId === 5) return buildGravityLabyrinthStage();
-  if (stageId === 6) return buildCitadelStage();
+  if (stageId === 6) return buildDualPathsTempleStage();
+  if (stageId === 7) return buildFourChambersStage();
+  if (stageId === 8) return buildOurLastPathStage();
 
   // For stages 7 through 20, construct custom themed co-op stages
   const rootGroup = new THREE.Group();
@@ -165,9 +171,24 @@ export function buildCampaignStage(stageId: number): StageBuildResult {
     prompt: `خواندن کتیبه راز مرحله ${stageId} (کلید E)`,
   });
 
-  // Co-op Door & Gate Barrier System
-  const doorGeo = new THREE.BoxGeometry(12, 6, 0.8);
-  const doorMesh = new THREE.Mesh(doorGeo, wallMat);
+  // Co-op Door & Gate Barrier System (Airtight wall spanning full 36m width)
+  const wallDoorLeft = new THREE.Mesh(new THREE.BoxGeometry(13, 8, 1.2), wallMat);
+  wallDoorLeft.position.set(-11.5, 4, 20);
+  rootGroup.add(wallDoorLeft);
+  colliders.push(new THREE.Box3().setFromObject(wallDoorLeft));
+
+  const wallDoorRight = new THREE.Mesh(new THREE.BoxGeometry(13, 8, 1.2), wallMat);
+  wallDoorRight.position.set(11.5, 4, 20);
+  rootGroup.add(wallDoorRight);
+  colliders.push(new THREE.Box3().setFromObject(wallDoorRight));
+
+  const wallDoorTop = new THREE.Mesh(new THREE.BoxGeometry(36, 2.5, 1.4), wallMat);
+  wallDoorTop.position.set(0, 7.0, 20);
+  rootGroup.add(wallDoorTop);
+  colliders.push(new THREE.Box3().setFromObject(wallDoorTop));
+
+  const doorGeo = new THREE.BoxGeometry(10.4, 6, 0.8);
+  const doorMesh = new THREE.Mesh(doorGeo, accentMat);
   doorMesh.position.set(0, 3, 20);
   doorMesh.castShadow = true;
   rootGroup.add(doorMesh);

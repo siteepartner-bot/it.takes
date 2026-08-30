@@ -7,6 +7,7 @@ import { GameHUD } from './components/GameHUD.tsx';
 import { TouchControls } from './components/TouchControls.tsx';
 import { PauseMenu } from './components/PauseMenu.tsx';
 import { StageClearModal } from './components/StageClearModal.tsx';
+import { FinalCinematicEnding } from './components/FinalCinematicEnding.tsx';
 import { StoryModal } from './components/StoryModal.tsx';
 import { GeminiVoiceCallModal } from './components/GeminiVoiceCallModal.tsx';
 import { GeminiActivationModal } from './components/GeminiActivationModal.tsx';
@@ -379,7 +380,7 @@ export default function App() {
 
   const handleNextStage = () => {
     const next = currentStageId + 1;
-    if (next <= 6) {
+    if (next <= 8) {
       networkClient.advanceStage(next);
       setCurrentStageId(next);
       setIsStageClearOpen(false);
@@ -388,6 +389,15 @@ export default function App() {
       }
     } else {
       handleLeaveGame();
+    }
+  };
+
+  const handleRestartCampaign = () => {
+    networkClient.advanceStage(1);
+    setCurrentStageId(1);
+    setIsStageClearOpen(false);
+    if (engineRef.current) {
+      engineRef.current.loadStage(1, myRole);
     }
   };
 
@@ -583,8 +593,19 @@ export default function App() {
             onClose={() => setIsGeminiSetupOpen(false)}
           />
 
-          {/* Stage Cleared Celebration Modal */}
-          {isStageClearOpen && (
+          {/* Stage Cleared Celebration Modal / Final Ending */}
+          {isStageClearOpen && currentStageId === 8 && (
+            <FinalCinematicEnding
+              onReplay={() => {
+                setIsStageClearOpen(false);
+                if (engineRef.current) engineRef.current.loadStage(8, myRole);
+              }}
+              onReturnHome={handleLeaveGame}
+              onOpenStory={() => setIsStoryOpen(true)}
+            />
+          )}
+
+          {isStageClearOpen && currentStageId < 8 && (
             <StageClearModal
               stageId={currentStageId}
               onNextStage={handleNextStage}

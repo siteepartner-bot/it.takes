@@ -13,7 +13,7 @@ export interface StageBuildResult {
 
 export interface InteractiveObject {
   id: string;
-  type: 'pressure_plate' | 'lever' | 'heavy_block' | 'bridge_switch' | 'portal_pad' | 'lore_tablet';
+  type: 'pressure_plate' | 'lever' | 'heavy_block' | 'bridge_switch' | 'portal_pad' | 'lore_tablet' | 'button';
   mesh: THREE.Object3D;
   bounds: THREE.Box3;
   targetRole?: 'explorer' | 'guardian' | 'both';

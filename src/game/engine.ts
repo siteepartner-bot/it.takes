@@ -250,6 +250,11 @@ export class GameEngine {
       this.scene.fog = new THREE.FogExp2(0x1e1b4b, 0.012);
       this.sunLight.color.setHex(0x38bdf8);
       this.ambientLight.color.setHex(0xd8b4fe);
+    } else if (stageId === 6) {
+      this.scene.background = new THREE.Color(0x1e1b18);
+      this.scene.fog = new THREE.FogExp2(0x181412, 0.012);
+      this.sunLight.color.setHex(0xfbbf24);
+      this.ambientLight.color.setHex(0xfed7aa);
     } else if (stageId === 7) {
       this.scene.background = new THREE.Color(0x0c4a6e);
       this.scene.fog = new THREE.FogExp2(0x075985, 0.015);
@@ -567,37 +572,60 @@ export class GameEngine {
       this.isMouseDown = false;
     });
 
-    // Touch orbit on canvas
-    dom.addEventListener(
-      'touchmove',
-      (e) => {
-        if (e.touches.length > 0) {
-          const touch = e.touches[0];
-          // Only right half of screen orbits camera
-          if (touch.clientX > window.innerWidth / 2) {
-            const dx = touch.clientX - (this.lastMouseX || touch.clientX);
-            const dy = touch.clientY - (this.lastMouseY || touch.clientY);
-            this.lastMouseX = touch.clientX;
-            this.lastMouseY = touch.clientY;
+    // Touch camera rotation with multi-touch tracking
+    let activeCameraTouchId: number | null = null;
+    let lastTouchLookX = 0;
+    let lastTouchLookY = 0;
 
-            this.cameraYaw -= dx * 0.006;
-            this.cameraPitch = Math.max(-0.25, Math.min(1.1, this.cameraPitch + dy * 0.006));
+    const handleTouchStart = (e: TouchEvent) => {
+      soundManager.userInteracted();
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        if (activeCameraTouchId === null) {
+          // Check if touch is NOT on virtual joystick area (bottom-left)
+          const isJoystickArea = touch.clientX < 170 && touch.clientY > window.innerHeight - 170;
+          if (!isJoystickArea) {
+            activeCameraTouchId = touch.identifier;
+            lastTouchLookX = touch.clientX;
+            lastTouchLookY = touch.clientY;
+            break;
           }
         }
-      },
-      { passive: true }
-    );
+      }
+    };
 
-    dom.addEventListener('touchstart', (e) => {
-      soundManager.userInteracted();
-      if (e.touches.length > 0) {
-        const touch = e.touches[0];
-        if (touch.clientX > window.innerWidth / 2) {
-          this.lastMouseX = touch.clientX;
-          this.lastMouseY = touch.clientY;
+    const handleTouchMove = (e: TouchEvent) => {
+      if (activeCameraTouchId === null) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        if (touch.identifier === activeCameraTouchId) {
+          const dx = touch.clientX - lastTouchLookX;
+          const dy = touch.clientY - lastTouchLookY;
+          lastTouchLookX = touch.clientX;
+          lastTouchLookY = touch.clientY;
+
+          this.cameraYaw -= dx * 0.0065;
+          this.cameraPitch = Math.max(-0.25, Math.min(1.15, this.cameraPitch + dy * 0.0065));
+          break;
         }
       }
-    });
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (activeCameraTouchId === null) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        if (touch.identifier === activeCameraTouchId) {
+          activeCameraTouchId = null;
+          break;
+        }
+      }
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+    window.addEventListener('touchcancel', handleTouchEnd, { passive: true });
   }
 
   // Control Mode & Pointer Lock Controls
@@ -1137,51 +1165,35 @@ export class GameEngine {
       }
     }
 
-    // 3. Ability Trigger (F or Q or Touch Ability)
-    const wantsAbility = this.keys['KeyF'] || this.keys['KeyQ'] || this.touchAbility;
-    if (wantsAbility && this.abilityCooldown <= 0) {
-      this.abilityActive = true;
-      this.abilityCooldown = 0.5;
-      soundManager.playAbility(this.localRole);
-
-      // Character Ability Effects
-      if (this.localRole === 'guardian') {
-        // Shield projects solid bridge or deflects turret
-        if (this.currentStageId === 1) {
-          networkClient.triggerPuzzle('lightBridgeActive', true);
-        } else if (this.currentStageId === 2) {
-          networkClient.triggerPuzzle('turretShieldDeflected', true);
-        }
+    // Stage 7 Frame Update: Pit Fall Checks
+    if (this.currentStageId === 7 && this.playerPos.y < -3.5) {
+      soundManager.playPuzzleErrorBuzz();
+      const data = this.puzzleState.customData || {};
+      if (data.stage7Room3Solved || data.stage7DoorFinalUnlocked) {
+        this.playerPos.set(0, 1.2, 125); // Checkpoint 2 (Final Sanctuary)
+        this.respawnPos.set(0, 1.2, 125);
+      } else if (data.stage7Door3AUnlocked || data.stage7Door3BUnlocked || data.stage7Room1Solved || data.stage7Room2Solved) {
+        const isPathA = (this.playerPos.x < 0);
+        const respX = isPathA ? -8.5 : 8.5;
+        this.playerPos.set(respX, 1.2, 74); // Checkpoint 1 (Room 3 Entrance)
+        this.respawnPos.set(respX, 1.2, 74);
       } else {
-        // Explorer Spark Tether activates distant conduit
-        if (this.currentStageId === 1 && this.puzzleState.heavyBlockPlaced) {
-          networkClient.triggerPuzzle('aqueductElevatorHeight', 5.5);
-        }
+        this.playerPos.set(0, 1.2, 3); // Checkpoint 0 (Entrance)
+        this.respawnPos.set(0, 1.2, 3);
       }
-    } else {
-      if (this.abilityCooldown > 0) this.abilityCooldown -= dt;
-      if (!wantsAbility) {
-        this.abilityActive = false;
-        if (this.localRole === 'guardian' && this.currentStageId === 1 && !this.puzzleState.bridgePedestalRotated) {
-          networkClient.triggerPuzzle('lightBridgeActive', false);
-        }
-        if (this.localRole === 'guardian' && this.currentStageId === 2) {
-          networkClient.triggerPuzzle('turretShieldDeflected', false);
-        }
-      }
+      this.playerVel.set(0, 0, 0);
+      this.callbacks.onCheckpointMessage('⚠️ سقوط در معبد چهار اتاق! بازگشت به چک‌پوینت فعال');
     }
 
-    // 4. Interactive Object Distance & Triggers
+    // 3. Interactive Object Distance & Triggers
     this.checkInteractions();
 
-    // 5. Update Animations
+    // 4. Update Animations
     const horizSpeed = Math.sqrt(this.playerVel.x * this.playerVel.x + this.playerVel.z * this.playerVel.z);
     if (!this.isGrounded) {
       this.currentAnim = this.playerVel.y > 0 ? 'jump' : 'fall';
     } else if (horizSpeed > 0.4) {
       this.currentAnim = isSprinting ? 'sprint' : 'run';
-    } else if (this.abilityActive) {
-      this.currentAnim = 'ability';
     } else {
       this.currentAnim = 'idle';
     }
@@ -1326,8 +1338,7 @@ export class GameEngine {
       
       if (guardianPos) {
         const isGuardianNearBridgeTrigger = guardianPos.distanceTo(new THREE.Vector3(0, 5.5, 49)) < 4.0;
-        const wantsAbility = this.keys['KeyF'] || this.keys['KeyQ'] || this.touchAbility;
-        const wantBridgeActive = isGuardianNearBridgeTrigger || (this.localRole === 'guardian' && wantsAbility);
+        const wantBridgeActive = isGuardianNearBridgeTrigger;
         if (wantBridgeActive !== !!this.puzzleState.lightBridgeActive) {
           networkClient.triggerPuzzle('lightBridgeActive', wantBridgeActive);
         }
@@ -1394,6 +1405,38 @@ export class GameEngine {
           ? this.playerPos 
           : (this.partnerNetState ? new THREE.Vector3(this.partnerNetState.x, this.partnerNetState.y, this.partnerNetState.z) : null)
         );
+
+    // --- Stage 6 & 7: Path Assignment & Entrance Door Evaluation ---
+    if (this.currentStageId === 6 || this.currentStageId === 7) {
+      const activePositions: THREE.Vector3[] = [];
+      if (explorerPos) activePositions.push(explorerPos);
+      if (guardianPos) activePositions.push(guardianPos);
+
+      const currentData = this.puzzleState.customData || {};
+      let needsUpdate = false;
+      const nextData = { ...currentData };
+      const assignAKey = this.currentStageId === 6 ? 'stage6AssignedA' : 'stage7AssignedA';
+      const assignBKey = this.currentStageId === 6 ? 'stage6AssignedB' : 'stage7AssignedB';
+
+      // Check if players enter Path A or Path B triggering zones
+      for (const pos of activePositions) {
+        if (pos.z >= 16 && pos.z <= 26) {
+          if (pos.x <= -2 && !currentData[assignAKey]) {
+            nextData[assignAKey] = true;
+            needsUpdate = true;
+          }
+          if (pos.x >= 2 && !currentData[assignBKey]) {
+            nextData[assignBKey] = true;
+            needsUpdate = true;
+          }
+        }
+      }
+
+      if (needsUpdate) {
+        this.puzzleState.customData = nextData;
+        networkClient.triggerPuzzle('customData', nextData);
+      }
+    }
 
     for (const obj of this.currentStage.interactiveObjects) {
       if (obj.type === 'pressure_plate') {
@@ -1598,12 +1641,266 @@ export class GameEngine {
             }
           }
         }
+
+        // Stage 6 Final Hall Buttons (Permanent Unlock when both pressed)
+        if (obj.id === 'plate_stage6_final_a' || obj.id === 'plate_stage6_final_b') {
+          const isA = obj.id === 'plate_stage6_final_a';
+          const key = isA ? 'stage6FinalAOccupied' : 'stage6FinalBOccupied';
+          const otherKey = isA ? 'stage6FinalBOccupied' : 'stage6FinalAOccupied';
+          const currentData = this.puzzleState.customData || {};
+          const currentOccupied = !!currentData[key];
+
+          if (isOccupied !== currentOccupied) {
+            const otherOccupied = !!currentData[otherKey];
+            const isAlreadyUnlocked = !!currentData.stage6FinalUnlocked;
+            const willUnlock = !isAlreadyUnlocked && (isOccupied && (otherOccupied || isSolo));
+
+            const nextData = {
+              ...currentData,
+              [key]: isOccupied,
+              stage6FinalUnlocked: isAlreadyUnlocked || willUnlock,
+            };
+            this.puzzleState.customData = nextData;
+            networkClient.triggerPuzzle('customData', nextData);
+
+            if (isOccupied) {
+              soundManager.playPressurePlate(true);
+              if (willUnlock) {
+                soundManager.playGateMove();
+                soundManager.playPuzzleSuccessChime();
+                this.callbacks.onCheckpointMessage('🎉 هر دو دکمه نهایی هم‌زمان فعال شدند! دروازه خروج معبد برای همیشه باز گردید.');
+              } else if (!isAlreadyUnlocked) {
+                this.callbacks.onCheckpointMessage('✨ دکمه نهایی فعال شد. هم‌تیمی شما باید دکمه سمت دیگر را بفشارد...');
+              }
+            }
+          }
+        }
+
+        // Stage 6 Path Assignment Trigger Plates
+        if (obj.id === 'plate_stage6_trigger_a' || obj.id === 'plate_stage6_trigger_b') {
+          const isPathA = obj.id === 'plate_stage6_trigger_a';
+          const assignKey = isPathA ? 'stage6AssignedA' : 'stage6AssignedB';
+          const currentData = this.puzzleState.customData || {};
+
+          if (isOccupied && !currentData[assignKey]) {
+            soundManager.playPressurePlate(true);
+            const nextData = {
+              ...currentData,
+              [assignKey]: true,
+            };
+            this.puzzleState.customData = nextData;
+            networkClient.triggerPuzzle('customData', nextData);
+            this.callbacks.onCheckpointMessage(
+              isPathA
+                ? '📍 مسیر A (Path A) انتخاب شد. هم‌تیمی شما باید وارد مسیر B شود.'
+                : '📍 مسیر B (Path B) انتخاب شد. هم‌تیمی شما باید وارد مسیر A شود.'
+            );
+          }
+        }
+
+        // Stage 6 Exit Portal Pads
+        if (obj.id === 'portal_p1_stage6' || obj.id === 'portal_p2_stage6') {
+          const isP1 = obj.id === 'portal_p1_stage6';
+          const readyKey = isP1 ? 'stage6ExitP1Ready' : 'stage6ExitP2Ready';
+          const otherReadyKey = isP1 ? 'stage6ExitP2Ready' : 'stage6ExitP1Ready';
+          const currentData = this.puzzleState.customData || {};
+          const currentReady = !!currentData[readyKey];
+
+          if (isOccupied !== currentReady) {
+            const otherReady = !!currentData[otherReadyKey];
+            const nextData = {
+              ...currentData,
+              [readyKey]: isOccupied,
+            };
+            this.puzzleState.customData = nextData;
+            networkClient.triggerPuzzle('customData', nextData);
+
+            if (isOccupied) {
+              soundManager.playPressurePlate(true);
+              if (otherReady || isSolo) {
+                soundManager.playStageClear();
+                this.callbacks.onStageClear(this.currentStageId);
+                this.callbacks.onCheckpointMessage('🏆 تبریک! مرحله ۶ (معبد دو مسیر) با موفقیت به پایان رسید!');
+              } else {
+                this.callbacks.onCheckpointMessage(`✨ ${isP1 ? 'نیوشا' : 'حسن'} روی سکوی خروج معبد دو مسیر مستقر شد. منتظر هم‌تیمی باشید...`);
+              }
+            }
+          }
+        }
+
+        // Stage 7 Path Assignment Trigger Plates
+        if (obj.id === 'plate_stage7_trigger_a' || obj.id === 'plate_stage7_trigger_b') {
+          const isPathA = obj.id === 'plate_stage7_trigger_a';
+          // Stepping on Plate A opens Gate B (neighboring room for teammate), stepping on Plate B opens Gate A
+          const assignKey = isPathA ? 'stage7AssignedB' : 'stage7AssignedA';
+          const currentData = this.puzzleState.customData || {};
+
+          if (isOccupied && !currentData[assignKey]) {
+            soundManager.playPressurePlate(true);
+            const nextData = {
+              ...currentData,
+              [assignKey]: true,
+            };
+            this.puzzleState.customData = nextData;
+            networkClient.triggerPuzzle('customData', nextData);
+            this.callbacks.onCheckpointMessage(
+              isPathA
+                ? '🚪 صفحه ورودی ۱ فشرده شد! درگاه ورودی اتاق ۲ (اتاق بغلی هم‌تیمی) باز گردید.'
+                : '🚪 صفحه ورودی ۲ فشرده شد! درگاه ورودی اتاق ۱ (اتاق بغلی هم‌تیمی) باز گردید.'
+            );
+          }
+        }
+
+        // Stage 7 Exit Portal Pads
+        if (obj.id === 'portal_p1_stage7' || obj.id === 'portal_p2_stage7') {
+          const isP1 = obj.id === 'portal_p1_stage7';
+          const readyKey = isP1 ? 'stage7ExitP1Ready' : 'stage7ExitP2Ready';
+          const otherReadyKey = isP1 ? 'stage7ExitP2Ready' : 'stage7ExitP1Ready';
+          const currentData = this.puzzleState.customData || {};
+          const currentReady = !!currentData[readyKey];
+
+          if (isOccupied !== currentReady) {
+            const otherReady = !!currentData[otherReadyKey];
+            const nextData = {
+              ...currentData,
+              [readyKey]: isOccupied,
+            };
+            this.puzzleState.customData = nextData;
+            networkClient.triggerPuzzle('customData', nextData);
+
+            if (isOccupied) {
+              soundManager.playPressurePlate(true);
+              if (otherReady || isSolo) {
+                soundManager.playStageClear();
+                this.callbacks.onStageClear(this.currentStageId);
+                this.callbacks.onCheckpointMessage('🏆 تبریک! مرحله ۷ (معمای چهار اتاق) با موفقیت به پایان رسید!');
+              } else {
+                this.callbacks.onCheckpointMessage(`✨ ${isP1 ? 'نیوشا' : 'حسن'} روی سکوی خروج معمای چهار اتاق مستقر شد. منتظر هم‌تیمی باشید...`);
+              }
+            }
+          }
+        }
+
+        // Stage 8 Section 1 Entry Plates (Co-op Open)
+        if (obj.id === 'plate_stage8_entry_a' || obj.id === 'plate_stage8_entry_b') {
+          const isPlateA = obj.id === 'plate_stage8_entry_a';
+          const key = isPlateA ? 'stage8EntryA' : 'stage8EntryB';
+          const otherKey = isPlateA ? 'stage8EntryB' : 'stage8EntryA';
+          const currentData = this.puzzleState.customData || {};
+
+          if (!currentData.stage8EntryUnlocked && isOccupied !== !!currentData[key]) {
+            const otherPressed = !!currentData[otherKey];
+            const shouldUnlock = isOccupied && (otherPressed || isSolo);
+            const nextData = {
+              ...currentData,
+              [key]: isOccupied,
+              ...(shouldUnlock ? { stage8EntryUnlocked: true } : {}),
+            };
+            this.puzzleState.customData = nextData;
+            networkClient.triggerPuzzle('customData', nextData);
+
+            if (isOccupied) {
+              soundManager.playPressurePlate(true);
+              if (shouldUnlock) {
+                soundManager.playGateMove();
+                soundManager.playPuzzleSuccessChime();
+                this.callbacks.onCheckpointMessage('🎉 دروازه باستانی ورودی فینال گشوده شد! هر دو قهرمان می‌توانید وارد شوید.');
+              } else {
+                this.callbacks.onCheckpointMessage(`🟢 ${isPlateA ? 'نیوشا' : 'حسن'} روی صفحه ورودی ایستاد. هم‌تیمی باید روی صفحه دیگر بایستد...`);
+              }
+            }
+          }
+        }
+
+        // Stage 8 Section 2 Path Assignment Trigger Plates
+        if (obj.id === 'plate_stage8_assign_a' || obj.id === 'plate_stage8_assign_b') {
+          const isPathA = obj.id === 'plate_stage8_assign_a';
+          const assignKey = isPathA ? 'stage8AssignedA' : 'stage8AssignedB';
+          const currentData = this.puzzleState.customData || {};
+
+          if (isOccupied && !currentData[assignKey]) {
+            soundManager.playPressurePlate(true);
+            const nextData = {
+              ...currentData,
+              [assignKey]: true,
+            };
+            this.puzzleState.customData = nextData;
+            networkClient.triggerPuzzle('customData', nextData);
+            this.callbacks.onCheckpointMessage(
+              isPathA
+                ? '📍 وارد مسیر A شدید. کتیبه این دیوار راهنمای مسیر B هم‌تیمی شماست!'
+                : '📍 وارد مسیر B شدید. کتیبه این دیوار راهنمای مسیر A هم‌تیمی شماست!'
+            );
+          }
+        }
+
+        // Stage 8 Section 4 Sanctuary Co-op Plates
+        if (obj.id === 'plate_stage8_sanctuary_a' || obj.id === 'plate_stage8_sanctuary_b') {
+          const isPlateA = obj.id === 'plate_stage8_sanctuary_a';
+          const key = isPlateA ? 'stage8SancA' : 'stage8SancB';
+          const otherKey = isPlateA ? 'stage8SancB' : 'stage8SancA';
+          const currentData = this.puzzleState.customData || {};
+
+          if (!currentData.stage8SanctuaryUnlocked && isOccupied !== !!currentData[key]) {
+            const otherPressed = !!currentData[otherKey];
+            const shouldUnlock = isOccupied && (otherPressed || isSolo);
+            const nextData = {
+              ...currentData,
+              [key]: isOccupied,
+              ...(shouldUnlock ? { stage8SanctuaryUnlocked: true } : {}),
+            };
+            this.puzzleState.customData = nextData;
+            networkClient.triggerPuzzle('customData', nextData);
+
+            if (isOccupied) {
+              soundManager.playPressurePlate(true);
+              if (shouldUnlock) {
+                soundManager.playGateMove();
+                soundManager.playPuzzleSuccessChime();
+                this.callbacks.onCheckpointMessage('✨ دروازه محراب ابدیت برای همیشه گشوده شد! به سوی جایگاه نهایی قدم بردارید.');
+              } else {
+                this.callbacks.onCheckpointMessage(`🟢 ${isPlateA ? 'نیوشا' : 'حسن'} روی صفحه پیوند محراب ایستاد. منتظر هم‌تیمی...`);
+              }
+            }
+          }
+        }
+
+        // Stage 8 Section 5 Exit / Finale Zone Pads
+        if (obj.id === 'portal_p1_stage8' || obj.id === 'portal_p2_stage8') {
+          const isP1 = obj.id === 'portal_p1_stage8';
+          const readyKey = isP1 ? 'stage8ExitP1Ready' : 'stage8ExitP2Ready';
+          const otherReadyKey = isP1 ? 'stage8ExitP2Ready' : 'stage8ExitP1Ready';
+          const currentData = this.puzzleState.customData || {};
+          const currentReady = !!currentData[readyKey];
+
+          if (isOccupied !== currentReady) {
+            const otherReady = !!currentData[otherReadyKey];
+            const nextData = {
+              ...currentData,
+              [readyKey]: isOccupied,
+            };
+            this.puzzleState.customData = nextData;
+            networkClient.triggerPuzzle('customData', nextData);
+
+            if (isOccupied) {
+              soundManager.playPressurePlate(true);
+              if (otherReady || isSolo) {
+                soundManager.playStageClear();
+                this.callbacks.onStageClear(this.currentStageId);
+                this.callbacks.onCheckpointMessage('❤️ تبریک بی‌کران! داستان حسن و نیوشا به سرانجام رسید — محراب ابدیت فتح شد!');
+              } else {
+                this.callbacks.onCheckpointMessage(`💖 ${isP1 ? 'نیوشا' : 'حسن'} در جایگاه پایانی محراب قرار گرفت. منتظر هم‌تیمی...`);
+              }
+            }
+          }
+        }
       }
     }
 
     // 3. Prompting & E-key Interaction Handling
     let nearestPrompt: string | null = null;
     let minPromptDist = 999;
+    let closestInteractiveObj: InteractiveObject | null = null;
     const wantsInteract = this.keys['KeyE'] || this.touchInteract;
 
     for (const obj of this.currentStage.interactiveObjects) {
@@ -1618,22 +1915,36 @@ export class GameEngine {
         if (dist < minPromptDist) {
           minPromptDist = dist;
           nearestPrompt = obj.prompt;
+          closestInteractiveObj = obj;
         }
+      }
+    }
 
-        // Discrete E-key interactions with debounced cooldown
-        if (wantsInteract && this.interactCooldown <= 0) {
-          // Ancient Story Lore Tablets
-          if (obj.id.startsWith('story_tablet_') || obj.id.startsWith('tablet_')) {
-            soundManager.playCheckpoint();
-            const loreTexts: Record<string, string> = {
-              story_tablet_stage1: '📜 کتیبه اولین همکاری: «یکی روی دکمه فشاری بایستد تا دروازه باز شود، نفر دوم از دروازه عبور کند و اهرم پشت دروازه را بکشد تا مسیر برای همیشه باز بماند.»',
-              story_tablet_stage2: '📜 کتیبه دره و پل متحرک: «همکاری رفت و برگشتی! ابتدا با اهرم اول، سکوی معلق را برای عبور به کار بیندازید. سپس یکی وارد مسیر A و دیگری مسیر B شود؛ بازیکن مسیر A بالابر را برای بازیکن B می‌فرستد و بازیکن B از بالای برج، پل مسیر A را می‌گشاید.»',
-              story_tablet_stage3: '📜 کتیبه اتاق‌های آینه‌ای: «هر بازیکن فقط ترتیب نمادهای اتاق دیگر را در آینه خود می‌بیند. تنها با گفت‌وگو، راهنمایی کلامی و فعال‌سازی نوبتی نمادهای خورشید، ماه، ستاره و موج می‌توانید دروازه خروج را بگشایید.»',
-              story_tablet_stage4: '📜 کتیبه تالار هماهنگی: «اهرم‌ها و چرخ‌دنده‌ها تنها با همیاری دو قهرمان به حرکت درمی‌آیند. در بخش اول، دکمه‌ها را هم‌زمان بفشارید. در بخش دوم، راه‌ها را متقابلاً بگشایید و در آزمون نهایی، سکوها را برای یکدیگر به حرکت درآورید.»',
-              story_tablet_stage5: '📜 کتیبه پل‌های گم‌شده: «از فراز برج دیده‌بانی، فانوس‌های باستانی مسیر امن را بر سکوهای دره روشن می‌سازند. با راهنمایی از بالای برج، از پل‌های ناپایدار گذشته و اهرم‌های دوطرفه را برای پیوستن دوباره بگشایید.»',
-              tablet_watchtower: '🔎 راهنمای برج دیده‌بانی: فانوس‌های آبی و نمادهای درخشان فقط از این بالا دیده می‌شوند! پل اول: سمت راست | پل دوم: سمت چپ (متحرک) | پل سوم: وسط (زمان‌دار)',
-              story_tablet_stage6: '📜 کتیبه دژ ابدیت: هسته بلورین اِیتِر نیازمند تعادل عناصر است.',
-            };
+    // Discrete E-key interaction on the SINGLE CLOSEST object
+    if (wantsInteract && this.interactCooldown <= 0 && closestInteractiveObj) {
+      const obj = closestInteractiveObj;
+      // Ancient Story Lore Tablets
+      if (obj.id.startsWith('story_tablet_') || obj.id.startsWith('tablet_')) {
+        soundManager.playCheckpoint();
+        const loreTexts: Record<string, string> = {
+          story_tablet_stage1: '📜 کتیبه اولین همکاری: «یکی روی دکمه فشاری بایستد تا دروازه باز شود، نفر دوم از دروازه عبور کند و اهرم پشت دروازه را بکشد تا مسیر برای همیشه باز بماند.»',
+          story_tablet_stage2: '📜 کتیبه دره و پل متحرک: «همکاری رفت و برگشتی! ابتدا با اهرم اول، سکوی معلق را برای عبور به کار بیندازید. سپس یکی وارد مسیر A و دیگری مسیر B شود؛ بازیکن مسیر A بالابر را برای بازیکن B می‌فرستد و بازیکن B از بالای برج، پل مسیر A را می‌گشاید.»',
+          story_tablet_stage3: '📜 کتیبه اتاق‌های آینه‌ای: «هر بازیکن فقط ترتیب نمادهای اتاق دیگر را در آینه خود می‌بیند. تنها با گفت‌وگو، راهنمایی کلامی و فعال‌سازی نوبتی نمادهای خورشید، ماه، ستاره و موج می‌توانید دروازه خروج را بگشایید.»',
+          story_tablet_stage4: '📜 کتیبه تالار هماهنگی: «اهرم‌ها و چرخ‌دنده‌ها تنها با همیاری دو قهرمان به حرکت درمی‌آیند. در بخش اول، دکمه‌ها را هم‌زمان بفشارید. در بخش دوم، راه‌ها را متقابلاً بگشایید و در آزمون نهایی، سکوها را برای یکدیگر به حرکت درآورید.»',
+          story_tablet_stage5: '📜 کتیبه پل‌های گم‌شده: «از فراز برج دیده‌بانی، فانوس‌های باستانی مسیر امن را بر سکوهای دره روشن می‌سازند. با راهنمایی از بالای برج، از پل‌های ناپایدار گذشته و اهرم‌های دوطرفه را برای پیوستن دوباره بگشایید.»',
+          tablet_watchtower: '🔎 راهنمای برج دیده‌بانی: فانوس‌های آبی و نمادهای درخشان فقط از این بالا دیده می‌شوند! پل اول: سمت راست | پل دوم: سمت چپ (متحرک) | پل سوم: وسط (زمان‌دار)',
+          story_tablet_stage6: '📜 کتیبه معبد دو مسیر: «راه شما دو شاخه می‌شود. ترتیب نمادهای هر مسیر بر دیوار مسیر مقابل حک شده است. با گفت‌وگو رمز هم‌تیمی را بگوئید تا اهرم‌های متقابل فعال شوند و راه خروج باز شود.»',
+          story_tablet_stage7: '📜 کتیبه معمای چهار اتاق: «در این معبد چوبی، کلیدهای هر اتاق بر دیوارهای اتاق مقابل حک شده است. با گفت‌وگو راز هم‌تیمی را بازگو کرده و مسیرهای یکدیگر را هموار سازید.»',
+          tablet_stage7_clue1: '📜 کتیبه دیوار اتاق ۱: «راهنمای پازل اتاق ۲ (هم‌تیمی شما): ۱. ماه 🌙 ← ۲. قلب ❤️ ← ۳. ستاره ⭐»',
+          tablet_stage7_clue2: '📜 کتیبه دیوار اتاق ۲: «راهنمای پازل اتاق ۱ (هم‌تیمی شما): ۱. قلب ❤️ ← ۲. خورشید ☀️ ← ۳. ماه 🌙»',
+          tablet_stage7_clue3: '📜 کتیبه دیوار اتاق ۳: «ترتیب اهرم‌های عناصر: ۱. قطره آب 💧 ← ۲. برگ 🍃 ← ۳. شعله آتش 🔥»',
+          tablet_stage7_final_hint: '📜 راهنمای تالار نهایی: «ترتیب دکمه‌های نهایی: ۱. خورشید ☀️ ← ۲. ماه 🌙 ← ۳. ستاره ⭐ ← ۴. قلب ❤️»',
+          story_tablet_stage8_start: '📜 کتیبه آغازین فینال: «این آخرین آزمون ماست. ما همه‌ی مسیر رو کنار هم نیومدیم، اما در این معبد باستانی، تنها با کمک یکدیگر می‌توانیم به محراب ابدیت برسیم.»',
+          tablet_stage8_clue_for_b: '📜 کتیبه دیوار مسیر A: «راهنمای پازل مسیر B (هم‌تیمی شما): ۱. خورشید ☀️ ← ۲. گل سرخ 🌸 ← ۳. شعله آتش 🔥»',
+          tablet_stage8_clue_for_a: '📜 کتیبه دیوار مسیر B: «راهنمای پازل مسیر A (هم‌تیمی شما): ۱. ستاره ⭐ ← ۲. ماه 🌙 ← ۳. قلب ❤️»',
+          tablet_stage8_chamber_a_hint: '📜 کتیبه باستانی اتاق A: «ترتیب نهایی رمزگشایی: ۳ ← ۱ ← ۴ ← ۲ (نماد مربوط به کد ۳، سپس ۱، سپس ۴ و در نهایت ۲)»',
+          tablet_stage8_chamber_b_hint: '📜 کتیبه رمزگشای اتاق B: «۱ = قلب ❤️ | ۲ = ستاره ⭐ | ۳ = ماه 🌙 | ۴ = خورشید ☀️»',
+        };
             this.callbacks.onCheckpointMessage(loreTexts[obj.id] || `📜 کتیبه راز باستانی مرحله ${this.currentStageId}`);
             this.interactCooldown = 0.5;
           }
@@ -1902,7 +2213,7 @@ export class GameEngine {
             this.interactCooldown = 0.5;
           }
 
-          // Stage 5 Reverse Lever 1 (Watchtower Drawbridge)
+          // Stage 5 Reverse Lever 1 (Watchtower Drawbridge & Exit Gate)
           if (obj.id === 'lever_stage5_reverse1') {
             soundManager.playGateMove();
             soundManager.playInteract();
@@ -1912,27 +2223,29 @@ export class GameEngine {
             };
             this.puzzleState.customData = nextData;
             networkClient.triggerPuzzle('customData', nextData);
-            this.callbacks.onCheckpointMessage('🌉 اهرم باز شد! پل معلق برج پایین آمد. اکنون هم‌تیمی شما می‌تواند از برج پایین آمده و به شما بپیوندد.');
+            this.callbacks.onCheckpointMessage('🔓 اهرم کشیده شد! پل معلق و دیواره خروجی برج باستانی باز گردید. اکنون بازیکن برج می‌تواند خارج شود.');
             this.interactCooldown = 0.5;
           }
 
-          // Stage 5 Controlled Platform Levers
+          // Stage 5 Controlled Platform Levers (Independent Platform Toggles)
           if (obj.id === 'lever_stage5_ctrl1' || obj.id === 'lever_stage5_ctrl2' || obj.id === 'lever_stage5_ctrl3') {
             soundManager.playInteract();
             soundManager.playGateMove();
             const targetNum = obj.id === 'lever_stage5_ctrl1' ? 1 : obj.id === 'lever_stage5_ctrl2' ? 2 : 3;
+            const key = `stage5P${targetNum}Active`;
             const currentData = this.puzzleState.customData || {};
-            const prevTarget = currentData.stage5ControlTarget || 0;
-
-            const graceKey = prevTarget === 1 ? 'p1Grace' : prevTarget === 2 ? 'p2Grace' : prevTarget === 3 ? 'p3Grace' : '';
+            const nextVal = !currentData[key];
             const nextData = {
               ...currentData,
-              stage5ControlTarget: targetNum,
-              ...(graceKey ? { [graceKey]: 2.0 } : {}),
+              [key]: nextVal,
             };
             this.puzzleState.customData = nextData;
             networkClient.triggerPuzzle('customData', nextData);
-            this.callbacks.onCheckpointMessage(`⚙️ اهرم ${targetNum} فعال شد! سکوی متحرک ${targetNum} به مسیر اضافه گردید.`);
+            this.callbacks.onCheckpointMessage(
+              nextVal
+                ? `⚙️ اهرم ${targetNum} فعال شد! سکوی ${targetNum} بالا آمد.`
+                : `⚙️ اهرم ${targetNum} غیرفعال شد! سکوی ${targetNum} پایین رفت.`
+            );
             this.interactCooldown = 0.5;
           }
 
@@ -1948,6 +2261,746 @@ export class GameEngine {
             networkClient.triggerPuzzle('customData', nextData);
             this.callbacks.onCheckpointMessage('✨ اهرم نهایی کشیده شد! پل اصلی دره بزرگ باز شد. هم‌تیمی شما اکنون می‌تواند عبور کند.');
             this.interactCooldown = 0.5;
+          }
+
+          // Stage 6 Inscription Tablets
+          if (obj.id === 'tablet_hint_pathB') {
+            soundManager.playInteract();
+            this.callbacks.onCheckpointMessage('📜 کتیبه دیوار مسیر چپ: «راهنمای مسیر راست (هم‌تیمی): ۱. برگ 🍃 ← ۲. شعله 🔥 ← ۳. قطره 💧»');
+            this.interactCooldown = 0.5;
+          }
+          if (obj.id === 'tablet_hint_pathA') {
+            soundManager.playInteract();
+            this.callbacks.onCheckpointMessage('📜 کتیبه دیوار مسیر راست: «راهنمای مسیر چپ (هم‌تیمی): ۱. خورشید ☀️ ← ۲. ستاره ⭐ ← ۳. ماه 🌙»');
+            this.interactCooldown = 0.5;
+          }
+
+          // Stage 6 Path A Symbol Buttons (Sun, Moon, Star)
+          if (obj.id.startsWith('btn_stage6_a_')) {
+            soundManager.playInteract();
+            const currentData = this.puzzleState.customData || {};
+            if (currentData.stage6PuzzleASolved) {
+              this.callbacks.onCheckpointMessage('✨ پازل نمادهای مسیر A قبلاً با موفقیت حل شده است.');
+            } else {
+              const symbolMap: Record<string, { id: string; label: string }> = {
+                btn_stage6_a_sun: { id: 'sun', label: 'خورشید ☀️' },
+                btn_stage6_a_moon: { id: 'moon', label: 'ماه 🌙' },
+                btn_stage6_a_star: { id: 'star', label: 'ستاره ⭐' },
+              };
+              const symInfo = symbolMap[obj.id];
+              if (symInfo) {
+                const targetSeqA = ['sun', 'star', 'moon'];
+                const currSeqA: string[] = currentData.stage6SequenceA || [];
+                const nextSeqA = [...currSeqA, symInfo.id];
+
+                const isMatchSoFar = nextSeqA.every((val, idx) => val === targetSeqA[idx]);
+
+                if (isMatchSoFar) {
+                  if (nextSeqA.length === 3) {
+                    soundManager.playPuzzleSuccessChime();
+                    soundManager.playGateMove();
+                    const nextData = {
+                      ...currentData,
+                      stage6SequenceA: nextSeqA,
+                      stage6PuzzleASolved: true,
+                    };
+                    this.puzzleState.customData = nextData;
+                    networkClient.triggerPuzzle('customData', nextData);
+                    this.callbacks.onCheckpointMessage('🎉 ترتیبی عالی! پازل نمادهای مسیر A با موفقیت حل شد. اهرم این مسیر آزاد گردید.');
+                  } else {
+                    const nextData = { ...currentData, stage6SequenceA: nextSeqA };
+                    this.puzzleState.customData = nextData;
+                    networkClient.triggerPuzzle('customData', nextData);
+                    this.callbacks.onCheckpointMessage(`✅ نماد ${symInfo.label} ثبت شد (${nextSeqA.length}/3). بعدی را بزنید...`);
+                  }
+                } else {
+                  soundManager.playPuzzleErrorBuzz();
+                  const nextData = { ...currentData, stage6SequenceA: [] };
+                  this.puzzleState.customData = nextData;
+                  networkClient.triggerPuzzle('customData', nextData);
+                  this.callbacks.onCheckpointMessage('❌ ترتیب نمادهای مسیر A اشتباه بود! راهنمای این مسیر بر روی دیوار مسیر B (هم‌تیمی شما) قرار دارد.');
+                }
+              }
+            }
+            this.interactCooldown = 0.4;
+          }
+
+          // Stage 6 Path B Symbol Buttons (Leaf, Drop, Flame)
+          if (obj.id.startsWith('btn_stage6_b_')) {
+            soundManager.playInteract();
+            const currentData = this.puzzleState.customData || {};
+            if (currentData.stage6PuzzleBSolved) {
+              this.callbacks.onCheckpointMessage('✨ پازل نمادهای مسیر B قبلاً با موفقیت حل شده است.');
+            } else {
+              const symbolMap: Record<string, { id: string; label: string }> = {
+                btn_stage6_b_leaf: { id: 'leaf', label: 'برگ 🍃' },
+                btn_stage6_b_flame: { id: 'flame', label: 'شعله 🔥' },
+                btn_stage6_b_drop: { id: 'drop', label: 'قطره 💧' },
+              };
+              const symInfo = symbolMap[obj.id];
+              if (symInfo) {
+                const targetSeqB = ['leaf', 'flame', 'drop'];
+                const currSeqB: string[] = currentData.stage6SequenceB || [];
+                const nextSeqB = [...currSeqB, symInfo.id];
+
+                const isMatchSoFar = nextSeqB.every((val, idx) => val === targetSeqB[idx]);
+
+                if (isMatchSoFar) {
+                  if (nextSeqB.length === 3) {
+                    soundManager.playPuzzleSuccessChime();
+                    soundManager.playGateMove();
+                    const nextData = {
+                      ...currentData,
+                      stage6SequenceB: nextSeqB,
+                      stage6PuzzleBSolved: true,
+                    };
+                    this.puzzleState.customData = nextData;
+                    networkClient.triggerPuzzle('customData', nextData);
+                    this.callbacks.onCheckpointMessage('🎉 ترتیبی عالی! پازل نمادهای مسیر B با موفقیت حل شد. اهرم این مسیر آزاد گردید.');
+                  } else {
+                    const nextData = { ...currentData, stage6SequenceB: nextSeqB };
+                    this.puzzleState.customData = nextData;
+                    networkClient.triggerPuzzle('customData', nextData);
+                    this.callbacks.onCheckpointMessage(`✅ نماد ${symInfo.label} ثبت شد (${nextSeqB.length}/3). بعدی را بزنید...`);
+                  }
+                } else {
+                  soundManager.playPuzzleErrorBuzz();
+                  const nextData = { ...currentData, stage6SequenceB: [] };
+                  this.puzzleState.customData = nextData;
+                  networkClient.triggerPuzzle('customData', nextData);
+                  this.callbacks.onCheckpointMessage('❌ ترتیب نمادهای مسیر B اشتباه بود! راهنمای این مسیر بر روی دیوار مسیر A (هم‌تیمی شما) قرار دارد.');
+                }
+              }
+            }
+            this.interactCooldown = 0.4;
+          }
+
+          // Stage 6 Cross Levers
+          if (obj.id === 'lever_stage6_a') {
+            soundManager.playInteract();
+            const currentData = this.puzzleState.customData || {};
+            if (!currentData.stage6PuzzleASolved) {
+              soundManager.playPuzzleErrorBuzz();
+              this.callbacks.onCheckpointMessage('⚠️ این اهرم قفل است! ابتدا باید پازل نمادهای مسیر A را حل کنید.');
+            } else if (currentData.stage6LeverA) {
+              this.callbacks.onCheckpointMessage('✨ این اهرم قبلاً فعال شده و فقط درگاه خروج مسیر مقابل (B) را باز کرده است.');
+            } else {
+              soundManager.playGateMove();
+              soundManager.playPuzzleSuccessChime();
+              const nextData = {
+                ...currentData,
+                stage6LeverA: true,
+              };
+              this.puzzleState.customData = nextData;
+              networkClient.triggerPuzzle('customData', nextData);
+              this.callbacks.onCheckpointMessage('⚙️ اهرم مسیر A کشیده شد! فقط دروازه خروج مسیر مقابل (مسیر B هم‌تیمی) باز گردید.');
+            }
+            this.interactCooldown = 0.4;
+          }
+
+          if (obj.id === 'lever_stage6_b') {
+            soundManager.playInteract();
+            const currentData = this.puzzleState.customData || {};
+            if (!currentData.stage6PuzzleBSolved) {
+              soundManager.playPuzzleErrorBuzz();
+              this.callbacks.onCheckpointMessage('⚠️ این اهرم قفل است! ابتدا باید پازل نمادهای مسیر B را حل کنید.');
+            } else if (currentData.stage6LeverB) {
+              this.callbacks.onCheckpointMessage('✨ این اهرم قبلاً فعال شده و فقط درگاه خروج مسیر مقابل (A) را باز کرده است.');
+            } else {
+              soundManager.playGateMove();
+              soundManager.playPuzzleSuccessChime();
+              const nextData = {
+                ...currentData,
+                stage6LeverB: true,
+              };
+              this.puzzleState.customData = nextData;
+              networkClient.triggerPuzzle('customData', nextData);
+              this.callbacks.onCheckpointMessage('⚙️ اهرم مسیر B کشیده شد! فقط دروازه خروج مسیر مقابل (مسیر A هم‌تیمی) باز گردید.');
+            }
+            this.interactCooldown = 0.4;
+          }
+
+          // =========================================================================
+          // Stage 7: معمای چهار اتاق Interactive Triggers
+          // =========================================================================
+
+          // Stage 7 Tablets & Hints
+          if (obj.id === 'story_tablet_stage7') {
+            soundManager.playInteract();
+            this.callbacks.onCheckpointMessage('📜 کتیبه معمای چهار اتاق: «در این معبد چوبی، کلیدهای هر اتاق بر دیوارهای اتاق مقابل (هم‌تیمی) حک شده است. با گفت‌وگو راز هم‌تیمی را بازگو کرده و مسیرهای یکدیگر را هموار سازید.»');
+            this.interactCooldown = 0.5;
+          }
+          if (obj.id === 'tablet_stage7_clue1') {
+            soundManager.playInteract();
+            this.callbacks.onCheckpointMessage('📜 کتیبه دیوار اتاق ۱: «راهنمای پازل اتاق ۲ (هم‌تیمی شما): ۱. ماه 🌙 ← ۲. قلب ❤️ ← ۳. ستاره ⭐»');
+            this.interactCooldown = 0.5;
+          }
+          if (obj.id === 'tablet_stage7_clue2') {
+            soundManager.playInteract();
+            this.callbacks.onCheckpointMessage('📜 کتیبه دیوار اتاق ۲: «راهنمای پازل اتاق ۱ (هم‌تیمی شما): ۱. قلب ❤️ ← ۲. خورشید ☀️ ← ۳. ماه 🌙»');
+            this.interactCooldown = 0.5;
+          }
+          if (obj.id === 'tablet_stage7_clue3') {
+            soundManager.playInteract();
+            this.callbacks.onCheckpointMessage('📜 کتیبه دیوار اتاق ۳: «ترتیب اهرم‌های عناصر: ۱. قطره آب 💧 ← ۲. برگ 🍃 ← ۳. شعله آتش 🔥»');
+            this.interactCooldown = 0.5;
+          }
+          if (obj.id === 'tablet_stage7_final_hint') {
+            soundManager.playInteract();
+            this.callbacks.onCheckpointMessage('📜 راهنمای تالار نهایی: «ترتیب دکمه‌های نهایی: ۱. خورشید ☀️ ← ۲. ماه 🌙 ← ۳. ستاره ⭐ ← ۴. قلب ❤️»');
+            this.interactCooldown = 0.5;
+          }
+
+          // Stage 7 Room 1 Symbol Buttons (Target: Heart ❤️ -> Sun ☀️ -> Moon 🌙)
+          if (obj.id.startsWith('btn_stage7_r1_')) {
+            soundManager.playInteract();
+            const currentData = this.puzzleState.customData || {};
+            if (currentData.stage7Room1Solved) {
+              this.callbacks.onCheckpointMessage('✨ پازل اتاق ۱ قبلاً با موفقیت حل شده است.');
+            } else {
+              const symbolMap: Record<string, { id: string; label: string }> = {
+                btn_stage7_r1_heart: { id: 'heart', label: 'قلب ❤️' },
+                btn_stage7_r1_sun: { id: 'sun', label: 'خورشید ☀️' },
+                btn_stage7_r1_moon: { id: 'moon', label: 'ماه 🌙' },
+              };
+              const symInfo = symbolMap[obj.id];
+              if (symInfo) {
+                const targetSeqR1 = ['heart', 'sun', 'moon'];
+                const currSeqR1: string[] = currentData.stage7SeqR1 || [];
+                const nextSeqR1 = [...currSeqR1, symInfo.id];
+                const isMatchSoFar = nextSeqR1.every((val, idx) => val === targetSeqR1[idx]);
+
+                if (isMatchSoFar) {
+                  if (nextSeqR1.length === 3) {
+                    soundManager.playPuzzleSuccessChime();
+                    soundManager.playGateMove();
+                    const nextData = {
+                      ...currentData,
+                      stage7SeqR1: nextSeqR1,
+                      stage7Room1Solved: true,
+                    };
+                    this.puzzleState.customData = nextData;
+                    networkClient.triggerPuzzle('customData', nextData);
+                    this.callbacks.onCheckpointMessage('🎉 پازل اتاق ۱ با موفقیت حل شد! اهرم این اتاق برای باز کردن مسیر هم‌تیمی آزاد گردید.');
+                  } else {
+                    const nextData = { ...currentData, stage7SeqR1: nextSeqR1 };
+                    this.puzzleState.customData = nextData;
+                    networkClient.triggerPuzzle('customData', nextData);
+                    this.callbacks.onCheckpointMessage(`✅ نماد ${symInfo.label} ثبت شد (${nextSeqR1.length}/3). بعدی را بزنید...`);
+                  }
+                } else {
+                  soundManager.playPuzzleErrorBuzz();
+                  const nextData = { ...currentData, stage7SeqR1: [] };
+                  this.puzzleState.customData = nextData;
+                  networkClient.triggerPuzzle('customData', nextData);
+                  this.callbacks.onCheckpointMessage('❌ ترتیب نمادهای اتاق ۱ اشتباه بود! راهنمای این پازل بر روی دیوار اتاق ۲ (هم‌تیمی شما) قرار دارد.');
+                }
+              }
+            }
+            this.interactCooldown = 0.4;
+          }
+
+          // Stage 7 Room 2 Symbol Buttons (Target: Moon 🌙 -> Heart ❤️ -> Star ⭐)
+          if (obj.id.startsWith('btn_stage7_r2_')) {
+            soundManager.playInteract();
+            const currentData = this.puzzleState.customData || {};
+            if (currentData.stage7Room2Solved) {
+              this.callbacks.onCheckpointMessage('✨ پازل اتاق ۲ قبلاً با موفقیت حل شده است.');
+            } else {
+              const symbolMap: Record<string, { id: string; label: string }> = {
+                btn_stage7_r2_moon: { id: 'moon', label: 'ماه 🌙' },
+                btn_stage7_r2_heart: { id: 'heart', label: 'قلب ❤️' },
+                btn_stage7_r2_star: { id: 'star', label: 'ستاره ⭐' },
+              };
+              const symInfo = symbolMap[obj.id];
+              if (symInfo) {
+                const targetSeqR2 = ['moon', 'heart', 'star'];
+                const currSeqR2: string[] = currentData.stage7SeqR2 || [];
+                const nextSeqR2 = [...currSeqR2, symInfo.id];
+                const isMatchSoFar = nextSeqR2.every((val, idx) => val === targetSeqR2[idx]);
+
+                if (isMatchSoFar) {
+                  if (nextSeqR2.length === 3) {
+                    soundManager.playPuzzleSuccessChime();
+                    soundManager.playGateMove();
+                    const nextData = {
+                      ...currentData,
+                      stage7SeqR2: nextSeqR2,
+                      stage7Room2Solved: true,
+                    };
+                    this.puzzleState.customData = nextData;
+                    networkClient.triggerPuzzle('customData', nextData);
+                    this.callbacks.onCheckpointMessage('🎉 پازل اتاق ۲ با موفقیت حل شد! اهرم این اتاق برای باز کردن مسیر هم‌تیمی آزاد گردید.');
+                  } else {
+                    const nextData = { ...currentData, stage7SeqR2: nextSeqR2 };
+                    this.puzzleState.customData = nextData;
+                    networkClient.triggerPuzzle('customData', nextData);
+                    this.callbacks.onCheckpointMessage(`✅ نماد ${symInfo.label} ثبت شد (${nextSeqR2.length}/3). بعدی را بزنید...`);
+                  }
+                } else {
+                  soundManager.playPuzzleErrorBuzz();
+                  const nextData = { ...currentData, stage7SeqR2: [] };
+                  this.puzzleState.customData = nextData;
+                  networkClient.triggerPuzzle('customData', nextData);
+                  this.callbacks.onCheckpointMessage('❌ ترتیب نمادهای اتاق ۲ اشتباه بود! راهنمای این پازل بر روی دیوار اتاق ۱ (هم‌تیمی شما) قرار دارد.');
+                }
+              }
+            }
+            this.interactCooldown = 0.4;
+          }
+
+          // Stage 7 Reciprocal Levers
+          if (obj.id === 'lever_stage7_room1') {
+            soundManager.playInteract();
+            const currentData = this.puzzleState.customData || {};
+            if (!currentData.stage7Room1Solved) {
+              soundManager.playPuzzleErrorBuzz();
+              this.callbacks.onCheckpointMessage('⚠️ اهرم اتاق ۱ قفل است! ابتدا باید پازل نمادهای این اتاق را حل کنید.');
+            } else if (currentData.stage7Lever1Active) {
+              this.callbacks.onCheckpointMessage('✨ این اهرم قبلاً کشیده شده و درگاه اتاق ۳ را فقط برای اتاق ۲ (هم‌تیمی) باز کرده است.');
+            } else {
+              soundManager.playGateMove();
+              soundManager.playPuzzleSuccessChime();
+              const nextData = {
+                ...currentData,
+                stage7Lever1Active: true,
+                stage7Door3BUnlocked: true,
+              };
+              this.puzzleState.customData = nextData;
+              networkClient.triggerPuzzle('customData', nextData);
+              this.callbacks.onCheckpointMessage('⚙️ اهرم اتاق ۱ کشیده شد! فقط درگاه خروج اتاق ۲ هم‌تیمی (اتاق بغلی) باز گردید.');
+            }
+            this.interactCooldown = 0.4;
+          }
+
+          if (obj.id === 'lever_stage7_room2') {
+            soundManager.playInteract();
+            const currentData = this.puzzleState.customData || {};
+            if (!currentData.stage7Room2Solved) {
+              soundManager.playPuzzleErrorBuzz();
+              this.callbacks.onCheckpointMessage('⚠️ اهرم اتاق ۲ قفل است! ابتدا باید پازل نمادهای این اتاق را حل کنید.');
+            } else if (currentData.stage7Lever2Active) {
+              this.callbacks.onCheckpointMessage('✨ این اهرم قبلاً کشیده شده و درگاه اتاق ۳ را فقط برای اتاق ۱ (هم‌تیمی) باز کرده است.');
+            } else {
+              soundManager.playGateMove();
+              soundManager.playPuzzleSuccessChime();
+              const nextData = {
+                ...currentData,
+                stage7Lever2Active: true,
+                stage7Door3AUnlocked: true,
+              };
+              this.puzzleState.customData = nextData;
+              networkClient.triggerPuzzle('customData', nextData);
+              this.callbacks.onCheckpointMessage('⚙️ اهرم اتاق ۲ کشیده شد! فقط درگاه خروج اتاق ۱ هم‌تیمی (اتاق بغلی) باز گردید.');
+            }
+            this.interactCooldown = 0.4;
+          }
+
+          // Stage 7 Room 3 Element Levers (Target for both: Water 💧 -> Leaf 🍃 -> Fire 🔥)
+          if (obj.id.startsWith('lever_stage7_r3_a_') || obj.id.startsWith('lever_stage7_r3_b_')) {
+            soundManager.playInteract();
+            const isSideA = obj.id.startsWith('lever_stage7_r3_a_');
+            const sideName = isSideA ? '۳ الف' : '۳ ب';
+            const otherSideName = isSideA ? '۳ ب' : '۳ الف';
+            const solvedKey = isSideA ? 'stage7Room3ASolved' : 'stage7Room3BSolved';
+            const otherSolvedKey = isSideA ? 'stage7Room3BSolved' : 'stage7Room3ASolved';
+            const seqKey = isSideA ? 'stage7SeqR3A' : 'stage7SeqR3B';
+            const currentData = this.puzzleState.customData || {};
+
+            if (currentData[solvedKey]) {
+              this.callbacks.onCheckpointMessage(`✨ اهرم‌های اتاق ${sideName} قبلاً با موفقیت حل شده است.`);
+            } else {
+              const leverType = obj.id.split('_').pop() || '';
+              const leverMap: Record<string, { id: string; label: string }> = {
+                water: { id: 'water', label: 'قطره آب 💧' },
+                leaf: { id: 'leaf', label: 'برگ 🍃' },
+                fire: { id: 'fire', label: 'شعله 🔥' },
+              };
+              const levInfo = leverMap[leverType];
+              if (levInfo) {
+                const targetSeqR3 = ['water', 'leaf', 'fire'];
+                const currSeqR3: string[] = currentData[seqKey] || [];
+                const nextSeqR3 = [...currSeqR3, levInfo.id];
+                const isMatchSoFar = nextSeqR3.every((val, idx) => val === targetSeqR3[idx]);
+
+                if (isMatchSoFar) {
+                  if (nextSeqR3.length === 3) {
+                    soundManager.playPuzzleSuccessChime();
+                    const otherSolved = !!currentData[otherSolvedKey] || this.soloDuoMode;
+                    const nextData = {
+                      ...currentData,
+                      [seqKey]: nextSeqR3,
+                      [solvedKey]: true,
+                      stage7Room3Solved: otherSolved,
+                      stage7DoorFinalUnlocked: otherSolved,
+                    };
+                    this.puzzleState.customData = nextData;
+                    networkClient.triggerPuzzle('customData', nextData);
+
+                    if (otherSolved) {
+                      soundManager.playGateMove();
+                      this.callbacks.onCheckpointMessage('🎉 هر دو اتاق ۳ حل شدند! دیوار میان دو بازیکن برداشته شد و درگاه تالار نهایی باز گردید.');
+                    } else {
+                      this.callbacks.onCheckpointMessage(`✨ اهرم‌های اتاق ${sideName} حل شد! منتظر حل اهرم‌های هم‌تیمی در اتاق ${otherSideName} باشید...`);
+                    }
+                  } else {
+                    const nextData = { ...currentData, [seqKey]: nextSeqR3 };
+                    this.puzzleState.customData = nextData;
+                    networkClient.triggerPuzzle('customData', nextData);
+                    this.callbacks.onCheckpointMessage(`✅ اهرم ${levInfo.label} در اتاق ${sideName} ثبت شد (${nextSeqR3.length}/3)...`);
+                  }
+                } else {
+                  soundManager.playPuzzleErrorBuzz();
+                  const nextData = { ...currentData, [seqKey]: [] };
+                  this.puzzleState.customData = nextData;
+                  networkClient.triggerPuzzle('customData', nextData);
+                  this.callbacks.onCheckpointMessage(`❌ ترتیب اهرم‌های اتاق ${sideName} اشتباه بود! راهنمای این پازل روی دیوار اتاق ${otherSideName} است.`);
+                }
+              }
+            }
+            this.interactCooldown = 0.4;
+          }
+
+          // Stage 7 Final Sanctuary Buttons (Target: Sun ☀️ -> Moon 🌙 -> Star ⭐ -> Heart ❤️)
+          if (obj.id.startsWith('btn_stage7_final_')) {
+            soundManager.playInteract();
+            const currentData = this.puzzleState.customData || {};
+            if (currentData.stage7FinalSolved) {
+              this.callbacks.onCheckpointMessage('✨ پازل نهایی تالار قبلاً حل شده و دروازه خروج باز است.');
+            } else {
+              const symbolMap: Record<string, { id: string; label: string }> = {
+                btn_stage7_final_sun: { id: 'sun', label: 'خورشید ☀️' },
+                btn_stage7_final_moon: { id: 'moon', label: 'ماه 🌙' },
+                btn_stage7_final_star: { id: 'star', label: 'ستاره ⭐' },
+                btn_stage7_final_heart: { id: 'heart', label: 'قلب ❤️' },
+              };
+              const symInfo = symbolMap[obj.id];
+              if (symInfo) {
+                const targetSeqFinal = ['sun', 'moon', 'star', 'heart'];
+                const currSeqFinal: string[] = currentData.stage7SeqFinal || [];
+                const nextSeqFinal = [...currSeqFinal, symInfo.id];
+                const isMatchSoFar = nextSeqFinal.every((val, idx) => val === targetSeqFinal[idx]);
+
+                if (isMatchSoFar) {
+                  if (nextSeqFinal.length === 4) {
+                    soundManager.playPuzzleSuccessChime();
+                    soundManager.playGateMove();
+                    const nextData = {
+                      ...currentData,
+                      stage7SeqFinal: nextSeqFinal,
+                      stage7FinalSolved: true,
+                      stage7ExitDoorUnlocked: true,
+                    };
+                    this.puzzleState.customData = nextData;
+                    networkClient.triggerPuzzle('customData', nextData);
+                    this.callbacks.onCheckpointMessage('🎉 پازل نهایی تالار با موفقیت حل شد! دروازه اصلی خروج معبد چهار اتاق برای همیشه باز گردید.');
+                  } else {
+                    const nextData = { ...currentData, stage7SeqFinal: nextSeqFinal };
+                    this.puzzleState.customData = nextData;
+                    networkClient.triggerPuzzle('customData', nextData);
+                    this.callbacks.onCheckpointMessage(`✅ نماد نهایی ${symInfo.label} ثبت شد (${nextSeqFinal.length}/4)...`);
+                  }
+                } else {
+                  soundManager.playPuzzleErrorBuzz();
+                  const nextData = { ...currentData, stage7SeqFinal: [] };
+                  this.puzzleState.customData = nextData;
+                  networkClient.triggerPuzzle('customData', nextData);
+                  this.callbacks.onCheckpointMessage('❌ ترتیب نمادهای پازل نهایی اشتباه بود! راهنمای درست: ۱. خورشید ☀️ ← ۲. ماه 🌙 ← ۳. ستاره ⭐ ← ۴. قلب ❤️');
+                }
+              }
+            }
+            this.interactCooldown = 0.4;
+          }
+
+          // ==========================================
+          // STAGE 8 INTERACTION LOGIC
+          // ==========================================
+          // Stage 8 Path A Symbol Buttons (Target: Star ⭐ -> Moon 🌙 -> Heart ❤️)
+          if (obj.id.startsWith('btn_stage8_a_')) {
+            soundManager.playInteract();
+            const currentData = this.puzzleState.customData || {};
+            if (currentData.stage8PuzzleASolved) {
+              this.callbacks.onCheckpointMessage('✨ پازل نمادهای مسیر A قبلاً حل شده و اهرم آماده است.');
+            } else {
+              const symbolMap: Record<string, { id: string; label: string }> = {
+                btn_stage8_a_star: { id: 'star', label: 'ستاره ⭐' },
+                btn_stage8_a_moon: { id: 'moon', label: 'ماه 🌙' },
+                btn_stage8_a_heart: { id: 'heart', label: 'قلب ❤️' },
+              };
+              const symInfo = symbolMap[obj.id];
+              if (symInfo) {
+                const targetSeqA = ['star', 'moon', 'heart'];
+                const currSeqA: string[] = currentData.stage8SeqA || [];
+                const nextSeqA = [...currSeqA, symInfo.id];
+                const isMatchSoFar = nextSeqA.every((val, idx) => val === targetSeqA[idx]);
+
+                if (isMatchSoFar) {
+                  if (nextSeqA.length === 3) {
+                    soundManager.playPuzzleSuccessChime();
+                    const nextData = {
+                      ...currentData,
+                      stage8SeqA: nextSeqA,
+                      stage8PuzzleASolved: true,
+                    };
+                    this.puzzleState.customData = nextData;
+                    networkClient.triggerPuzzle('customData', nextData);
+                    this.callbacks.onCheckpointMessage('🎉 پازل مسیر A با موفقیت حل شد! اهرم این مسیر برای باز کردن در هم‌تیمی فعال گردید.');
+                  } else {
+                    const nextData = { ...currentData, stage8SeqA: nextSeqA };
+                    this.puzzleState.customData = nextData;
+                    networkClient.triggerPuzzle('customData', nextData);
+                    this.callbacks.onCheckpointMessage(`✅ نماد ${symInfo.label} ثبت شد (${nextSeqA.length}/3). نماد بعدی را بزنید...`);
+                  }
+                } else {
+                  soundManager.playPuzzleErrorBuzz();
+                  const nextData = { ...currentData, stage8SeqA: [] };
+                  this.puzzleState.customData = nextData;
+                  networkClient.triggerPuzzle('customData', nextData);
+                  this.callbacks.onCheckpointMessage('❌ ترتیب نمادهای مسیر A اشتباه بود! راهنمای این پازل روی دیوار مسیر B (هم‌تیمی) قرار دارد.');
+                }
+              }
+            }
+            this.interactCooldown = 0.4;
+          }
+
+          // Stage 8 Path B Symbol Buttons (Target: Sun ☀️ -> Flower 🌸 -> Flame 🔥)
+          if (obj.id.startsWith('btn_stage8_b_')) {
+            soundManager.playInteract();
+            const currentData = this.puzzleState.customData || {};
+            if (currentData.stage8PuzzleBSolved) {
+              this.callbacks.onCheckpointMessage('✨ پازل نمادهای مسیر B قبلاً حل شده و اهرم آماده است.');
+            } else {
+              const symbolMap: Record<string, { id: string; label: string }> = {
+                btn_stage8_b_sun: { id: 'sun', label: 'خورشید ☀️' },
+                btn_stage8_b_flower: { id: 'flower', label: 'گل 🌸' },
+                btn_stage8_b_flame: { id: 'flame', label: 'شعله 🔥' },
+              };
+              const symInfo = symbolMap[obj.id];
+              if (symInfo) {
+                const targetSeqB = ['sun', 'flower', 'flame'];
+                const currSeqB: string[] = currentData.stage8SeqB || [];
+                const nextSeqB = [...currSeqB, symInfo.id];
+                const isMatchSoFar = nextSeqB.every((val, idx) => val === targetSeqB[idx]);
+
+                if (isMatchSoFar) {
+                  if (nextSeqB.length === 3) {
+                    soundManager.playPuzzleSuccessChime();
+                    const nextData = {
+                      ...currentData,
+                      stage8SeqB: nextSeqB,
+                      stage8PuzzleBSolved: true,
+                    };
+                    this.puzzleState.customData = nextData;
+                    networkClient.triggerPuzzle('customData', nextData);
+                    this.callbacks.onCheckpointMessage('🎉 پازل مسیر B با موفقیت حل شد! اهرم این مسیر برای باز کردن در هم‌تیمی فعال گردید.');
+                  } else {
+                    const nextData = { ...currentData, stage8SeqB: nextSeqB };
+                    this.puzzleState.customData = nextData;
+                    networkClient.triggerPuzzle('customData', nextData);
+                    this.callbacks.onCheckpointMessage(`✅ نماد ${symInfo.label} ثبت شد (${nextSeqB.length}/3). نماد بعدی را بزنید...`);
+                  }
+                } else {
+                  soundManager.playPuzzleErrorBuzz();
+                  const nextData = { ...currentData, stage8SeqB: [] };
+                  this.puzzleState.customData = nextData;
+                  networkClient.triggerPuzzle('customData', nextData);
+                  this.callbacks.onCheckpointMessage('❌ ترتیب نمادهای مسیر B اشتباه بود! راهنمای این پازل روی دیوار مسیر A (هم‌تیمی) قرار دارد.');
+                }
+              }
+            }
+            this.interactCooldown = 0.4;
+          }
+
+          // Stage 8 Reciprocal Levers
+          if (obj.id === 'lever_stage8_a') {
+            soundManager.playInteract();
+            const currentData = this.puzzleState.customData || {};
+            if (!currentData.stage8PuzzleASolved) {
+              soundManager.playPuzzleErrorBuzz();
+              this.callbacks.onCheckpointMessage('⚠️ اهرم مسیر A قفل است! ابتدا باید پازل نمادهای این مسیر را حل کنید.');
+            } else if (currentData.stage8DoorBUnlocked) {
+              this.callbacks.onCheckpointMessage('✨ این اهرم قبلاً کشیده شده و درگاه مسیر B هم‌تیمی باز است.');
+            } else {
+              soundManager.playGateMove();
+              soundManager.playPuzzleSuccessChime();
+              const nextData = {
+                ...currentData,
+                stage8LeverAActive: true,
+                stage8DoorBUnlocked: true,
+              };
+              this.puzzleState.customData = nextData;
+              networkClient.triggerPuzzle('customData', nextData);
+              this.callbacks.onCheckpointMessage('⚙️ اهرم مسیر A کشیده شد! در خروج مسیر B هم‌تیمی شما باز گردید.');
+            }
+            this.interactCooldown = 0.4;
+          }
+
+          if (obj.id === 'lever_stage8_b') {
+            soundManager.playInteract();
+            const currentData = this.puzzleState.customData || {};
+            if (!currentData.stage8PuzzleBSolved) {
+              soundManager.playPuzzleErrorBuzz();
+              this.callbacks.onCheckpointMessage('⚠️ اهرم مسیر B قفل است! ابتدا باید پازل نمادهای این مسیر را حل کنید.');
+            } else if (currentData.stage8DoorAUnlocked) {
+              this.callbacks.onCheckpointMessage('✨ این اهرم قبلاً کشیده شده و درگاه مسیر A هم‌تیمی باز است.');
+            } else {
+              soundManager.playGateMove();
+              soundManager.playPuzzleSuccessChime();
+              const nextData = {
+                ...currentData,
+                stage8LeverBActive: true,
+                stage8DoorAUnlocked: true,
+              };
+              this.puzzleState.customData = nextData;
+              networkClient.triggerPuzzle('customData', nextData);
+              this.callbacks.onCheckpointMessage('⚙️ اهرم مسیر B کشیده شد! در خروج مسیر A هم‌تیمی شما باز گردید.');
+            }
+            this.interactCooldown = 0.4;
+          }
+
+          // Stage 8 Section 3 Chamber A Symbol Buttons (Target: Flame 🔥 -> Flower 🌸 -> Star ⭐ -> Sun ☀️)
+          if (obj.id.startsWith('btn_stage8_c3_a_')) {
+            soundManager.playInteract();
+            const currentData = this.puzzleState.customData || {};
+            if (currentData.stage8PuzzleC3ASolved) {
+              this.callbacks.onCheckpointMessage('✨ پازل نمادهای اتاق ۳ الف قبلاً حل شده و اهرم آماده است.');
+            } else {
+              const symbolMap: Record<string, { id: string; label: string }> = {
+                btn_stage8_c3_a_flame: { id: 'flame', label: 'شعله 🔥' },
+                btn_stage8_c3_a_flower: { id: 'flower', label: 'گل 🌸' },
+                btn_stage8_c3_a_star: { id: 'star', label: 'ستاره ⭐' },
+                btn_stage8_c3_a_sun: { id: 'sun', label: 'خورشید ☀️' },
+              };
+              const symInfo = symbolMap[obj.id];
+              if (symInfo) {
+                const targetSeqC3A = ['flame', 'flower', 'star', 'sun'];
+                const currSeqC3A: string[] = currentData.stage8SeqC3A || [];
+                const nextSeqC3A = [...currSeqC3A, symInfo.id];
+                const isMatchSoFar = nextSeqC3A.every((val, idx) => val === targetSeqC3A[idx]);
+
+                if (isMatchSoFar) {
+                  if (nextSeqC3A.length === 4) {
+                    soundManager.playPuzzleSuccessChime();
+                    const nextData = {
+                      ...currentData,
+                      stage8SeqC3A: nextSeqC3A,
+                      stage8PuzzleC3ASolved: true,
+                    };
+                    this.puzzleState.customData = nextData;
+                    networkClient.triggerPuzzle('customData', nextData);
+                    this.callbacks.onCheckpointMessage('🎉 پازل اتاق ۳ الف حل شد! اهرم این اتاق برای باز کردن در هم‌تیمی فعال شد.');
+                  } else {
+                    const nextData = { ...currentData, stage8SeqC3A: nextSeqC3A };
+                    this.puzzleState.customData = nextData;
+                    networkClient.triggerPuzzle('customData', nextData);
+                    this.callbacks.onCheckpointMessage(`✅ نماد ${symInfo.label} ثبت شد (${nextSeqC3A.length}/4)...`);
+                  }
+                } else {
+                  soundManager.playPuzzleErrorBuzz();
+                  const nextData = { ...currentData, stage8SeqC3A: [] };
+                  this.puzzleState.customData = nextData;
+                  networkClient.triggerPuzzle('customData', nextData);
+                  this.callbacks.onCheckpointMessage('❌ ترتیب نمادهای اتاق ۳ الف اشتباه بود! راهنمای این پازل روی کتیبه اتاق ۳ ب (هم‌تیمی شما) است.');
+                }
+              }
+            }
+            this.interactCooldown = 0.4;
+          }
+
+          // Stage 8 Section 3 Chamber B Symbol Buttons (Target: Moon 🌙 -> Heart ❤️ -> Sun ☀️ -> Star ⭐)
+          if (obj.id.startsWith('btn_stage8_c3_b_')) {
+            soundManager.playInteract();
+            const currentData = this.puzzleState.customData || {};
+            if (currentData.stage8PuzzleC3BSolved) {
+              this.callbacks.onCheckpointMessage('✨ پازل نمادهای اتاق ۳ ب قبلاً حل شده و اهرم آماده است.');
+            } else {
+              const symbolMap: Record<string, { id: string; label: string }> = {
+                btn_stage8_c3_b_moon: { id: 'moon', label: 'ماه 🌙' },
+                btn_stage8_c3_b_heart: { id: 'heart', label: 'قلب ❤️' },
+                btn_stage8_c3_b_sun: { id: 'sun', label: 'خورشید ☀️' },
+                btn_stage8_c3_b_star: { id: 'star', label: 'ستاره ⭐' },
+              };
+              const symInfo = symbolMap[obj.id];
+              if (symInfo) {
+                const targetSeqC3B = ['moon', 'heart', 'sun', 'star'];
+                const currSeqC3B: string[] = currentData.stage8SeqC3B || [];
+                const nextSeqC3B = [...currSeqC3B, symInfo.id];
+                const isMatchSoFar = nextSeqC3B.every((val, idx) => val === targetSeqC3B[idx]);
+
+                if (isMatchSoFar) {
+                  if (nextSeqC3B.length === 4) {
+                    soundManager.playPuzzleSuccessChime();
+                    const nextData = {
+                      ...currentData,
+                      stage8SeqC3B: nextSeqC3B,
+                      stage8PuzzleC3BSolved: true,
+                    };
+                    this.puzzleState.customData = nextData;
+                    networkClient.triggerPuzzle('customData', nextData);
+                    this.callbacks.onCheckpointMessage('🎉 پازل اتاق ۳ ب حل شد! اهرم این اتاق برای باز کردن در هم‌تیمی فعال شد.');
+                  } else {
+                    const nextData = { ...currentData, stage8SeqC3B: nextSeqC3B };
+                    this.puzzleState.customData = nextData;
+                    networkClient.triggerPuzzle('customData', nextData);
+                    this.callbacks.onCheckpointMessage(`✅ نماد ${symInfo.label} ثبت شد (${nextSeqC3B.length}/4)...`);
+                  }
+                } else {
+                  soundManager.playPuzzleErrorBuzz();
+                  const nextData = { ...currentData, stage8SeqC3B: [] };
+                  this.puzzleState.customData = nextData;
+                  networkClient.triggerPuzzle('customData', nextData);
+                  this.callbacks.onCheckpointMessage('❌ ترتیب نمادهای اتاق ۳ ب اشتباه بود! راهنمای این پازل روی کتیبه اتاق ۳ الف (هم‌تیمی شما) است.');
+                }
+              }
+            }
+            this.interactCooldown = 0.4;
+          }
+
+          // Stage 8 Section 3 Reciprocal Levers
+          if (obj.id === 'lever_stage8_c3_a') {
+            soundManager.playInteract();
+            const currentData = this.puzzleState.customData || {};
+            if (!currentData.stage8PuzzleC3ASolved) {
+              soundManager.playPuzzleErrorBuzz();
+              this.callbacks.onCheckpointMessage('⚠️ اهرم اتاق ۳ الف قفل است! ابتدا باید پازل نمادهای این اتاق را حل کنید.');
+            } else if (currentData.stage8Door3BUnlocked) {
+              this.callbacks.onCheckpointMessage('✨ این اهرم قبلاً کشیده شده و درگاه خروج اتاق ۳ ب هم‌تیمی باز است.');
+            } else {
+              soundManager.playGateMove();
+              soundManager.playPuzzleSuccessChime();
+              const nextData = {
+                ...currentData,
+                stage8LeverC3AActive: true,
+                stage8Door3BUnlocked: true,
+              };
+              this.puzzleState.customData = nextData;
+              networkClient.triggerPuzzle('customData', nextData);
+              this.callbacks.onCheckpointMessage('⚙️ اهرم اتاق ۳ الف کشیده شد! فقط درگاه خروج اتاق ۳ ب هم‌تیمی شما باز گردید.');
+            }
+            this.interactCooldown = 0.4;
+          }
+
+          if (obj.id === 'lever_stage8_c3_b') {
+            soundManager.playInteract();
+            const currentData = this.puzzleState.customData || {};
+            if (!currentData.stage8PuzzleC3BSolved) {
+              soundManager.playPuzzleErrorBuzz();
+              this.callbacks.onCheckpointMessage('⚠️ اهرم اتاق ۳ ب قفل است! ابتدا باید پازل نمادهای این اتاق را حل کنید.');
+            } else if (currentData.stage8Door3AUnlocked) {
+              this.callbacks.onCheckpointMessage('✨ این اهرم قبلاً کشیده شده و درگاه خروج اتاق ۳ الف هم‌تیمی باز است.');
+            } else {
+              soundManager.playGateMove();
+              soundManager.playPuzzleSuccessChime();
+              const nextData = {
+                ...currentData,
+                stage8LeverC3BActive: true,
+                stage8Door3AUnlocked: true,
+              };
+              this.puzzleState.customData = nextData;
+              networkClient.triggerPuzzle('customData', nextData);
+              this.callbacks.onCheckpointMessage('⚙️ اهرم اتاق ۳ ب کشیده شد! فقط درگاه خروج اتاق ۳ الف هم‌تیمی شما باز گردید.');
+            }
+            this.interactCooldown = 0.4;
           }
 
           // Stage 3 Jamming Crate Toggle (Fallback for legacy)
@@ -2066,9 +3119,10 @@ export class GameEngine {
           }
         }
 
-        // Stage Exit Pads Real-time Occupancy
-        if (obj.type === 'portal_pad') {
-          const isP1Pad = obj.id.includes('p1');
+    // Stage Exit Pads Real-time Occupancy
+    for (const obj of this.currentStage.interactiveObjects) {
+      if (obj.type === 'portal_pad') {
+        const isP1Pad = obj.id.includes('p1');
           const isP2Pad = obj.id.includes('p2');
           const isSolo = !networkClient.getRoomCode();
 
@@ -2154,7 +3208,6 @@ export class GameEngine {
           }
         }
       }
-    }
 
     // Checkpoint Activation
     for (const cp of this.currentStage.checkpoints) {

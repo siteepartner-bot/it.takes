@@ -354,51 +354,17 @@ export function createCharacterMesh(role: PlayerRole): CharacterControllerMesh {
   rightElbowJoint.position.set(0, -armLength * 0.5, 0);
   rightArmGroup.add(rightElbowJoint);
 
-  // Right Gauntlet (Nora's Spark Gauntlet vs Barsam's Aegis Bracer)
-  const gauntletGeo = new THREE.BoxGeometry(armWidth * 1.4, armLength * 0.5, armWidth * 1.4);
+  // Right Gauntlet
+  const gauntletGeo = new THREE.BoxGeometry(armWidth * 1.25, armLength * 0.45, armWidth * 1.25);
   gauntletGeo.translate(0, -armLength * 0.75, 0);
   const gauntletMesh = new THREE.Mesh(gauntletGeo, runeGlowMat);
   gauntletMesh.castShadow = true;
   rightArmGroup.add(gauntletMesh);
 
-  // Ability Effect Group (Lightning Tether vs Aegis Shield)
+  // Ability Effect Group (empty / disabled)
   const abilityGroup = new THREE.Group();
-  abilityGroup.position.set(0, -armLength * 0.75, 0);
-  rightArmGroup.add(abilityGroup);
-
-  if (isExplorer) {
-    // Nora's Spark Beam: Lightning spark rings and electrical conduit
-    const beamGeo = new THREE.CylinderGeometry(0.04, 0.12, 2.5, 8);
-    beamGeo.rotateX(Math.PI / 2);
-    beamGeo.translate(0, 0, 1.25);
-    const beamMat = new THREE.MeshBasicMaterial({
-      color: 0x38bdf8,
-      transparent: true,
-      opacity: 0.85,
-    });
-    const beam = new THREE.Mesh(beamGeo, beamMat);
-    abilityGroup.add(beam);
-
-    const sparkRingGeo = new THREE.TorusGeometry(0.3, 0.04, 8, 16);
-    sparkRingGeo.rotateY(Math.PI / 2);
-    sparkRingGeo.translate(0, 0, 0.8);
-    const sparkRing = new THREE.Mesh(sparkRingGeo, runeGlowMat);
-    abilityGroup.add(sparkRing);
-  } else {
-    // Barsam's Titan Shield: Hexagonal energy barrier
-    const shieldGeo = new THREE.CylinderGeometry(1.2, 1.2, 0.08, 6);
-    shieldGeo.rotateX(Math.PI / 2);
-    shieldGeo.translate(0, 0, 0.75);
-    const shieldMat = new THREE.MeshBasicMaterial({
-      color: 0x34d399,
-      transparent: true,
-      opacity: 0.75,
-      side: THREE.DoubleSide,
-    });
-    const shield = new THREE.Mesh(shieldGeo, shieldMat);
-    abilityGroup.add(shield);
-  }
   abilityGroup.visible = false;
+  rightArmGroup.add(abilityGroup);
 
   // Legs Rigging with Ball-and-Socket Joints
   const legWidth = isExplorer ? 0.16 : 0.23;
@@ -513,7 +479,8 @@ export function createCharacterMesh(role: PlayerRole): CharacterControllerMesh {
   texture.minFilter = THREE.LinearFilter;
   const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true });
   const nametagSprite = new THREE.Sprite(spriteMat);
-  nametagSprite.scale.set(3.4, 0.85, 1);
+  nametagSprite.scale.set(2.4, 0.6, 1);
+  nametagSprite.visible = false;
   uiAnchor.add(nametagSprite);
 
   // Floating Emote Bubble
@@ -572,7 +539,7 @@ export function createCharacterMesh(role: PlayerRole): CharacterControllerMesh {
       rightLegGroup.rotation.x = -swing;
 
       leftArmGroup.rotation.x = -swing * 0.85;
-      rightArmGroup.rotation.x = abilityActive ? -Math.PI / 2.4 : swing * 0.85;
+      rightArmGroup.rotation.x = swing * 0.85;
 
       // Subtle wooden bobbing
       torsoMeshGroup.position.y = 0.24 + Math.abs(Math.sin(animTime * 2)) * 0.05;
@@ -581,7 +548,7 @@ export function createCharacterMesh(role: PlayerRole): CharacterControllerMesh {
       leftLegGroup.rotation.x = -0.55;
       rightLegGroup.rotation.x = -0.45;
       leftArmGroup.rotation.x = -1.2;
-      rightArmGroup.rotation.x = abilityActive ? -Math.PI / 2.3 : -1.2;
+      rightArmGroup.rotation.x = -1.2;
       torsoMeshGroup.position.y = 0.28;
       group.rotation.z = 0;
     } else if (state === 'fall') {
@@ -599,7 +566,7 @@ export function createCharacterMesh(role: PlayerRole): CharacterControllerMesh {
       leftLegGroup.rotation.x = 0;
       rightLegGroup.rotation.x = 0;
       leftArmGroup.rotation.x = breath * 0.04;
-      rightArmGroup.rotation.x = abilityActive ? -Math.PI / 2.3 : -breath * 0.04;
+      rightArmGroup.rotation.x = -breath * 0.04;
       leftArmGroup.rotation.z = 0;
       rightArmGroup.rotation.z = 0;
       group.rotation.z = 0;
@@ -637,10 +604,15 @@ export function createCharacterMesh(role: PlayerRole): CharacterControllerMesh {
   }
 
   function setNametag(name: string, isSelf: boolean) {
-    const roleTitle = isExplorer ? '⚡ نورا (دختر چوبی) • Aether Spark' : '🛡️ برسام (پسر چوبی) • Oak Guardian';
+    if (isSelf) {
+      nametagSprite.visible = false;
+      return;
+    }
+    const roleTitle = isExplorer ? 'نیوشا (دختر چوبی)' : 'حسن (پسر چوبی)';
     const colorHex = isExplorer ? '#38bdf8' : '#34d399';
-    drawNametag(isSelf ? `${name} (شما)` : name, roleTitle, colorHex);
+    drawNametag(name, roleTitle, colorHex);
     texture.needsUpdate = true;
+    nametagSprite.visible = true;
   }
 
   function dispose() {

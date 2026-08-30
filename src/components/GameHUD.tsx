@@ -253,11 +253,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                   : 'bg-emerald-500/20 text-emerald-400'
               }`}
             >
-              {partnerRole === 'explorer' ? (
-                <Zap className="w-3.5 h-3.5" />
-              ) : (
-                <Shield className="w-3.5 h-3.5" />
-              )}
+              <Users className="w-3.5 h-3.5" />
             </div>
             <div className="text-right">
               <div className="text-[10px] sm:text-[11px] font-bold flex items-center gap-1 text-white">
@@ -418,23 +414,17 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               <span>کنترل: {isExplorer ? '⚡ نیوشا (دختر چوبی)' : '🛡️ حسن (پسر چوبی)'} [Tab]</span>
             </button>
           ) : (
-            /* Role Ability Tip */
+            /* Character Badge */
             <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl p-1.5 px-3 shadow-xl flex items-center gap-2">
               <div
                 className={`w-6 h-6 rounded-xl flex items-center justify-center ${
                   isExplorer ? 'bg-cyan-500/20 text-cyan-400' : 'bg-emerald-500/20 text-emerald-400'
                 }`}
               >
-                {isExplorer ? <Zap className="w-3.5 h-3.5" /> : <Shield className="w-3.5 h-3.5" />}
+                <Users className="w-3.5 h-3.5" />
               </div>
               <div className="text-[11px] font-bold text-white flex items-center gap-1.5">
-                <span>{isExplorer ? 'دستکش صاعقه نیوشا' : 'سپر تایتان حسن'}</span>
-                <kbd
-                  className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-cyan-400 font-mono"
-                  dir="ltr"
-                >
-                  [F]
-                </kbd>
+                <span>{isExplorer ? 'نیوشا (دختر چوبی)' : 'حسن (پسر چوبی)'}</span>
               </div>
             </div>
           )}

@@ -695,21 +695,32 @@ export function buildHarmonyHallStage(): StageBuildResult {
         targetPlatformAZ = 78.5;
       }
 
-      // Lerp platform positions smoothly
-      const moveSpeed = dt * 5.0;
-      currentPlatformAZ += (targetPlatformAZ - currentPlatformAZ) * Math.min(1, moveSpeed);
-      currentPlatformBZ += (targetPlatformBZ - currentPlatformBZ) * Math.min(1, moveSpeed);
+      // Step-based constant speed movement (identical to Stage 2 proven platform physics)
+      const moveSpeed = dt * 5.5;
+      const diffAZ = targetPlatformAZ - currentPlatformAZ;
+      if (Math.abs(diffAZ) > 0.01) {
+        currentPlatformAZ += Math.sign(diffAZ) * Math.min(Math.abs(diffAZ), moveSpeed);
+      } else {
+        currentPlatformAZ = targetPlatformAZ;
+      }
+
+      const diffBZ = targetPlatformBZ - currentPlatformBZ;
+      if (Math.abs(diffBZ) > 0.01) {
+        currentPlatformBZ += Math.sign(diffBZ) * Math.min(Math.abs(diffBZ), moveSpeed);
+      } else {
+        currentPlatformBZ = targetPlatformBZ;
+      }
 
       platformA.platGroup.position.z = currentPlatformAZ;
       platformB.platGroup.position.z = currentPlatformBZ;
 
-      // Update colliders for moving platforms (Explicit center and size guarantees immediate accurate physics delta)
+      // Update colliders for moving platforms (Exact center and size with top surface aligning at y: 0.0)
       colliders[platformAColliderIndex].setFromCenterAndSize(
-        new THREE.Vector3(platformA.platGroup.position.x, platformA.platGroup.position.y, platformA.platGroup.position.z),
+        new THREE.Vector3(platformA.platGroup.position.x, -0.4, currentPlatformAZ),
         new THREE.Vector3(5.6, 1.2, 5.6)
       );
       colliders[platformBColliderIndex].setFromCenterAndSize(
-        new THREE.Vector3(platformB.platGroup.position.x, platformB.platGroup.position.y, platformB.platGroup.position.z),
+        new THREE.Vector3(platformB.platGroup.position.x, -0.4, currentPlatformBZ),
         new THREE.Vector3(5.6, 1.2, 5.6)
       );
 

@@ -1132,8 +1132,8 @@ export class GameEngine {
         customChanged = true;
       }
 
-      // Check Chasm Pit Fall in Part 3 (z: 56 to 78, y < -3.5)
-      if (this.playerPos.y < -3.5 && this.playerPos.z >= 56 && this.playerPos.z <= 78) {
+      // Check Chasm Pit Fall in Part 3 (z: 54 to 80, y < -4.0)
+      if (this.playerPos.y < -4.0 && this.playerPos.z >= 54 && this.playerPos.z <= 80) {
         soundManager.playPuzzleErrorBuzz();
         this.playerPos.set(0, 1.2, 52); // Checkpoint 3
         this.playerVel.set(0, 0, 0);
@@ -1141,21 +1141,21 @@ export class GameEngine {
         this.callbacks.onCheckpointMessage('⚠️ به گودال چرخ‌دنده‌ها سقوط کردید! بازگشت به چک‌پوینت ۳');
       }
 
-      // Check Automatic State Progression for Platforms in Part 3
+      // Check Automatic State Progression for Platforms in Part 3 (trigger when reaching destination plaza z >= 78.0)
       const mainState: string = customData.stage4MainState || 'WAITING';
       if (mainState === 'A_HELPING_B') {
-        const expAcross = (this.soloPositions.explorer.z >= 76);
-        const grdAcross = (this.soloPositions.guardian.z >= 76);
-        const pAcross = (this.playerPos.z >= 76);
-        if (expAcross || grdAcross || pAcross) {
+        const isSolo = !!this.soloDuoMode;
+        const bPos = isSolo ? this.soloPositions.guardian : (this.localRole === 'guardian' ? this.playerPos : null);
+        const isAcross = bPos && bPos.z >= 78.0;
+        if (isAcross) {
           customData.stage4MainState = 'B_CROSSED';
           customChanged = true;
         }
       } else if (mainState === 'B_HELPING_A') {
-        const expAcross = (this.soloPositions.explorer.z >= 76);
-        const grdAcross = (this.soloPositions.guardian.z >= 76);
-        const pAcross = (this.playerPos.z >= 76);
-        if ((expAcross && grdAcross) || pAcross) {
+        const isSolo = !!this.soloDuoMode;
+        const aPos = isSolo ? this.soloPositions.explorer : (this.localRole === 'explorer' ? this.playerPos : null);
+        const isAcross = aPos && aPos.z >= 78.0;
+        if (isAcross) {
           customData.stage4MainState = 'A_CROSSED';
           customChanged = true;
         }

@@ -566,6 +566,9 @@ export default function App() {
             onChangeControlMode={handleSetControlMode}
             ambientWakeWordEnabled={ambientWakeWordEnabled}
             onToggleAmbientWakeWord={setAmbientWakeWordEnabled}
+            currentStageId={currentStageId}
+            myRole={myRole}
+            playerName={myName}
           />
 
           {/* In-Game Story & Lore Modal */}

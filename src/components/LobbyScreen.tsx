@@ -67,6 +67,28 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   const [showStageSelector, setShowStageSelector] = useState(false);
   const [inFullscreen, setInFullscreen] = useState(false);
   const [networkMode, setNetworkMode] = useState<NetworkMode>(() => networkClient.getNetworkMode());
+  const [savedGame, setSavedGame] = useState<{
+    stageId: number;
+    roomCode?: string;
+    soloMode: boolean;
+    myRole?: PlayerRole;
+    playerName?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (typeof localStorage !== 'undefined') {
+      const savedStageStr = localStorage.getItem('aether_saved_stage_id');
+      if (savedStageStr) {
+        setSavedGame({
+          stageId: parseInt(savedStageStr, 10),
+          roomCode: localStorage.getItem('aether_saved_room_code') || undefined,
+          soloMode: localStorage.getItem('aether_saved_solo_mode') === 'true',
+          myRole: (localStorage.getItem('aether_saved_my_role') as PlayerRole) || undefined,
+          playerName: localStorage.getItem('aether_saved_player_name') || undefined,
+        });
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -547,6 +569,65 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
             {/* Menu Actions */}
             {view === 'home' && (
               <div className="flex flex-col gap-2">
+                {savedGame && (
+                  <div className="mb-2 p-3 rounded-2xl bg-gradient-to-r from-emerald-950/40 to-slate-900 border border-emerald-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md shadow-emerald-950/20">
+                    <div className="text-right">
+                      <div className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
+                        💾 بازی ذخیره شده پیدا شد
+                      </div>
+                      <div className="text-sm font-black text-white">
+                        {CAMPAIGN_STAGES_INFO.find((s) => s.id === savedGame.stageId)?.name || `مرحله ${savedGame.stageId}`}
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        نوع: {savedGame.soloMode ? 'تمرینی تک‌نفره' : `دونفره با کد اتاق ${savedGame.roomCode}`}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                      <button
+                        id="btn_resume_saved_game"
+                        onClick={() => {
+                          if (savedGame.playerName) {
+                            handleNameChange(savedGame.playerName);
+                          }
+                          if (savedGame.myRole) {
+                            setSelectedRole(savedGame.myRole);
+                          }
+                          onSetStageId?.(savedGame.stageId);
+
+                          if (savedGame.soloMode) {
+                            setTimeout(() => {
+                              onStartSoloPractice();
+                            }, 50);
+                          } else if (savedGame.roomCode) {
+                            setJoinCode(savedGame.roomCode);
+                            setView('join');
+                          }
+                        }}
+                        className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all shadow-md shadow-emerald-500/20 active:scale-95"
+                      >
+                        ادامه بازی
+                      </button>
+                      <button
+                        id="btn_delete_saved_game"
+                        onClick={() => {
+                          if (typeof localStorage !== 'undefined') {
+                            localStorage.removeItem('aether_saved_stage_id');
+                            localStorage.removeItem('aether_saved_room_code');
+                            localStorage.removeItem('aether_saved_solo_mode');
+                            localStorage.removeItem('aether_saved_my_role');
+                            localStorage.removeItem('aether_saved_player_name');
+                          }
+                          setSavedGame(null);
+                        }}
+                        className="px-2.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-rose-400 text-xs transition-colors"
+                        title="حذف فایل ذخیره"
+                      >
+                        حذف
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
                     id="btn_create_game_flow"

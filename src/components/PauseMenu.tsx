@@ -21,7 +21,7 @@ import {
   Mic,
   MessageSquare,
 } from 'lucide-react';
-import type { GraphicsSettings, AudioSettings } from '../types.ts';
+import type { GraphicsSettings, AudioSettings, PlayerRole } from '../types.ts';
 import { networkClient } from '../multiplayer/networkClient.ts';
 import { isFullscreen, toggleFullscreen } from '../utils/fullscreen.ts';
 
@@ -44,6 +44,9 @@ interface PauseMenuProps {
   onChangeControlMode?: (mode: 'windows' | 'mobile') => void;
   ambientWakeWordEnabled?: boolean;
   onToggleAmbientWakeWord?: (enabled: boolean) => void;
+  currentStageId?: number;
+  myRole?: PlayerRole;
+  playerName?: string;
 }
 
 export const PauseMenu: React.FC<PauseMenuProps> = ({
@@ -65,6 +68,9 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({
   onChangeControlMode,
   ambientWakeWordEnabled = true,
   onToggleAmbientWakeWord,
+  currentStageId = 1,
+  myRole = 'explorer',
+  playerName = '',
 }) => {
   const [copied, setCopied] = useState(false);
   const [inFullscreen, setInFullscreen] = useState(false);
@@ -386,27 +392,47 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({
         )}
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-2 mt-2">
+        <div className="flex flex-col gap-2 mt-2">
           <button
-            id="btn_respawn_checkpoint"
+            id="btn_save_and_exit_game"
             onClick={() => {
-              onRespawnCheckpoint();
-              onClose();
+              if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('aether_saved_stage_id', (currentStageId || 1).toString());
+                localStorage.setItem('aether_saved_room_code', roomCode || '');
+                localStorage.setItem('aether_saved_solo_mode', soloMode ? 'true' : 'false');
+                localStorage.setItem('aether_saved_my_role', myRole || '');
+                localStorage.setItem('aether_saved_player_name', playerName || '');
+              }
+              onLeaveGame();
             }}
-            className="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+            className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-600/20 active:scale-98"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>بازگشت به چک‌پوینت</span>
+            <span>💾 ذخیره بازی و خروج</span>
           </button>
 
-          <button
-            id="btn_leave_game"
-            onClick={onLeaveGame}
-            className="py-2.5 rounded-xl bg-rose-950 hover:bg-rose-900 border border-rose-500/30 text-rose-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>خروج از بازی</span>
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              id="btn_respawn_checkpoint"
+              onClick={() => {
+                onRespawnCheckpoint();
+                onClose();
+              }}
+              className="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>بازگشت به چک‌پوینت</span>
+            </button>
+
+            <button
+              id="btn_leave_game"
+              onClick={onLeaveGame}
+              className="py-2.5 rounded-xl bg-rose-950 hover:bg-rose-900 border border-rose-500/30 text-rose-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+              title="بدون ذخیره خارج شوید"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>خروج بدون ذخیره</span>
+            </button>
+          </div>
         </div>
 
         {/* Story Booklet Button */}

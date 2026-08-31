@@ -60,27 +60,30 @@ function createSymbolMesh(symbolId: number, color: number): THREE.Group {
   const mat = new THREE.MeshStandardMaterial({
     color,
     emissive: color,
-    emissiveIntensity: 0.85,
+    emissiveIntensity: 0.9,
     roughness: 0.2,
     metalness: 0.6,
   });
 
   if (symbolId === 0) {
-    // Sun: Center disc + 8 radial diamond rays
-    const core = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.12, 16), mat);
+    // Sun: Center disc + 4 cross diamond rays (lightweight & crisp)
+    const core = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.12, 12), mat);
     core.rotation.x = Math.PI / 2;
     group.add(core);
 
-    for (let i = 0; i < 8; i++) {
-      const angle = (i * Math.PI) / 4;
-      const ray = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.35, 4), mat);
-      ray.position.set(Math.cos(angle) * 0.48, Math.sin(angle) * 0.48, 0);
-      ray.rotation.z = angle - Math.PI / 2;
-      group.add(ray);
-    }
+    const rayCross1 = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.18, 0.1), mat);
+    group.add(rayCross1);
+    const rayCross2 = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.2, 0.1), mat);
+    group.add(rayCross2);
+    const rayDiag1 = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.14, 0.1), mat);
+    rayDiag1.rotation.z = Math.PI / 4;
+    group.add(rayDiag1);
+    const rayDiag2 = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.14, 0.1), mat);
+    rayDiag2.rotation.z = -Math.PI / 4;
+    group.add(rayDiag2);
   } else if (symbolId === 1) {
     // Moon: Crescent torus / cylinder arc
-    const moon = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.12, 12, 24, Math.PI * 1.3), mat);
+    const moon = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.12, 8, 16, Math.PI * 1.3), mat);
     moon.rotation.z = Math.PI * 0.35;
     group.add(moon);
   } else if (symbolId === 2) {
@@ -91,7 +94,7 @@ function createSymbolMesh(symbolId: number, color: number): THREE.Group {
   } else {
     // Wave: Triple sine wave crests
     for (let w = -1; w <= 1; w++) {
-      const waveMesh = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.08, 8, 16, Math.PI), mat);
+      const waveMesh = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.08, 6, 12, Math.PI), mat);
       waveMesh.position.set(w * 0.28, (w % 2 === 0 ? 0.08 : -0.08), 0);
       waveMesh.rotation.z = Math.PI;
       group.add(waveMesh);
@@ -206,20 +209,20 @@ export function buildMirrorChambersStage(): StageBuildResult {
   helperAddBox([6, 8, 1.2], [-14, 4, 16], carvedStoneWallMat);
   // Outer right wall (x: 11.0 to 17.0)
   helperAddBox([6, 8, 1.2], [14, 4, 16], carvedStoneWallMat);
-  // Upper lintels above Door A & Door B (y: 5.0 to 8.0)
-  helperAddBox([5.2, 3.2, 1.4], [-8.5, 6.4, 16], carvedStoneWallMat);
-  helperAddBox([5.2, 3.2, 1.4], [8.5, 6.4, 16], carvedStoneWallMat);
+  // Upper lintels above Door A & Door B (y: 5.0 to 8.0) - no physics collider needed up high
+  helperAddBox([5.2, 3.2, 1.4], [-8.5, 6.4, 16], carvedStoneWallMat, false);
+  helperAddBox([5.2, 3.2, 1.4], [8.5, 6.4, 16], carvedStoneWallMat, false);
 
   // Ornate Gold & Stone Gateframes for Entrance Doors
   const frameMat = goldTrimMat;
   // Frame A (Left)
-  helperAddBox([0.6, 5.2, 1.5], [-11.1, 2.6, 16], frameMat);
-  helperAddBox([0.6, 5.2, 1.5], [-5.9, 2.6, 16], frameMat);
-  helperAddBox([5.8, 0.6, 1.5], [-8.5, 5.1, 16], frameMat);
+  helperAddBox([0.6, 5.2, 1.5], [-11.1, 2.6, 16], frameMat, false);
+  helperAddBox([0.6, 5.2, 1.5], [-5.9, 2.6, 16], frameMat, false);
+  helperAddBox([5.8, 0.6, 1.5], [-8.5, 5.1, 16], frameMat, false);
   // Frame B (Right)
-  helperAddBox([0.6, 5.2, 1.5], [5.9, 2.6, 16], frameMat);
-  helperAddBox([0.6, 5.2, 1.5], [11.1, 2.6, 16], frameMat);
-  helperAddBox([5.8, 0.6, 1.5], [8.5, 5.1, 16], frameMat);
+  helperAddBox([0.6, 5.2, 1.5], [5.9, 2.6, 16], frameMat, false);
+  helperAddBox([0.6, 5.2, 1.5], [11.1, 2.6, 16], frameMat, false);
+  helperAddBox([5.8, 0.6, 1.5], [8.5, 5.1, 16], frameMat, false);
 
   // --- Room Outer Side Walls (z: 16 to 48) ---
   // Left outer wall (x: -17)
@@ -232,7 +235,7 @@ export function buildMirrorChambersStage(): StageBuildResult {
   helperAddBox([2.4, 8, 32], [0, 4, 32], carvedStoneWallMat);
 
   // Decorative stone pilasters along the dividing wall
-  for (let z = 20; z <= 44; z += 6) {
+  for (let z = 20; z <= 44; z += 8) {
     const pilasterA = new THREE.Mesh(new THREE.BoxGeometry(0.3, 7.8, 1.2), goldTrimMat);
     pilasterA.position.set(-1.25, 3.9, z);
     rootGroup.add(pilasterA);
@@ -250,18 +253,18 @@ export function buildMirrorChambersStage(): StageBuildResult {
   // Outer right wall (x: 11.0 to 17.0)
   helperAddBox([6, 8, 1.2], [14, 4, 48], carvedStoneWallMat);
   // Upper lintels above Exit Door A & Exit Door B (y: 5.0 to 8.0)
-  helperAddBox([5.2, 3.2, 1.4], [-8.5, 6.4, 48], carvedStoneWallMat);
-  helperAddBox([5.2, 3.2, 1.4], [8.5, 6.4, 48], carvedStoneWallMat);
+  helperAddBox([5.2, 3.2, 1.4], [-8.5, 6.4, 48], carvedStoneWallMat, false);
+  helperAddBox([5.2, 3.2, 1.4], [8.5, 6.4, 48], carvedStoneWallMat, false);
 
   // Ornate Gateframes for Exit Doors
   // Exit Frame A (Left)
-  helperAddBox([0.6, 5.2, 1.5], [-11.1, 2.6, 48], frameMat);
-  helperAddBox([0.6, 5.2, 1.5], [-5.9, 2.6, 48], frameMat);
-  helperAddBox([5.8, 0.6, 1.5], [-8.5, 5.1, 48], frameMat);
+  helperAddBox([0.6, 5.2, 1.5], [-11.1, 2.6, 48], frameMat, false);
+  helperAddBox([0.6, 5.2, 1.5], [-5.9, 2.6, 48], frameMat, false);
+  helperAddBox([5.8, 0.6, 1.5], [-8.5, 5.1, 48], frameMat, false);
   // Exit Frame B (Right)
-  helperAddBox([0.6, 5.2, 1.5], [5.9, 2.6, 48], frameMat);
-  helperAddBox([0.6, 5.2, 1.5], [11.1, 2.6, 48], frameMat);
-  helperAddBox([5.8, 0.6, 1.5], [8.5, 5.1, 48], frameMat);
+  helperAddBox([0.6, 5.2, 1.5], [5.9, 2.6, 48], frameMat, false);
+  helperAddBox([0.6, 5.2, 1.5], [11.1, 2.6, 48], frameMat, false);
+  helperAddBox([5.8, 0.6, 1.5], [8.5, 5.1, 48], frameMat, false);
 
   // --- Grand Exit Sanctuary Walls (z: 48 to 66) ---
   helperAddBox([1.2, 8, 18], [-16.4, 4, 57], carvedStoneWallMat);
@@ -269,7 +272,7 @@ export function buildMirrorChambersStage(): StageBuildResult {
   helperAddBox([34, 8, 1.2], [0, 4, 65.4], carvedStoneWallMat); // Grand Sanctuary Far Wall
 
   // =========================================================================
-  // 2.1 FULL SOLID CEILINGS / ROOFS (100% Enclosure)
+  // 2.1 FULL SOLID CEILINGS / ROOFS (100% Enclosure, lightweight, no colliders)
   // =========================================================================
   const carvedStoneCeilingMat = new THREE.MeshStandardMaterial({
     color: 0x1c1917,
@@ -277,14 +280,11 @@ export function buildMirrorChambersStage(): StageBuildResult {
     metalness: 0.1,
   });
 
-  // Ceiling over Entrance Hall (z: -3 to 16, x: -17 to 17)
-  helperAddBox([34, 1.2, 20], [0, 8.2, 6.5], carvedStoneCeilingMat);
-  // Ceiling over Room A (Left Chamber: x: -17 to -1, z: 16 to 48)
-  helperAddBox([16.5, 1.2, 33], [-8.8, 8.2, 32], carvedStoneCeilingMat);
-  // Ceiling over Room B (Right Chamber: x: 1 to 17, z: 16 to 48)
-  helperAddBox([16.5, 1.2, 33], [8.8, 8.2, 32], carvedStoneCeilingMat);
-  // Ceiling over Grand Sanctuary Exit Hall (z: 48 to 66, x: -17 to 17)
-  helperAddBox([34, 1.2, 19], [0, 8.2, 57], carvedStoneCeilingMat);
+  // Ceilings don't need physics colliders or heavy shadows
+  helperAddBox([34, 1.2, 20], [0, 8.2, 6.5], carvedStoneCeilingMat, false, false);
+  helperAddBox([16.5, 1.2, 33], [-8.8, 8.2, 32], carvedStoneCeilingMat, false, false);
+  helperAddBox([16.5, 1.2, 33], [8.8, 8.2, 32], carvedStoneCeilingMat, false, false);
+  helperAddBox([34, 1.2, 19], [0, 8.2, 57], carvedStoneCeilingMat, false, false);
 
   // Ceiling decorative transverse beams
   for (let z = 20; z <= 44; z += 6) {
@@ -477,8 +477,8 @@ export function buildMirrorChambersStage(): StageBuildResult {
     [11.5, 40],  // Symbol 3: Wave (موج)
   ];
 
-  const pedestalsA: { mesh: THREE.Group; symbolId: number; glowMesh: THREE.Mesh; light: THREE.PointLight }[] = [];
-  const pedestalsB: { mesh: THREE.Group; symbolId: number; glowMesh: THREE.Mesh; light: THREE.PointLight }[] = [];
+  const pedestalsA: { mesh: THREE.Group; symbolId: number; glowMesh: THREE.Mesh }[] = [];
+  const pedestalsB: { mesh: THREE.Group; symbolId: number; glowMesh: THREE.Mesh }[] = [];
 
   // Build Room A Pedestals
   SACRED_SYMBOLS.forEach((sym) => {
@@ -515,11 +515,6 @@ export function buildMirrorChambersStage(): StageBuildResult {
     symbolMesh.position.set(0, 1.8, 0);
     group.add(symbolMesh);
 
-    // Dynamic point light
-    const pLight = new THREE.PointLight(sym.color, 0.8, 6.0);
-    pLight.position.set(0, 2.0, 0);
-    group.add(pLight);
-
     rootGroup.add(group);
 
     // Collider for pedestal pillar
@@ -541,7 +536,7 @@ export function buildMirrorChambersStage(): StageBuildResult {
       prompt: `فعال‌سازی نماد ${sym.icon} ${sym.persianName} [اتاق A]`,
     });
 
-    pedestalsA.push({ mesh: group, symbolId: sym.id, glowMesh, light: pLight });
+    pedestalsA.push({ mesh: group, symbolId: sym.id, glowMesh });
   });
 
   // Build Room B Pedestals
@@ -579,11 +574,6 @@ export function buildMirrorChambersStage(): StageBuildResult {
     symbolMesh.position.set(0, 1.8, 0);
     group.add(symbolMesh);
 
-    // Dynamic point light
-    const pLight = new THREE.PointLight(sym.color, 0.8, 6.0);
-    pLight.position.set(0, 2.0, 0);
-    group.add(pLight);
-
     rootGroup.add(group);
 
     // Collider for pedestal pillar
@@ -605,7 +595,7 @@ export function buildMirrorChambersStage(): StageBuildResult {
       prompt: `فعال‌سازی نماد ${sym.icon} ${sym.persianName} [اتاق B]`,
     });
 
-    pedestalsB.push({ mesh: group, symbolId: sym.id, glowMesh, light: pLight });
+    pedestalsB.push({ mesh: group, symbolId: sym.id, glowMesh });
   });
 
   // =========================================================================
@@ -890,13 +880,10 @@ export function buildMirrorChambersStage(): StageBuildResult {
       const mat = p.glowMesh.material as THREE.MeshStandardMaterial;
       if (solvedA) {
         mat.emissiveIntensity = 0.9 + Math.sin(animTime * 4) * 0.2;
-        p.light.intensity = 1.6;
       } else if (isSelected) {
         mat.emissiveIntensity = 0.75;
-        p.light.intensity = 1.2;
       } else {
         mat.emissiveIntensity = 0.15;
-        p.light.intensity = 0.4;
       }
 
       // Gentle floating animation on symbol emblem
@@ -911,13 +898,10 @@ export function buildMirrorChambersStage(): StageBuildResult {
       const mat = p.glowMesh.material as THREE.MeshStandardMaterial;
       if (solvedB) {
         mat.emissiveIntensity = 0.9 + Math.sin(animTime * 4) * 0.2;
-        p.light.intensity = 1.6;
       } else if (isSelected) {
         mat.emissiveIntensity = 0.75;
-        p.light.intensity = 1.2;
       } else {
         mat.emissiveIntensity = 0.15;
-        p.light.intensity = 0.4;
       }
 
       if (p.mesh.children[3]) {

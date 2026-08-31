@@ -68,12 +68,11 @@ export function buildLostBridgesStage(): StageBuildResult {
   const ambLight = new THREE.AmbientLight(0xffffff, 1.2);
   rootGroup.add(ambLight);
 
-  const dirLight = new THREE.DirectionalLight(0xfffaed, 1.0);
+  const dirLight = new THREE.DirectionalLight(0xfffaed, 0.8);
   dirLight.position.set(10, 30, 20);
-  dirLight.castShadow = true;
   rootGroup.add(dirLight);
 
-  // Helper for adding bright point lights
+  // Helper for adding ambient stage lights
   function addStageLight(pos: [number, number, number], color: number, intensity: number, distance: number): THREE.PointLight {
     const light = new THREE.PointLight(color, intensity, distance);
     light.position.set(...pos);
@@ -81,15 +80,11 @@ export function buildLostBridgesStage(): StageBuildResult {
     return light;
   }
 
-  addStageLight([0, 6, 4], 0xf59e0b, 3.5, 30); // Entrance Light
-  addStageLight([-12, 6, 17], 0xf59e0b, 3.5, 30); // Staircase Light
-  addStageLight([-12, 12, 32], 0x38bdf8, 4.0, 35); // Watchtower Deck Light
-  // Remove cyan/emerald lights under the roof; use warm neutral ambient light under bridges
-  addStageLight([6, 3, 32], 0xf59e0b, 1.5, 20); // Bridge 1 Warm Soft Light
-  addStageLight([3, 3, 42], 0xf59e0b, 1.5, 20); // Bridge 2 Warm Soft Light
-  addStageLight([6, 3, 52], 0xf59e0b, 1.5, 20); // Bridge 3 Warm Soft Light
-  addStageLight([-5, 5, 72], 0xf59e0b, 3.5, 30); // Control Station Light
-  addStageLight([0, 6, 128], 0x38bdf8, 4.0, 35); // Exit Sanctuary Light
+  addStageLight([0, 6, 4], 0xf59e0b, 2.0, 25); // Entrance Light
+  addStageLight([-12, 10, 32], 0x38bdf8, 2.5, 30); // Watchtower Deck Light
+  addStageLight([5, 4, 42], 0xf59e0b, 1.5, 25); // Central Bridges Light
+  addStageLight([-5, 5, 72], 0xf59e0b, 2.0, 25); // Control Station Light
+  addStageLight([0, 6, 128], 0x38bdf8, 2.5, 30); // Exit Sanctuary Light
 
   // --- Materials ---
   const woodenPlankMat = new THREE.MeshStandardMaterial({

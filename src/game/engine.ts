@@ -157,14 +157,20 @@ export class GameEngine {
 
     this.camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 300);
 
+    const isMobile = typeof navigator !== 'undefined' && (
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+      ('ontouchstart' in window && window.innerWidth < 1024)
+    );
+
     this.renderer = new THREE.WebGLRenderer({
-      antialias: true,
+      antialias: !isMobile, // Disable expensive MSAA on mobile for massive FPS boost
       powerPreference: 'high-performance',
+      precision: isMobile ? 'mediump' : 'highp',
     });
     this.renderer.setSize(width, height);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.25 : 1.75));
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = isMobile ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     this.container.appendChild(this.renderer.domElement);
 
     // Lighting
@@ -174,8 +180,8 @@ export class GameEngine {
     this.sunLight = new THREE.DirectionalLight(0xfffbeb, 1.8);
     this.sunLight.position.set(25, 45, 20);
     this.sunLight.castShadow = true;
-    this.sunLight.shadow.mapSize.width = 1024;
-    this.sunLight.shadow.mapSize.height = 1024;
+    this.sunLight.shadow.mapSize.width = isMobile ? 512 : 1024;
+    this.sunLight.shadow.mapSize.height = isMobile ? 512 : 1024;
     this.sunLight.shadow.camera.near = 0.5;
     this.sunLight.shadow.camera.far = 120;
     const d = 35;

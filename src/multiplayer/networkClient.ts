@@ -572,11 +572,15 @@ export class NetworkClient {
     // Puzzle sync: Host updates authoritative state and syncs
     if (msg.type === 'puzzle_trigger' && this.isP2PHost && this.hostRoomData) {
       const ps = this.hostRoomData.puzzleState;
-      if (msg.key in ps) {
+      if (!ps.customData) ps.customData = {};
+      if (msg.key === 'customData') {
+        ps.customData = { ...ps.customData, ...msg.value };
+      } else if (msg.key in ps && msg.key !== 'customData') {
         (ps as any)[msg.key] = msg.value;
       } else {
         ps.customData[msg.key] = msg.value;
       }
+      this.currentPuzzleState = { ...ps };
       this.p2pConn?.send({ type: 'puzzle_synced', puzzleState: ps });
       this.onPuzzleSynced?.(ps);
       return;
@@ -981,11 +985,15 @@ export class NetworkClient {
       } else if (msg.type === 'puzzle_trigger') {
         if (this.isP2PHost && this.hostRoomData) {
           const ps = this.hostRoomData.puzzleState;
-          if (msg.key in ps) {
+          if (!ps.customData) ps.customData = {};
+          if (msg.key === 'customData') {
+            ps.customData = { ...ps.customData, ...msg.value };
+          } else if (msg.key in ps && msg.key !== 'customData') {
             (ps as any)[msg.key] = msg.value;
           } else {
             ps.customData[msg.key] = msg.value;
           }
+          this.currentPuzzleState = { ...ps };
           this.p2pConn.send({ type: 'puzzle_synced', puzzleState: ps });
           this.onPuzzleSynced?.(ps);
         } else {
@@ -1044,6 +1052,25 @@ export class NetworkClient {
   }
 
   public triggerPuzzle(key: string, value: any, action = 'update') {
+    // 1. Optimistic immediate local state update for zero-latency UI/mechanics
+    const updatedState: PuzzleState = {
+      ...this.currentPuzzleState,
+      customData: { ...(this.currentPuzzleState.customData || {}) },
+    };
+    if (key === 'customData') {
+      updatedState.customData = { ...updatedState.customData, ...value };
+    } else if (key in updatedState && key !== 'customData') {
+      (updatedState as any)[key] = value;
+    } else {
+      updatedState.customData[key] = value;
+    }
+    this.currentPuzzleState = updatedState;
+    if (this.hostRoomData) {
+      this.hostRoomData.puzzleState = updatedState;
+    }
+    this.onPuzzleSynced?.(updatedState);
+
+    // 2. Transmit to server / peers
     this.send({
       type: 'puzzle_trigger',
       action,

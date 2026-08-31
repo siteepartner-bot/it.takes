@@ -430,6 +430,7 @@ export class GameEngine {
 
   public updatePuzzleState(state: PuzzleState) {
     this.puzzleState = state;
+    this.checkPortalWarp();
   }
 
   public triggerEmote(role: PlayerRole, emote: EmoteType) {
@@ -3120,94 +3121,104 @@ export class GameEngine {
         }
 
     // Stage Exit Pads Real-time Occupancy
+    let p1PadObj: typeof this.currentStage.interactiveObjects[0] | null = null;
+    let p2PadObj: typeof this.currentStage.interactiveObjects[0] | null = null;
+
     for (const obj of this.currentStage.interactiveObjects) {
       if (obj.type === 'portal_pad') {
-        const isP1Pad = obj.id.includes('p1');
-          const isP2Pad = obj.id.includes('p2');
-          const isSolo = !networkClient.getRoomCode();
+        if (obj.id.includes('p1')) p1PadObj = obj;
+        if (obj.id.includes('p2')) p2PadObj = obj;
+      }
+    }
 
-          const explorerPos = isSolo 
-            ? this.soloPositions['explorer'] 
-            : (this.localRole === 'explorer' 
-                ? this.playerPos 
-                : (this.partnerNetState ? new THREE.Vector3(this.partnerNetState.x, this.partnerNetState.y, this.partnerNetState.z) : null)
-              );
-          const guardianPos = isSolo 
-            ? this.soloPositions['guardian'] 
-            : (this.localRole === 'guardian' 
-                ? this.playerPos 
-                : (this.partnerNetState ? new THREE.Vector3(this.partnerNetState.x, this.partnerNetState.y, this.partnerNetState.z) : null)
-              );
+    if (p1PadObj && p2PadObj) {
+      const isSolo = this.soloDuoMode || !networkClient.getRoomCode();
 
-          // Validation Guard for Stage 3: Both Mirror Chambers must be solved!
-          const isStage3Solved = !!(
-            (this.puzzleState.customData?.stage3ExitUnlocked) ||
-            (this.puzzleState.customData?.stage3SolvedA && this.puzzleState.customData?.stage3SolvedB)
+      const explorerPos = isSolo 
+        ? this.soloPositions['explorer'] 
+        : (this.localRole === 'explorer' 
+            ? this.playerPos 
+            : (this.partnerNetState ? new THREE.Vector3(this.partnerNetState.x, this.partnerNetState.y, this.partnerNetState.z) : null)
           );
-          if (this.currentStageId === 3 && !isStage3Solved) {
-            const isStanding = (isP1Pad && (this.localRole === 'explorer' || isSolo) && explorerPos && (obj.bounds.distanceToPoint(explorerPos) < 2.2 || obj.bounds.containsPoint(explorerPos))) ||
-                               (isP2Pad && (this.localRole === 'guardian' || isSolo) && guardianPos && (obj.bounds.distanceToPoint(guardianPos) < 2.2 || obj.bounds.containsPoint(guardianPos)));
-            if (isStanding && this.interactCooldown <= 0) {
-              this.callbacks.onCheckpointMessage('⚠️ دروازه خروج قفل است! ابتدا باید پازل نمادهای هر دو اتاق A و B با همکاری حل شوند.');
-              this.interactCooldown = 1.5;
-            }
-            continue;
-          }
-
-          // Validation Guard for Stage 4: Dual Solar Resonators / Harmony Puzzle must be solved!
-          const isStage4Solved = !!(
-            (this.puzzleState.customData?.stage4MainState === 'SOLVED') ||
-            (this.puzzleState.solarResonator1 && this.puzzleState.solarResonator2) ||
-            (this.puzzleState.customData?.solarResonator1 && this.puzzleState.customData?.solarResonator2)
+      const guardianPos = isSolo 
+        ? this.soloPositions['guardian'] 
+        : (this.localRole === 'guardian' 
+            ? this.playerPos 
+            : (this.partnerNetState ? new THREE.Vector3(this.partnerNetState.x, this.partnerNetState.y, this.partnerNetState.z) : null)
           );
-          if (this.currentStageId === 4 && !isStage4Solved) {
-            const isStanding = (isP1Pad && (this.localRole === 'explorer' || isSolo) && explorerPos && (obj.bounds.distanceToPoint(explorerPos) < 2.2 || obj.bounds.containsPoint(explorerPos))) ||
-                               (isP2Pad && (this.localRole === 'guardian' || isSolo) && guardianPos && (obj.bounds.distanceToPoint(guardianPos) < 2.2 || obj.bounds.containsPoint(guardianPos)));
-            if (isStanding && this.interactCooldown <= 0) {
-              this.callbacks.onCheckpointMessage('⚠️ دروازه خورشید قفل است! ابتدا باید با کلیدهای دو طرف رزوناتور خورشیدی، هماهنگی را فعال کنید.');
-              this.interactCooldown = 1.5;
-            }
-            continue;
+
+      // Validation Guard for Stage 3: Both Mirror Chambers must be solved!
+      const isStage3Solved = !!(
+        (this.puzzleState.customData?.stage3ExitUnlocked) ||
+        (this.puzzleState.customData?.stage3SolvedA && this.puzzleState.customData?.stage3SolvedB)
+      );
+
+      // Validation Guard for Stage 4: Dual Solar Resonators / Harmony Puzzle must be solved!
+      const isStage4Solved = !!(
+        (this.puzzleState.customData?.stage4MainState === 'SOLVED') ||
+        (this.puzzleState.solarResonator1 && this.puzzleState.solarResonator2) ||
+        (this.puzzleState.customData?.solarResonator1 && this.puzzleState.customData?.solarResonator2)
+      );
+
+      const canExit = (this.currentStageId !== 3 || isStage3Solved) && (this.currentStageId !== 4 || isStage4Solved);
+
+      if (!canExit) {
+        const isNearExit = (explorerPos && (p1PadObj.bounds.distanceToPoint(explorerPos) < 2.5 || p2PadObj.bounds.distanceToPoint(explorerPos) < 2.5)) ||
+                           (guardianPos && (p1PadObj.bounds.distanceToPoint(guardianPos) < 2.5 || p2PadObj.bounds.distanceToPoint(guardianPos) < 2.5));
+        if (isNearExit && this.interactCooldown <= 0) {
+          if (this.currentStageId === 3) {
+            this.callbacks.onCheckpointMessage('⚠️ دروازه خروج قفل است! ابتدا باید پازل نمادهای هر دو اتاق A و B با همکاری حل شوند.');
+          } else if (this.currentStageId === 4) {
+            this.callbacks.onCheckpointMessage('⚠️ دروازه خورشید قفل است! ابتدا باید با کلیدهای دو طرف رزوناتور خورشیدی، هماهنگی را فعال کنید.');
           }
+          this.interactCooldown = 1.5;
+        }
+      } else {
+        const key1 = `stage${this.currentStageId}ExitP1Ready`;
+        const key2 = `stage${this.currentStageId}ExitP2Ready`;
 
-          const key1 = `stage${this.currentStageId}ExitP1Ready`;
-          const key2 = `stage${this.currentStageId}ExitP2Ready`;
+        const isLocalNearP1 = p1PadObj.bounds.distanceToPoint(this.playerPos) < 2.5 || p1PadObj.bounds.containsPoint(this.playerPos);
+        const isLocalNearP2 = p2PadObj.bounds.distanceToPoint(this.playerPos) < 2.5 || p2PadObj.bounds.containsPoint(this.playerPos);
 
-          if (isP1Pad && (this.localRole === 'explorer' || isSolo)) {
-            const isStanding = explorerPos && (obj.bounds.distanceToPoint(explorerPos) < 2.2 || obj.bounds.containsPoint(explorerPos));
-            const isCurrentlyP1Ready = !!(this.puzzleState as any)[key1] || !!(this.puzzleState.customData && this.puzzleState.customData[key1]);
-            
-            if (isStanding !== isCurrentlyP1Ready) {
-              networkClient.triggerPuzzle(key1, isStanding);
-              networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [key1]: isStanding });
-              soundManager.playPressurePlate(isStanding);
-              if (isStanding) {
-                this.callbacks.onCheckpointMessage('🟢 نیوشا روی سکوی خروج ایستاد. منتظر حسن...');
-              } else {
-                this.callbacks.onCheckpointMessage('🔴 نیوشا از روی سکوی خروج خارج شد.');
-              }
-              this.checkPortalWarp();
-            }
+        if (isSolo) {
+          const expOnP1 = explorerPos && (p1PadObj.bounds.distanceToPoint(explorerPos) < 2.5 || p1PadObj.bounds.containsPoint(explorerPos));
+          const expOnP2 = explorerPos && (p2PadObj.bounds.distanceToPoint(explorerPos) < 2.5 || p2PadObj.bounds.containsPoint(explorerPos));
+          const grdOnP1 = guardianPos && (p1PadObj.bounds.distanceToPoint(guardianPos) < 2.5 || p1PadObj.bounds.containsPoint(guardianPos));
+          const grdOnP2 = guardianPos && (p2PadObj.bounds.distanceToPoint(guardianPos) < 2.5 || p2PadObj.bounds.containsPoint(guardianPos));
+
+          const p1Ready = !!(expOnP1 || grdOnP1);
+          const p2Ready = !!(expOnP2 || grdOnP2);
+
+          const isCurrentlyP1Ready = !!(this.puzzleState as any)[key1] || !!(this.puzzleState.customData && this.puzzleState.customData[key1]);
+          const isCurrentlyP2Ready = !!(this.puzzleState as any)[key2] || !!(this.puzzleState.customData && this.puzzleState.customData[key2]);
+
+          if (p1Ready !== isCurrentlyP1Ready || p2Ready !== isCurrentlyP2Ready) {
+            networkClient.triggerPuzzle(key1, p1Ready);
+            networkClient.triggerPuzzle(key2, p2Ready);
+            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [key1]: p1Ready, [key2]: p2Ready });
+            if (p1Ready || p2Ready) soundManager.playPressurePlate(true);
           }
+        } else {
+          // In multiplayer: Local player can occupy either pad
+          const isLocalReady = isLocalNearP1 || isLocalNearP2;
+          const myTargetKey = isLocalNearP1 ? key1 : (isLocalNearP2 ? key2 : (this.localRole === 'explorer' ? key1 : key2));
+          const isCurrentlyMyReady = !!(this.puzzleState as any)[myTargetKey] || !!(this.puzzleState.customData && this.puzzleState.customData[myTargetKey]);
 
-          if (isP2Pad && (this.localRole === 'guardian' || isSolo)) {
-            const isStanding = guardianPos && (obj.bounds.distanceToPoint(guardianPos) < 2.2 || obj.bounds.containsPoint(guardianPos));
-            const isCurrentlyP2Ready = !!(this.puzzleState as any)[key2] || !!(this.puzzleState.customData && this.puzzleState.customData[key2]);
-
-            if (isStanding !== isCurrentlyP2Ready) {
-              networkClient.triggerPuzzle(key2, isStanding);
-              networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [key2]: isStanding });
-              soundManager.playPressurePlate(isStanding);
-              if (isStanding) {
-                this.callbacks.onCheckpointMessage('🟢 حسن روی سکوی خروج ایستاد. منتظر نیوشا...');
-              } else {
-                this.callbacks.onCheckpointMessage('🔴 حسن از روی سکوی خروج خارج شد.');
-              }
-              this.checkPortalWarp();
+          if (isLocalReady !== isCurrentlyMyReady) {
+            networkClient.triggerPuzzle(myTargetKey, isLocalReady);
+            networkClient.triggerPuzzle('customData', { ...this.puzzleState.customData, [myTargetKey]: isLocalReady });
+            soundManager.playPressurePlate(isLocalReady);
+            const myName = this.localRole === 'explorer' ? 'نیوشا' : 'حسن';
+            const partnerName = this.localRole === 'explorer' ? 'حسن' : 'نیوشا';
+            if (isLocalReady) {
+              this.callbacks.onCheckpointMessage(`🟢 ${myName} روی سکوی خروج ایستاد. منتظر ${partnerName}...`);
+            } else {
+              this.callbacks.onCheckpointMessage(`🔴 ${myName} از روی سکوی خروج خارج شد.`);
             }
           }
         }
       }
+    }
 
     // Checkpoint Activation
     for (const cp of this.currentStage.checkpoints) {
@@ -3222,6 +3233,7 @@ export class GameEngine {
       }
     }
 
+    this.checkPortalWarp();
     this.callbacks.onInteractionPrompt(nearestPrompt);
   }
 

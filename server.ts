@@ -592,7 +592,19 @@ wss.on('connection', (ws: WebSocket) => {
       if (msg.type === 'puzzle_trigger') {
         // Authoritative update of puzzle state
         const { key, value } = msg;
-        if (key in room.data.puzzleState) {
+        if (!room.data.puzzleState) {
+          room.data.puzzleState = createDefaultPuzzleState(room.data.stageId || 1);
+        }
+        if (!room.data.puzzleState.customData) {
+          room.data.puzzleState.customData = {};
+        }
+
+        if (key === 'customData') {
+          room.data.puzzleState.customData = {
+            ...room.data.puzzleState.customData,
+            ...value,
+          };
+        } else if (key in room.data.puzzleState && key !== 'customData') {
           (room.data.puzzleState as any)[key] = value;
         } else {
           room.data.puzzleState.customData[key] = value;

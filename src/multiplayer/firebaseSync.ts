@@ -540,11 +540,17 @@ export class FirebaseSync {
   public sendPuzzleTrigger(key: string, value: any, currentPuzzleState: PuzzleState) {
     if (FirebaseSync.isQuotaExhausted || !this.activeRoomCode) return;
 
-    const updatedState = { ...currentPuzzleState };
-    if (key in updatedState) {
+    const updatedState: PuzzleState = {
+      ...currentPuzzleState,
+      customData: { ...(currentPuzzleState.customData || {}) },
+    };
+
+    if (key === 'customData') {
+      updatedState.customData = { ...updatedState.customData, ...value };
+    } else if (key in updatedState && key !== 'customData') {
       (updatedState as any)[key] = value;
     } else {
-      updatedState.customData = { ...updatedState.customData, [key]: value };
+      updatedState.customData[key] = value;
     }
 
     const roomRef = doc(db, 'rooms', this.activeRoomCode);

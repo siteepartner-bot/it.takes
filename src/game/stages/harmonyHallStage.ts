@@ -742,9 +742,15 @@ export function buildHarmonyHallStage(): StageBuildResult {
       platformA.platGroup.position.z = currentPlatformAZ;
       platformB.platGroup.position.z = currentPlatformBZ;
 
-      // Update colliders for moving platforms
-      colliders[platformAColliderIndex].setFromObject(platformA.baseMesh);
-      colliders[platformBColliderIndex].setFromObject(platformB.baseMesh);
+      // Update colliders for moving platforms (Explicit center and size guarantees immediate accurate physics delta)
+      colliders[platformAColliderIndex].setFromCenterAndSize(
+        new THREE.Vector3(platformA.platGroup.position.x, platformA.platGroup.position.y, platformA.platGroup.position.z),
+        new THREE.Vector3(5.6, 1.2, 5.6)
+      );
+      colliders[platformBColliderIndex].setFromCenterAndSize(
+        new THREE.Vector3(platformB.platGroup.position.x, platformB.platGroup.position.y, platformB.platGroup.position.z),
+        new THREE.Vector3(5.6, 1.2, 5.6)
+      );
 
       // --- Exit Door 3 (Central Gate) ---
       // Strictly closed unless main harmony puzzle is SOLVED!

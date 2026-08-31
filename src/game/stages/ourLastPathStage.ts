@@ -20,6 +20,27 @@ export function buildOurLastPathStage(): StageBuildResult {
   const colliders: THREE.Box3[] = [];
   const interactiveObjects: InteractiveObject[] = [];
 
+  // Lighting optimization for Stage 8: Ambient + key stage fill lights
+  const ambLight = new THREE.AmbientLight(0xfffbeb, 1.2);
+  rootGroup.add(ambLight);
+
+  const dirLight = new THREE.DirectionalLight(0xfffaed, 0.8);
+  dirLight.position.set(15, 35, 30);
+  rootGroup.add(dirLight);
+
+  // Key atmospheric stage lights (3 well-placed point lights instead of 25+)
+  const pLight1 = new THREE.PointLight(0xf59e0b, 1.8, 30);
+  pLight1.position.set(0, 5, 12);
+  rootGroup.add(pLight1);
+
+  const pLight2 = new THREE.PointLight(0x38bdf8, 1.8, 35);
+  pLight2.position.set(0, 5, 68);
+  rootGroup.add(pLight2);
+
+  const pLight3 = new THREE.PointLight(0xf43f5e, 2.0, 35);
+  pLight3.position.set(0, 5, 122);
+  rootGroup.add(pLight3);
+
   // --- Materials with Celestial & Warm Temple Aesthetics ---
   const nightWoodMat = new THREE.MeshStandardMaterial({
     color: 0x3b1e08,
@@ -132,8 +153,8 @@ export function buildOurLastPathStage(): StageBuildResult {
     return mesh;
   };
 
-  // Helper function to create decorative warm lantern post
-  const createLantern = (x: number, y: number, z: number, scale = 1.0) => {
+  // Helper function to create decorative warm lantern post (lightweight & beautiful)
+  const createLantern = (x: number, y: number, z: number, scale = 1.0, hasLight = false) => {
     const postGeo = new THREE.CylinderGeometry(0.08 * scale, 0.1 * scale, 2.5 * scale, 8);
     const post = new THREE.Mesh(postGeo, goldTrimMat);
     post.position.set(x, y + 1.25 * scale, z);
@@ -144,9 +165,11 @@ export function buildOurLastPathStage(): StageBuildResult {
     lantern.position.set(x, y + 2.5 * scale, z);
     rootGroup.add(lantern);
 
-    const pointLight = new THREE.PointLight(0xf59e0b, 1.2, 8 * scale);
-    pointLight.position.set(x, y + 2.5 * scale, z);
-    rootGroup.add(pointLight);
+    if (hasLight) {
+      const pointLight = new THREE.PointLight(0xf59e0b, 1.5, 18 * scale);
+      pointLight.position.set(x, y + 2.5 * scale, z);
+      rootGroup.add(pointLight);
+    }
   };
 
   // Helper to create glowing relic pedestals for previous stages

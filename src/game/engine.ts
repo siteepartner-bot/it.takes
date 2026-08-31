@@ -720,7 +720,7 @@ export class GameEngine {
     // 1. Stage Update (Puzzles, animated meshes, moving platforms) - Run first so colliders and player delta are perfectly in sync
     this.currentStage.update(dt, this.puzzleState);
 
-    // Apply moving platform delta to player if grounded
+    // Apply moving platform delta to active player if grounded
     if (this.isGrounded && this.standingOnCollider) {
       const deltaY = this.standingOnCollider.max.y - this.standingOnLastMaxY;
       const centerX = (this.standingOnCollider.min.x + this.standingOnCollider.max.x) / 2;
@@ -743,6 +743,33 @@ export class GameEngine {
       this.standingOnLastMaxY = this.standingOnCollider.max.y;
       this.standingOnLastCenterX = centerX;
       this.standingOnLastCenterZ = centerZ;
+    }
+
+    // Apply moving platform delta to inactive hero in Solo-Duo mode
+    if (this.soloDuoMode && this.localRole) {
+      const otherRole: PlayerRole = this.localRole === 'explorer' ? 'guardian' : 'explorer';
+      const otherCollider = this.soloStandingOnCollider[otherRole];
+      if (otherCollider && this.soloGrounded[otherRole]) {
+        const deltaY = otherCollider.max.y - this.soloStandingOnLastMaxY[otherRole];
+        const centerX = (otherCollider.min.x + otherCollider.max.x) / 2;
+        const deltaX = centerX - this.soloStandingOnLastCenterX[otherRole];
+        const centerZ = (otherCollider.min.z + otherCollider.max.z) / 2;
+        const deltaZ = centerZ - this.soloStandingOnLastCenterZ[otherRole];
+
+        if (Math.abs(deltaY) > 0.0001 && Math.abs(deltaY) < 1.5) {
+          this.soloPositions[otherRole].y += deltaY;
+        }
+        if (Math.abs(deltaX) > 0.0001 && Math.abs(deltaX) < 1.5) {
+          this.soloPositions[otherRole].x += deltaX;
+        }
+        if (Math.abs(deltaZ) > 0.0001 && Math.abs(deltaZ) < 1.5) {
+          this.soloPositions[otherRole].z += deltaZ;
+        }
+
+        this.soloStandingOnLastMaxY[otherRole] = otherCollider.max.y;
+        this.soloStandingOnLastCenterX[otherRole] = centerX;
+        this.soloStandingOnLastCenterZ[otherRole] = centerZ;
+      }
     }
 
     // 1. Process Movement Inputs

@@ -60,6 +60,8 @@ export class FirebaseSync {
 
   // Throttling for live movement updates
   private lastMoveWriteTime: number = 0;
+  private isWritingMove: boolean = false;
+  private queuedMoveAfterWrite: boolean = false;
   private lastSentState: {
     x: number;
     y: number;
@@ -464,7 +466,7 @@ export class FirebaseSync {
     this.unsubscribers.push(unsubEvents);
   }
 
-  // --- Real-time Player Movement Sync (Delta Throttled ~100ms) ---
+  // --- Real-time Player Movement Sync (Responsive Non-blocking 50ms) ---
   public sendPlayerUpdate(state: Omit<PlayerNetState, 'id' | 'role' | 'name' | 'timestamp'>) {
     if (FirebaseSync.isQuotaExhausted || !this.activeRoomCode || !this.myRole) return;
     this.pendingMoveUpdate = state;
@@ -472,12 +474,14 @@ export class FirebaseSync {
     const now = Date.now();
     const elapsed = now - this.lastMoveWriteTime;
 
-    if (elapsed >= 100) {
+    if (!this.isWritingMove && elapsed >= 50) {
       this.flushMoveUpdate();
     } else if (!this.moveTimer) {
+      const waitTime = Math.max(10, 50 - elapsed);
       this.moveTimer = window.setTimeout(() => {
+        this.moveTimer = null;
         this.flushMoveUpdate();
-      }, 100 - elapsed);
+      }, waitTime);
     }
   }
 
@@ -487,6 +491,12 @@ export class FirebaseSync {
       this.moveTimer = null;
     }
     if (FirebaseSync.isQuotaExhausted || !this.pendingMoveUpdate || !this.activeRoomCode || !this.myRole) return;
+
+    // If a write is currently in-flight to Firestore, queue next flush
+    if (this.isWritingMove) {
+      this.queuedMoveAfterWrite = true;
+      return;
+    }
 
     const current = this.pendingMoveUpdate;
     this.pendingMoveUpdate = null;
@@ -501,11 +511,11 @@ export class FirebaseSync {
       const animChanged = current.anim !== this.lastSentState.animation;
       const abilityChanged = !!current.abilityActive !== this.lastSentState.abilityActive;
 
-      const hasMoved = dx > 0.03 || dy > 0.03 || dz > 0.03 || dr > 0.04 || animChanged || abilityChanged;
+      const hasMoved = dx > 0.02 || dy > 0.02 || dz > 0.02 || dr > 0.03 || animChanged || abilityChanged;
       const timeSinceLastWrite = now - this.lastMoveWriteTime;
 
-      // If standing still and written recently (< 3.5s), skip write to protect Firestore quota & eliminate lag
-      if (!hasMoved && timeSinceLastWrite < 3500) {
+      // Keepalive: only skip write if completely stationary and sent recently (< 1.5s)
+      if (!hasMoved && timeSinceLastWrite < 1500) {
         return;
       }
     }
@@ -519,6 +529,7 @@ export class FirebaseSync {
       abilityActive: !!current.abilityActive,
     };
     this.lastMoveWriteTime = now;
+    this.isWritingMove = true;
 
     const payload = {
       ...current,
@@ -527,13 +538,21 @@ export class FirebaseSync {
     };
 
     const myLiveRef = doc(db, 'rooms', this.activeRoomCode, 'live', this.myRole);
-    setDoc(myLiveRef, payload).catch((err) => {
-      if (FirebaseSync.isQuotaError(err)) {
-        this.handleQuotaExceeded(err);
-      } else {
-        console.warn('Failed to sync live position to Firebase:', err?.message || err);
-      }
-    });
+    setDoc(myLiveRef, payload)
+      .catch((err) => {
+        if (FirebaseSync.isQuotaError(err)) {
+          this.handleQuotaExceeded(err);
+        } else {
+          console.warn('Failed to sync live position to Firebase:', err?.message || err);
+        }
+      })
+      .finally(() => {
+        this.isWritingMove = false;
+        if (this.queuedMoveAfterWrite || this.pendingMoveUpdate) {
+          this.queuedMoveAfterWrite = false;
+          this.flushMoveUpdate();
+        }
+      });
   }
 
   // --- Puzzle State Sync ---

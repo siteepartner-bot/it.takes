@@ -290,9 +290,8 @@ export function buildHarmonyHallStage(): StageBuildResult {
   // =========================================================================
   // 2. PART 2: VESTIBULE & DUAL PATHS (z: 18 to 48)
   // =========================================================================
-  // 100% SOLID UNIFIED FLOOR from z: 18 to z: 56 across full width!
-  // PREVENTS ANY HOLE OR FALLING WHEN OPENING DOOR 1!
-  helperAddBox([22, 1, 38], [0, -0.5, 37], woodenPlankMat);
+  // Solid floor from z: 18 to z: 53 (chasm starts cleanly at z: 53)
+  helperAddBox([22, 1, 35], [0, -0.5, 35.5], woodenPlankMat);
 
   // Ceiling over Part 2 & 3 (z: 18 to 90)
   helperAddBox([22, 1, 72], [0, 8.2, 54], ceilingMat);
@@ -358,54 +357,10 @@ export function buildHarmonyHallStage(): StageBuildResult {
   // =========================================================================
   // 3. PART 3: GRAND HARMONY PUZZLE & HIGH-CONTRAST FLOATING BRIDGES (z: 48 to 90)
   // =========================================================================
-  // Chasm Pit (z: 56 to 78, depth y: -9.5)
-  helperAddBox([26, 1, 22], [0, -9.5, 67], templeStoneMat);
+  // Chasm Pit (z: 53 to 81, depth y: -9.5)
+  helperAddBox([26, 1, 28], [0, -9.5, 67], templeStoneMat);
   createGear(4.0, 0.6, [-5, -3, 67], Math.PI / 2, 0);
   createGear(4.0, 0.6, [5, -3, 67], Math.PI / 2, 0);
-
-  // --- CLEAR STANDING INDICATOR PEDESTALS & DOCKING PADS AT CHASM EDGE ---
-  // Entrance Docking Pads (z: 55.5) - Prominent, elevated 3D Standing Pedestals
-  const createDockingPedestal = (x: number, z: number, colorMat: THREE.MeshStandardMaterial, labelText: string) => {
-    const group = new THREE.Group();
-    group.position.set(x, 0.05, z);
-
-    // Raised Base Pedestal
-    const baseMesh = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.2, 0.15, 32), goldTrimMat);
-    group.add(baseMesh);
-
-    // Glowing Inner Ring
-    const innerRing = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 0.18, 32), colorMat);
-    group.add(innerRing);
-
-    // Standing Spot Footprint Target Center
-    const centerSpot = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.22, 16), brassGearMat);
-    group.add(centerSpot);
-
-    // Corner Light Posts so player sees docking spot clearly from afar
-    const postGeo = new THREE.CylinderGeometry(0.1, 0.12, 1.0, 12);
-    const postMat = doorFrameMat;
-    const offsets = [[-1.5, -1.5], [1.5, -1.5], [-1.5, 1.5], [1.5, 1.5]];
-
-    for (const [ox, oz] of offsets) {
-      const p = new THREE.Mesh(postGeo, postMat);
-      p.position.set(ox, 0.5, oz);
-      group.add(p);
-
-      const orb = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 12), colorMat);
-      orb.position.set(ox, 1.0, oz);
-      group.add(orb);
-    }
-
-    rootGroup.add(group);
-  };
-
-  // Docking Pedestals at Entrance (z: 55.5)
-  createDockingPedestal(-5.875, 55.5, runeMatA, 'محل ایستادن نیوشا');
-  createDockingPedestal(5.875, 55.5, runeMatB, 'محل ایستادن حسن');
-
-  // Docking Pedestals at Destination (z: 78.5)
-  createDockingPedestal(-5.875, 78.5, runeMatA, 'مقصد نیوشا');
-  createDockingPedestal(5.875, 78.5, runeMatB, 'مقصد حسن');
 
   // --- HIGH-CONTRAST FLOATING ENERGY BRIDGES / MOVING PLATFORMS ---
   const createFloatingBridgePlatform = (colorMat: THREE.MeshStandardMaterial, isNyusha: boolean) => {
@@ -459,33 +414,39 @@ export function buildHarmonyHallStage(): StageBuildResult {
 
   // Moving Platform A (Nyusha - Cyan Crystal Platform, Left: x: -5.875)
   const platformA = createFloatingBridgePlatform(runeMatA, true);
-  platformA.platGroup.position.set(-5.875, -0.4, 56);
+  platformA.platGroup.position.set(-5.875, -0.4, 56.5);
   rootGroup.add(platformA.platGroup);
 
   const platformAColliderIndex = colliders.length;
-  const platformACollider = new THREE.Box3().setFromObject(platformA.baseMesh);
+  const platformACollider = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(-5.875, -0.4, 56.5),
+    new THREE.Vector3(5.6, 1.2, 5.6)
+  );
   colliders.push(platformACollider);
 
   // Moving Platform B (Hassan - Emerald Crystal Platform, Right: x: 5.875)
   const platformB = createFloatingBridgePlatform(runeMatB, false);
-  platformB.platGroup.position.set(5.875, -0.4, 56);
+  platformB.platGroup.position.set(5.875, -0.4, 56.5);
   rootGroup.add(platformB.platGroup);
 
   const platformBColliderIndex = colliders.length;
-  const platformBCollider = new THREE.Box3().setFromObject(platformB.baseMesh);
+  const platformBCollider = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(5.875, -0.4, 56.5),
+    new THREE.Vector3(5.6, 1.2, 5.6)
+  );
   colliders.push(platformBCollider);
 
-  // Far Side Destination Floor (z: 78 to 104) - EXTENDED 26m SPACIOUS PLAZA!
-  helperAddBox([22, 1, 26], [0, -0.5, 91], woodenPlankMat);
+  // Far Side Destination Floor (z: 81 to 105) - SPACIOUS 24m PLAZA!
+  helperAddBox([22, 1, 24], [0, -0.5, 93], woodenPlankMat);
 
   // Side Walls over Chasm & Far Side Plaza
   helperAddBox([1.2, 8, 56], [-11.0, 4, 76], carvedWallMat);
   helperAddBox([1.2, 8, 56], [11.0, 4, 76], carvedWallMat);
 
   // Main Puzzle Control Levers
-  // Lever 3A at Entrance (at x: -5.875, z: 53.5) -> Activates Platform B
+  // Lever 3A at Entrance (at x: -5.875, z: 51.5) -> Activates Platform B
   const lever3AMesh = new THREE.Mesh(leverBaseGeo, runeMatA);
-  lever3AMesh.position.set(-5.875, 0.6, 53.5);
+  lever3AMesh.position.set(-5.875, 0.6, 51.5);
   rootGroup.add(lever3AMesh);
   interactiveObjects.push({
     id: 'lever_main_a',
@@ -495,9 +456,9 @@ export function buildHarmonyHallStage(): StageBuildResult {
     prompt: 'حرکت دادن سکوی هم‌تیمی (کلید E)',
   });
 
-  // Lever 3B on Far Side (at x: 5.875, z: 82) -> Activates Platform A
+  // Lever 3B on Far Side (at x: 5.875, z: 83.5) -> Activates Platform A
   const lever3BMesh = new THREE.Mesh(leverBaseGeo, runeMatB);
-  lever3BMesh.position.set(5.875, 0.6, 82);
+  lever3BMesh.position.set(5.875, 0.6, 83.5);
   rootGroup.add(lever3BMesh);
   interactiveObjects.push({
     id: 'lever_main_b',
@@ -657,8 +618,8 @@ export function buildHarmonyHallStage(): StageBuildResult {
   ];
 
   // Current platform Z positions for smooth lerp update
-  let currentPlatformAZ = 56;
-  let currentPlatformBZ = 56;
+  let currentPlatformAZ = 56.5;
+  let currentPlatformBZ = 56.5;
 
   return {
     rootGroup,
@@ -723,15 +684,15 @@ export function buildHarmonyHallStage(): StageBuildResult {
       const mainState: string = customData.stage4MainState || 'WAITING';
 
       // Target Z positions for Platform A and B based on state
-      let targetPlatformAZ = 56;
-      let targetPlatformBZ = 56;
+      let targetPlatformAZ = 56.5;
+      let targetPlatformBZ = 56.5;
 
       if (mainState === 'A_HELPING_B' || mainState === 'B_CROSSED') {
-        targetPlatformBZ = 78;
-        targetPlatformAZ = 56;
+        targetPlatformBZ = 78.5;
+        targetPlatformAZ = 56.5;
       } else if (mainState === 'B_HELPING_A' || mainState === 'A_CROSSED' || mainState === 'WAITING_FOR_FINAL_SYNC' || mainState === 'SOLVED') {
-        targetPlatformBZ = 78;
-        targetPlatformAZ = 78;
+        targetPlatformBZ = 78.5;
+        targetPlatformAZ = 78.5;
       }
 
       // Lerp platform positions smoothly

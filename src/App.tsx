@@ -15,6 +15,7 @@ import { VoiceCallPanel } from './components/VoiceCallPanel.tsx';
 import { useWebRTCVoice } from './hooks/useWebRTCVoice.ts';
 import { createDefaultPuzzleState } from './types.ts';
 import { proximityVoiceManager } from './audio/proximityVoice.ts';
+import { OrientationPrompt } from './components/OrientationPrompt.tsx';
 import type {
   PlayerRole,
   RoomData,
@@ -617,6 +618,9 @@ export default function App() {
           )}
         </>
       )}
+
+      {/* Landscape Orientation Prompt for Mobile Devices */}
+      <OrientationPrompt />
     </main>
   );
 }

@@ -1257,26 +1257,6 @@ export class GameEngine {
       const remoteRole = this.localRole === 'explorer' ? 'guardian' : 'explorer';
       const rPos = this.soloPositions[remoteRole];
 
-      // Platform Riding for Inactive Player
-      const rCollider = this.soloStandingOnCollider[remoteRole];
-      if (this.soloGrounded[remoteRole] && rCollider) {
-        const deltaY = rCollider.max.y - this.soloStandingOnLastMaxY[remoteRole];
-        const centerX = (rCollider.min.x + rCollider.max.x) / 2;
-        const deltaX = centerX - this.soloStandingOnLastCenterX[remoteRole];
-        const centerZ = (rCollider.min.z + rCollider.max.z) / 2;
-        const deltaZ = centerZ - this.soloStandingOnLastCenterZ[remoteRole];
-
-        if (Math.abs(deltaY) > 0.0001) {
-          rPos.y += deltaY;
-        }
-        if (Math.abs(deltaX) > 0.0001) {
-          rPos.x += deltaX;
-        }
-        if (Math.abs(deltaZ) > 0.0001) {
-          rPos.z += deltaZ;
-        }
-      }
-
       // Gravity update
       if (!this.soloGrounded[remoteRole]) {
         this.soloYVels[remoteRole] -= 22 * dt;
@@ -1285,7 +1265,7 @@ export class GameEngine {
         this.soloYVels[remoteRole] = 0;
       }
 
-      // Simple grounded & collision check
+      // Robust grounded & collision check for inactive partner
       let rGroundedThisFrame = false;
       let rStandingBox: THREE.Box3 | null = null;
       const playerRadius = 0.45;
@@ -1299,7 +1279,9 @@ export class GameEngine {
           const maxY = box.max.y;
 
           if (rPos.x > minX && rPos.x < maxX && rPos.z > minZ && rPos.z < maxZ) {
-            if (this.soloYVels[remoteRole] <= 0 && rPos.y >= maxY - 0.25 && rPos.y <= maxY + 0.15) {
+            const isAlreadyStanding = (this.soloStandingOnCollider[remoteRole] === box);
+            const verticalCheck = isAlreadyStanding || (rPos.y >= maxY - 0.55);
+            if (verticalCheck && rPos.y <= maxY + 0.45 && this.soloYVels[remoteRole] <= 0.5) {
               rPos.y = maxY;
               this.soloYVels[remoteRole] = 0;
               rGroundedThisFrame = true;
